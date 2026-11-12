@@ -1,0 +1,11 @@
+{
+  "name": "emails",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.3.4",
+  "scripts": {
+    "dev:mail": "pnpm --filter @emails/mail dev",
+    "deploy:mail": "pnpm --filter @emails/mail release",
+    "types": "pnpm -r types"
+  }
+}

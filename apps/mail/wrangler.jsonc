@@ -1,0 +1,57 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Deployment config. The app code is generic; everything instance-specific
+// (domain, hostname, resource names, display name) lives here.
+//
+// Current instance: kariboo.app → https://mail.kariboo.app
+// To run it for another domain, copy this file (or add a wrangler "env"),
+// change the values marked ◆, and create a new D1 database + R2 bucket.
+// ─────────────────────────────────────────────────────────────────────────────
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kariboo-mail", // ◆ Worker name (also the Email Routing catch-all target)
+  "main": "src/worker.tsx",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "assets": {
+    "binding": "ASSETS"
+  },
+
+  "observability": {
+    "enabled": true
+  },
+
+  // ◆ Hostname the webmail UI is served on
+  "routes": [{ "pattern": "mail.kariboo.app", "custom_domain": true }],
+
+  // All mail, mailboxes, users and sessions
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kariboo-mail", // ◆
+      "database_id": "d2d9a8ab-5aaf-4ed9-91bb-97acb840aee9", // ◆
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // Raw .eml files, attachments and oversized HTML bodies
+  "r2_buckets": [
+    {
+      "binding": "MAIL_BUCKET",
+      "bucket_name": "kariboo-mail" // ◆
+    }
+  ],
+
+  // Cloudflare Email Service (outbound). No API key needed.
+  "send_email": [{ "name": "EMAIL" }],
+
+  "vars": {
+    // ◆ Domain(s) mailboxes can be created on (comma separated). Each one needs
+    //   Email Sending enabled and an Email Routing catch-all → this Worker.
+    "MAIL_DOMAINS": "kariboo.app",
+    // ◆ Name shown in the UI and browser tab
+    "APP_NAME": "Mail"
+  }
+  // Secrets (set with `wrangler secret put`):
+  //   SETUP_TOKEN — one-time token required to create the first admin at /setup
+}

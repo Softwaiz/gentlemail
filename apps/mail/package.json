@@ -1,0 +1,39 @@
+{
+  "name": "@emails/mail",
+  "version": "1.0.0",
+  "description": "Multi-mailbox webmail on Cloudflare (rwsdk, D1, R2, Email Service)",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite dev",
+    "dev:init": "rw-scripts dev-init",
+    "preview": "vite preview",
+    "worker:run": "rw-scripts worker-run",
+    "clean": "rm -rf ./node_modules/.vite",
+    "release": "rw-scripts ensure-deploy-env && pnpm clean && pnpm db:migrate:remote && vite build && wrangler deploy",
+    "generate": "rw-scripts ensure-env && wrangler types --include-runtime false",
+    "check": "pnpm generate && pnpm types",
+    "types": "tsc",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
+  },
+  "dependencies": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-server-dom-webpack": "19.2.8",
+    "rwsdk": "1.7.5",
+    "postal-mime": "4.2.1"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "1.50.0",
+    "@cloudflare/workers-types": "5.20260801.1",
+    "@types/node": "~26.1.2",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "typescript": "7.0.2",
+    "vite": "~8.2.0",
+    "wrangler": "4.118.0"
+  }
+}

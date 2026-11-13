@@ -94,6 +94,17 @@ pnpm build && pnpm run deploy         # applies D1 migrations, then deploys
 ```
 Wrangler creates the D1 database and R2 bucket named in `wrangler.jsonc` on the first deploy.
 
+### Workers Builds from a fork or clone of this repository
+If you connect a copy of the whole repository to Workers Builds yourself (instead of using the button), tell Cloudflare where the app is. In your Worker, open **Settings → Builds → Advanced settings** and set:
+
+| Setting | Value |
+|---|---|
+| Root directory | `apps/mail` |
+| Build command | `npm run build` |
+| Deploy command | `npm run deploy` (applies the D1 migrations, then deploys) |
+
+The Deploy button doesn't need this: it copies `apps/mail` to the root of your new repository.
+
 ### Configuration
 `wrangler.jsonc` is the template every deployment starts from; values marked ◆ are yours to change in your copy (Worker name and `WORKER_NAME`, hostnames, `PUBLIC_URL`, `APP_NAME`). To pick up new releases, pull this repository into yours (`git remote add upstream https://github.com/Softwaiz/gentlemail && git pull upstream main`) and push.
 

@@ -29,6 +29,8 @@ pnpm dev:mail      # local dev
 
 Click **Deploy to Cloudflare** above. Cloudflare copies `apps/mail` into a new repository on your GitHub account, creates the D1 database and R2 bucket, asks for a one-time `SETUP_TOKEN`, then builds and deploys. You need a domain on Cloudflare and the Workers Paid plan ($5/month).
 
+Deploying a fork or clone of this whole repository through Workers Builds instead? Set **Root directory** to `apps/mail` under Settings → Builds → Advanced settings ([details](apps/mail/README.md#workers-builds-from-a-fork-or-clone-of-this-repository)).
+
 Then open `/setup` on your new Worker, create the admin account and add your domain. The [deploy guide](https://gentlemail.dev/deploy) walks through every step, and [`apps/mail/README.md`](apps/mail/README.md#deploy) covers the command-line route.
 
 ## Fork it

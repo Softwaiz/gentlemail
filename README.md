@@ -5,6 +5,8 @@ One deployment serves any number of domains and mailboxes for the $5/month Worke
 
 **Website:** https://gentlemail.dev · **Deploy guide:** https://gentlemail.dev/deploy · **Docs:** https://gentlemail.dev/docs
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Softwaiz/gentlemail/tree/main/apps/mail)
+
 - **Inbox and outbox**: a real webmail for people (conversations, search, attachments, spam folder, blocking) and a REST API for code.
 - **Many domains, one deployment**: add domains and mailboxes in the Admin page; assign users to the mailboxes they can use.
 - **Webhooks**: signed `message.received` / `message.sent` events with retries, to automate invoices, support alerts and more.
@@ -23,7 +25,11 @@ pnpm install
 pnpm dev:mail      # local dev
 ```
 
-To run your own instance, follow the [deploy guide](https://gentlemail.dev/deploy). Values specific to a deployment are marked ◆ in [`apps/mail/wrangler.jsonc`](apps/mail/wrangler.jsonc).
+## Deploy your own
+
+Click **Deploy to Cloudflare** above. Cloudflare copies `apps/mail` into a new repository on your GitHub account, creates the D1 database and R2 bucket, asks for a one-time `SETUP_TOKEN`, then builds and deploys. You need a domain on Cloudflare and the Workers Paid plan ($5/month).
+
+Then open `/setup` on your new Worker, create the admin account and add your domain. The [deploy guide](https://gentlemail.dev/deploy) walks through every step, and [`apps/mail/README.md`](apps/mail/README.md#deploy) covers the command-line route.
 
 ## Fork it
 

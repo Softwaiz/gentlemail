@@ -7,6 +7,7 @@
   "private": true,
   "scripts": {
     "build": "vite build",
+    "deploy": "wrangler d1 migrations apply DB --remote && wrangler deploy",
     "dev": "vite dev",
     "dev:init": "rw-scripts dev-init",
     "preview": "vite preview",
@@ -46,5 +47,24 @@
     "typescript": "7.0.2",
     "vite": "~8.2.0",
     "wrangler": "4.118.0"
+  },
+  "cloudflare": {
+    "bindings": {
+      "SETUP_TOKEN": {
+        "description": "Any long random string. You type it once at `/setup` to create the first admin account. Generate one with `openssl rand -hex 32`."
+      },
+      "PUBLIC_URL": {
+        "description": "The address the app is served on, for example `https://mail.example.com`. Used for links in webhook payloads. Leave empty to use relative links."
+      },
+      "WORKER_NAME": {
+        "description": "Must match the Worker name you choose above. Used in the setup commands shown for each domain."
+      },
+      "APP_NAME": {
+        "description": "The name shown in the interface and the browser tab."
+      },
+      "SPAM_SCORE_THRESHOLD": {
+        "description": "Optional. Move mail to Spam when Cloudflare's spam score reaches this number. Leave empty to turn it off."
+      }
+    }
   }
 }

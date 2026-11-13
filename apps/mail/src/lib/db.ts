@@ -132,8 +132,18 @@ export async function deleteMessageForever(msg: MessageRow) {
   await env.DB.prepare("DELETE FROM messages WHERE id = ?").bind(msg.id).run();
 }
 
-export const allowedDomains = () =>
-  (env.MAIL_DOMAINS ?? "")
-    .split(",")
-    .map((d) => d.trim().toLowerCase())
-    .filter(Boolean);
+export type Domain = { id: string; name: string; active: number; created_at: number };
+
+export const domainOf = (address: string) => address.slice(address.lastIndexOf("@") + 1).toLowerCase();
+
+export async function listDomains(activeOnly = false): Promise<Domain[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT * FROM domains ${activeOnly ? "WHERE active = 1" : ""} ORDER BY name`,
+  ).all<Domain>();
+  return results;
+}
+
+export async function isDomainActive(name: string): Promise<boolean> {
+  const row = await env.DB.prepare("SELECT 1 FROM domains WHERE name = ? AND active = 1").bind(name).first();
+  return !!row;
+}

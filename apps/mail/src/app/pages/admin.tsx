@@ -1,9 +1,11 @@
 import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
+import { Icon } from "@/app/components/icons";
 import { Shell, flashFrom } from "@/app/components/shell";
 import { field, notFound, redirect, withFlash } from "@/app/http";
 import { createUser, hashPassword } from "@/lib/auth";
-import { type Mailbox, allowedDomains } from "@/lib/db";
+import { type Mailbox, isDomainActive } from "@/lib/db";
+import { DomainsSection, listDomainsWithCounts } from "@/app/pages/domains";
 import { isEmail, newId, now } from "@/lib/util";
 
 type UserRow = { id: string; email: string; name: string; role: string; created_at: number };
@@ -21,13 +23,16 @@ export async function AdminPage({ ctx, request }: RequestInfo) {
   const { results: users } = await env.DB.prepare(
     "SELECT id, email, name, role, created_at FROM users ORDER BY created_at",
   ).all<UserRow>();
-  const domains = allowedDomains();
+  const domains = await listDomainsWithCounts();
+  const usable = domains.filter((d) => d.active);
 
   return (
     <Shell user={user} folder="admin" flash={flashFrom(request)}>
       <header className="toolbar">
         <h1>Admin</h1>
       </header>
+
+      <DomainsSection domains={domains} />
 
       <section className="card">
         <h2>Mailboxes</h2>
@@ -70,14 +75,17 @@ export async function AdminPage({ ctx, request }: RequestInfo) {
         </table>
 
         <h3>New mailbox</h3>
+        {usable.length === 0 ? (
+          <p className="muted">Add an active domain above before creating mailboxes.</p>
+        ) : (
         <form method="post" action="/admin/mailboxes" className="row-form">
           <div className="addr-input">
             <input name="local" placeholder="hello" required pattern="[A-Za-z0-9._+\-]+" />
             <span>@</span>
             <select name="domain">
-              {domains.map((d) => (
-                <option key={d} value={d}>
-                  {d}
+              {usable.map((d) => (
+                <option key={d.id} value={d.name}>
+                  {d.name}
                 </option>
               ))}
             </select>
@@ -87,6 +95,7 @@ export async function AdminPage({ ctx, request }: RequestInfo) {
             Create mailbox
           </button>
         </form>
+        )}
       </section>
 
       <section className="card">
@@ -141,7 +150,7 @@ export async function createMailboxAction({ request }: RequestInfo) {
   const form = await request.formData();
   const local = field(form, "local").toLowerCase();
   const domain = field(form, "domain").toLowerCase();
-  if (!allowedDomains().includes(domain)) return redirect(withFlash("/admin", "err", "Domain not allowed."));
+  if (!(await isDomainActive(domain))) return redirect(withFlash("/admin", "err", "Unknown or disabled domain."));
   const address = `${local}@${domain}`;
   if (!/^[a-z0-9._+\-]+$/.test(local) || !isEmail(address)) {
     return redirect(withFlash("/admin", "err", "Invalid address."));
@@ -191,8 +200,8 @@ export async function AdminMailboxPage({ params, ctx, request }: RequestInfo) {
     <Shell user={ctx.user!} folder="admin" flash={flashFrom(request)}>
       <header className="toolbar">
         <div>
-          <a href="/admin" className="muted small">
-            ← Admin
+          <a href="/admin" className="back-link">
+            <Icon name="back" size={16} /> Admin
           </a>
           <h1>{mailbox.address}</h1>
         </div>
@@ -314,8 +323,8 @@ export async function AdminUserPage({ params, ctx, request }: RequestInfo) {
     <Shell user={ctx.user!} folder="admin" flash={flashFrom(request)}>
       <header className="toolbar">
         <div>
-          <a href="/admin" className="muted small">
-            ← Admin
+          <a href="/admin" className="back-link">
+            <Icon name="back" size={16} /> Admin
           </a>
           <h1>{u.name}</h1>
         </div>

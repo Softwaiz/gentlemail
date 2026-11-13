@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
+import { Icon } from "@/app/components/icons";
 import { Shell, flashFrom } from "@/app/components/shell";
 import { field, notFound, redirect, withFlash } from "@/app/http";
 import { type Mailbox, type MessageRow, getHtmlBody, getMailboxForUser, listAttachments, parseAddrs } from "@/lib/db";
@@ -128,7 +129,7 @@ export async function ComposePage({ params, ctx, request }: RequestInfo) {
 
         <div className="compose-foot">
           <label className="file-pick">
-            📎 Attach files
+            <Icon name="clip" size={16} /> Attach files
             <input type="file" name="files" multiple />
           </label>
           <span className="muted small">Max 25 MB total</span>

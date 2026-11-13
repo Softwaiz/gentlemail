@@ -8,7 +8,7 @@ export function MailFrame({ src, title }: { src: string; title: string }) {
   const fit = () => {
     const el = ref.current;
     const doc = el?.contentDocument;
-    if (el && doc) el.style.height = `${Math.max(doc.documentElement.scrollHeight, 80) + 8}px`;
+    if (el && doc) el.style.height = `${Math.max(doc.documentElement.scrollHeight, 80) + 20}px`;
   };
   // The frame may finish loading before hydration, so also measure on mount.
   useEffect(() => {

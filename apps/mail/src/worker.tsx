@@ -14,6 +14,7 @@ import {
   createMailboxAction,
   createUserAction,
 } from "@/app/pages/admin";
+import { AdminDomainPage, adminDomainAction, createDomainAction } from "@/app/pages/domains";
 import { LoginPage, SetupPage, loginAction, logoutAction, setupAction } from "@/app/pages/auth";
 import { ComposePage, SettingsPage, composeAction, settingsAction } from "@/app/pages/compose";
 import { attachmentHandler, bodyHandler, rawHandler } from "@/app/pages/files";
@@ -43,6 +44,7 @@ const app = defineApp([
   route("/raw/:id", [requireUser, rawHandler]),
   route("/body/:id", [requireUser, bodyHandler]),
   route("/mb/:mailboxId/actions", { post: [requireUser, actionsHandler] }),
+  route("/admin/domains", { post: [requireAdmin, createDomainAction] }),
   route("/admin/mailboxes", { post: [requireAdmin, createMailboxAction] }),
   route("/admin/users", { post: [requireAdmin, createUserAction] }),
 
@@ -66,6 +68,7 @@ const app = defineApp([
     ]),
 
     route("/admin", [requireAdmin, AdminPage]),
+    route("/admin/domains/:id", { get: [requireAdmin, AdminDomainPage], post: [requireAdmin, adminDomainAction] }),
     route("/admin/mailboxes/:id", { get: [requireAdmin, AdminMailboxPage], post: [requireAdmin, adminMailboxAction] }),
     route("/admin/users/:id", { get: [requireAdmin, AdminUserPage], post: [requireAdmin, adminUserAction] }),
 

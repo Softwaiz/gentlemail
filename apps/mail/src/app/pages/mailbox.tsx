@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
+import { Icon } from "@/app/components/icons";
 import { Shell, flashFrom } from "@/app/components/shell";
 import { MailFrame } from "@/app/components/mail-frame";
 import { field, notFound, redirect, withFlash } from "@/app/http";
@@ -71,12 +72,10 @@ export async function FolderPage({ params, ctx, request }: RequestInfo) {
   return (
     <Shell user={user} mailboxId={mailbox.id} folder={q ? undefined : folder} flash={flashFrom(request)}>
       <header className="toolbar">
-        <div>
-          <h1>{q ? `Search: “${q}”` : label}</h1>
-          <div className="muted small">{mailbox.address}</div>
-        </div>
-        <form method="get" action={`/mb/${mailbox.id}/inbox`} className="search">
-          <input name="q" type="search" placeholder="Search mail" defaultValue={q} />
+        <h1>{q ? `Results for “${q}”` : label}</h1>
+        <form method="get" action={`/mb/${mailbox.id}/inbox`} className="search" role="search">
+          <Icon name="search" size={16} />
+          <input name="q" type="search" placeholder={`Search ${mailbox.address}`} defaultValue={q} aria-label="Search mail" />
         </form>
       </header>
 
@@ -85,7 +84,7 @@ export async function FolderPage({ params, ctx, request }: RequestInfo) {
         <input type="hidden" name="folder" value={folder} />
         <input type="hidden" name="scope" value={q ? "message" : "thread"} />
         <div className="bulkbar">
-          <span className="muted small">With selected:</span>
+          <span className="muted small">Selected:</span>
           {folder !== "inbox" && <ActionBtn value="inbox">Move to inbox</ActionBtn>}
           {folder !== "archive" && folder !== "sent" && <ActionBtn value="archive">Archive</ActionBtn>}
           <ActionBtn value="read">Mark read</ActionBtn>
@@ -125,17 +124,26 @@ export async function FolderPage({ params, ctx, request }: RequestInfo) {
                     href={`/mb/${mailbox.id}/thread/${m.thread_id}?f=${q ? m.folder : folder}`}
                   >
                     <span className="msg-from truncate">
-                      {m.is_starred ? "★ " : ""}
+                      <span className="unread-dot" aria-label={unread ? "Unread" : undefined} />
                       {who}
                       {m.thread_count > 1 && <span className="count"> {m.thread_count}</span>}
                     </span>
                     <span className="msg-subject truncate">
                       <strong>{m.subject}</strong>
-                      <span className="muted"> — {m.snippet}</span>
+                      <span className="snippet">{m.snippet}</span>
                     </span>
                     <span className="msg-meta">
                       {q && <span className="tag">{m.folder}</span>}
-                      {m.has_attachments ? <span title="Has attachments">📎</span> : null}
+                      {m.is_starred ? (
+                        <span className="star on" title="Starred">
+                          <Icon name="star" size={15} filled />
+                        </span>
+                      ) : null}
+                      {m.has_attachments ? (
+                        <span title="Has attachments">
+                          <Icon name="clip" size={15} />
+                        </span>
+                      ) : null}
                       <time>{formatDate(m.date)}</time>
                     </span>
                   </a>
@@ -149,12 +157,12 @@ export async function FolderPage({ params, ctx, request }: RequestInfo) {
       <div className="pager">
         {page > 1 && (
           <a className="btn btn-ghost" href={pageUrl(url, page - 1)}>
-            ← Newer
+            Newer
           </a>
         )}
         {hasMore && (
           <a className="btn btn-ghost" href={pageUrl(url, page + 1)}>
-            Older →
+            Older
           </a>
         )}
       </div>
@@ -286,10 +294,13 @@ export async function ThreadPage({ params, ctx, request }: RequestInfo) {
     <Shell user={user} mailboxId={mailbox.id} folder={folder} flash={flashFrom(request)}>
       <header className="toolbar">
         <div>
-          <a href={back} className="muted small">
-            ← Back to {FOLDERS.find((f) => f.id === folder)?.label}
+          <a href={back} className="back-link">
+            <Icon name="back" size={16} /> {FOLDERS.find((f) => f.id === folder)?.label}
           </a>
-          <h1>{last.subject}</h1>
+          <h1 className="thread-subject">{last.subject || "(no subject)"}</h1>
+          <div className="muted small">
+            {msgs.length} {msgs.length === 1 ? "message" : "messages"}
+          </div>
         </div>
       </header>
 
@@ -317,19 +328,19 @@ export async function ThreadPage({ params, ctx, request }: RequestInfo) {
 
       <div className="thread">
         {msgs.map((m) => (
-          <MessageCard key={m.id} m={m} mailboxId={mailbox.id} attachments={byMsg.get(m.id) ?? []} open={m.id === last.id || msgs.length <= 3} here={here} />
+          <MessageCard key={m.id} m={m} mailboxId={mailbox.id} attachments={byMsg.get(m.id) ?? []} open={m.id === last.id || msgs.length <= 3} isLast={m.id === last.id} here={here} />
         ))}
       </div>
 
       <div className="reply-bar">
         <a className="btn btn-primary" href={`/mb/${mailbox.id}/compose?reply=${lastIncoming.id}`}>
-          ↩ Reply
+          <Icon name="reply" size={17} /> Reply
         </a>
         <a className="btn btn-ghost" href={`/mb/${mailbox.id}/compose?reply=${lastIncoming.id}&all=1`}>
-          ↩↩ Reply all
+          <Icon name="replyAll" size={17} /> Reply all
         </a>
         <a className="btn btn-ghost" href={`/mb/${mailbox.id}/compose?forward=${last.id}`}>
-          ↪ Forward
+          <Icon name="forward" size={17} /> Forward
         </a>
       </div>
     </Shell>
@@ -341,12 +352,14 @@ function MessageCard({
   mailboxId,
   attachments,
   open,
+  isLast,
   here,
 }: {
   m: MessageRow;
   mailboxId: string;
   attachments: AttachmentRow[];
   open: boolean;
+  isLast: boolean;
   here: string;
 }) {
   const to = parseAddrs(m.to_json);
@@ -371,7 +384,7 @@ function MessageCard({
           </div>
         </div>
         <div className="muted small nowrap">
-          {files.length > 0 && "📎 "}
+          {files.length > 0 && <Icon name="clip" size={14} />}
           {formatDate(m.date, true)}
         </div>
       </summary>
@@ -425,26 +438,31 @@ function MessageCard({
         )}
 
         <div className="msg-actions">
-          <a className="btn btn-sm btn-ghost" href={`/mb/${mailboxId}/compose?reply=${m.id}`}>
-            Reply
-          </a>
-          <a className="btn btn-sm btn-ghost" href={`/mb/${mailboxId}/compose?reply=${m.id}&all=1`}>
-            Reply all
-          </a>
-          <a className="btn btn-sm btn-ghost" href={`/mb/${mailboxId}/compose?forward=${m.id}`}>
-            Forward
-          </a>
+          {/* The last message is answered from the bar under the thread. */}
+          {!isLast && (
+            <>
+              <a className="btn btn-sm btn-ghost" href={`/mb/${mailboxId}/compose?reply=${m.id}`}>
+                <Icon name="reply" size={15} /> Reply
+              </a>
+              <a className="btn btn-sm btn-ghost" href={`/mb/${mailboxId}/compose?reply=${m.id}&all=1`}>
+                <Icon name="replyAll" size={15} /> Reply all
+              </a>
+              <a className="btn btn-sm btn-ghost" href={`/mb/${mailboxId}/compose?forward=${m.id}`}>
+                <Icon name="forward" size={15} /> Forward
+              </a>
+            </>
+          )}
           <form method="post" action={`/mb/${mailboxId}/actions`} className="inline">
             <input type="hidden" name="ids" value={m.id} />
             <input type="hidden" name="scope" value="message" />
             <input type="hidden" name="back" value={here} />
             <button className="btn btn-sm btn-ghost" name="action" value={m.is_starred ? "unstar" : "star"}>
-              {m.is_starred ? "★ Unstar" : "☆ Star"}
+              <Icon name="star" size={15} filled={!!m.is_starred} /> {m.is_starred ? "Starred" : "Star"}
             </button>
           </form>
           {m.raw_key && (
             <a className="btn btn-sm btn-ghost" href={`/raw/${m.id}`}>
-              Download .eml
+              <Icon name="download" size={15} /> Original .eml
             </a>
           )}
         </div>

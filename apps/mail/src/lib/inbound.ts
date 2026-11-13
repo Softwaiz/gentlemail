@@ -21,10 +21,12 @@ const extFor = (mime: string) => {
 /** Email Routing entrypoint: parse, store in D1 + R2. */
 export async function handleInbound(message: ForwardableEmailMessage) {
   const recipient = message.to.toLowerCase();
+  // Both the mailbox and its domain must be active.
   const mailbox = await env.DB.prepare(
-    "SELECT id FROM mailboxes WHERE address = ? COLLATE NOCASE AND active = 1",
+    `SELECT m.id FROM mailboxes m JOIN domains d ON d.name = ? AND d.active = 1
+     WHERE m.address = ? COLLATE NOCASE AND m.active = 1`,
   )
-    .bind(recipient)
+    .bind(recipient.slice(recipient.lastIndexOf("@") + 1), recipient)
     .first<{ id: string }>();
 
   if (!mailbox) {

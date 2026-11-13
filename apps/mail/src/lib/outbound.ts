@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { type Mailbox, type MessageRow, getHtmlBody, parseAddrs } from "./db";
+import { type Mailbox, type MessageRow, domainOf, getHtmlBody, isDomainActive, parseAddrs } from "./db";
 import { resolveThreadId } from "./threads";
 import {
   type Addr,
@@ -65,6 +65,9 @@ async function buildQuote(original: MessageRow, mode: "reply" | "forward") {
 export async function sendMail(input: SendInput): Promise<string> {
   const { mailbox, original, mode } = input;
   const recipients = [...input.to, ...input.cc, ...input.bcc];
+  if (!(await isDomainActive(domainOf(mailbox.address)))) {
+    throw new SendError(`Sending from ${domainOf(mailbox.address)} is disabled.`);
+  }
   if (!recipients.length) throw new SendError("Add at least one recipient.");
   if (recipients.length > 50) throw new SendError("Maximum 50 recipients per email.");
 

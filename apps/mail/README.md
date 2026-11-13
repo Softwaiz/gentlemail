@@ -95,7 +95,7 @@ pnpm build && pnpm run deploy         # applies D1 migrations, then deploys
 Wrangler creates the D1 database and R2 bucket named in `wrangler.jsonc` on the first deploy.
 
 ### Configuration
-The top level of `wrangler.jsonc` is the template every new deployment starts from; values marked ◆ are yours to change (Worker name and `WORKER_NAME`, hostnames, `PUBLIC_URL`, `APP_NAME`). `env.production` is the GentleMail team's own instance at mailer.softwaiz.com, built with `CLOUDFLARE_ENV=production`; delete it in your copy, or replace its values with yours.
+`wrangler.jsonc` is the template every deployment starts from; values marked ◆ are yours to change in your copy (Worker name and `WORKER_NAME`, hostnames, `PUBLIC_URL`, `APP_NAME`). To pick up new releases, pull this repository into yours (`git remote add upstream https://github.com/Softwaiz/gentlemail && git pull upstream main`) and push.
 
 ## Adding a domain
 The domain must be a zone in the same Cloudflare account as the Worker.

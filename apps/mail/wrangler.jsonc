@@ -5,11 +5,7 @@
 // The top level is the template that "Deploy to Cloudflare" and a plain
 // `wrangler deploy` use: no custom domain (the app runs on workers.dev until you
 // add one) and no resource IDs, so Cloudflare creates the D1 database and the
-// R2 bucket for you. Values marked ◆ are yours to change.
-//
-// `env.production` is the GentleMail team's own deployment. It is selected by
-// building with CLOUDFLARE_ENV=production. You can delete it in your fork, or
-// replace its values with yours to keep your settings in the repo.
+// R2 bucket for you. Values marked ◆ are yours to change in your own copy.
 // ─────────────────────────────────────────────────────────────────────────────
 {
   "$schema": "node_modules/wrangler/config-schema.json",
@@ -65,31 +61,4 @@
 
   // Secrets (listed in .dev.vars.example, set with `wrangler secret put`):
   //   SETUP_TOKEN — one-time token required to create the first admin at /setup
-
-  "env": {
-    // The GentleMail team's deployment (mailer.softwaiz.com). Built with CLOUDFLARE_ENV=production.
-    "production": {
-      "name": "gentlemail",
-      "routes": [
-        { "pattern": "mailer.softwaiz.com", "custom_domain": true },
-        { "pattern": "mail.kariboo.app", "custom_domain": true }
-      ],
-      "d1_databases": [
-        {
-          "binding": "DB",
-          "database_name": "kariboo-mail",
-          "database_id": "d2d9a8ab-5aaf-4ed9-91bb-97acb840aee9",
-          "migrations_dir": "migrations"
-        }
-      ],
-      "r2_buckets": [{ "binding": "MAIL_BUCKET", "bucket_name": "kariboo-mail" }],
-      "send_email": [{ "name": "EMAIL" }],
-      "vars": {
-        "PUBLIC_URL": "https://mailer.softwaiz.com",
-        "WORKER_NAME": "gentlemail",
-        "APP_NAME": "GentleMail",
-        "SPAM_SCORE_THRESHOLD": ""
-      }
-    }
-  }
 }

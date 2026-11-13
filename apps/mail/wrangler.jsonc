@@ -51,8 +51,6 @@
   "vars": {
     // ◆ Public address of the app, used for links in webhook payloads. Empty = links are relative.
     "PUBLIC_URL": "",
-    // ◆ Must match "name" above; used in the per-domain setup commands
-    "WORKER_NAME": "my-gentlemail",
     // ◆ Name shown in the UI and browser tab
     "APP_NAME": "GentleMail",
     // ◆ Optional: move mail to spam when Cloudflare's spam score (X-Cf-Spamh-Score) reaches this value. Empty = off.

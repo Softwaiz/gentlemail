@@ -106,7 +106,7 @@ If you connect a copy of the whole repository to Workers Builds yourself (instea
 The Deploy button doesn't need this: it copies `apps/mail` to the root of your new repository.
 
 ### Configuration
-`wrangler.jsonc` is the template every deployment starts from; values marked ◆ are yours to change in your copy (Worker name and `WORKER_NAME`, hostnames, `PUBLIC_URL`, `APP_NAME`). To pick up new releases, pull this repository into yours (`git remote add upstream https://github.com/Softwaiz/gentlemail && git pull upstream main`) and push.
+`wrangler.jsonc` is the template every deployment starts from; values marked ◆ are yours to change in your copy (Worker name, hostnames, `PUBLIC_URL`, `APP_NAME`). The Worker name shown in the setup steps is read from `name` at build time, so renaming the Worker needs no other change. To pick up new releases, pull this repository into yours (`git remote add upstream https://github.com/Softwaiz/gentlemail && git pull upstream main`) and push.
 
 ## Adding a domain
 The domain must be a zone in the same Cloudflare account as the Worker.

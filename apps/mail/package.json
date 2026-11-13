@@ -56,9 +56,6 @@
       "PUBLIC_URL": {
         "description": "The address the app is served on, for example `https://mail.example.com`. Used for links in webhook payloads. Leave empty to use relative links."
       },
-      "WORKER_NAME": {
-        "description": "Must match the Worker name you choose above. Used in the setup commands shown for each domain."
-      },
       "APP_NAME": {
         "description": "The name shown in the interface and the browser tab."
       },

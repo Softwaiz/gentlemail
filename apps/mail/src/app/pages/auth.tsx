@@ -21,7 +21,7 @@ export function AuthCard({ title, children, err }: { title: string; children: Re
             <LogoMark className="size-9 ring-1 ring-sidebar-border rounded-[10px]" />
             <span className="text-sidebar-muted">Mail for every domain you run</span>
           </div>
-          <div aria-hidden="true" className="font-display text-[clamp(64px,11vw,148px)] leading-[0.92] tracking-[-0.02em] break-words">
+          <div aria-hidden="true" className="text-[clamp(48px,8vw,104px)] leading-[0.95] font-bold tracking-[-0.045em] break-words">
             {appName()}
             <span className="text-lime">.</span>
           </div>

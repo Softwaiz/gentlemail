@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@fontsource-variable/dm-sans/index.css";
-@import "@fontsource/anton/latin-400.css";
 
 /* Dark mode follows the operating system. */
 @custom-variant dark (@media (prefers-color-scheme: dark));
@@ -73,7 +72,6 @@
 
 @theme inline {
   --font-sans: "DM Sans Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Anton", Impact, "Arial Narrow", sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   --radius-sm: calc(var(--radius) - 1px);

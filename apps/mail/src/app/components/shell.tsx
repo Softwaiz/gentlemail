@@ -1,19 +1,10 @@
-import {
-  Archive,
-  Webhook,
-  Inbox,
-  Menu,
-  OctagonAlert,
-  PenLine,
-  Send,
-  Shield,
-  Signature,
-  Trash2,
-} from "lucide-react";
+import { Archive, Inbox, Menu, OctagonAlert, PenLine, Send, Settings, Shield, Trash2, Webhook } from "lucide-react";
 import type { User } from "@/lib/auth";
-import { FOLDERS, domainOf, listMailboxesForUser } from "@/lib/db";
+import { FOLDERS, type Folder, switcherGroups, unreadByFolder } from "@/lib/db";
 import { cn } from "@/lib/utils";
 import { LogoMark, Wordmark } from "./brand";
+import { MailboxSwitcher } from "./mailbox-switcher";
+import { Toaster } from "./ui/sonner";
 import { UserMenu } from "./user-menu";
 
 export { appName } from "./brand";
@@ -23,6 +14,8 @@ type Props = {
   mailboxId?: string;
   folder?: string;
   flash?: { msg?: string | null; err?: string | null };
+  /** Let the page use the whole content area, edge to edge (mail lists). */
+  bleed?: boolean;
   children: React.ReactNode;
 };
 
@@ -40,12 +33,15 @@ function NavItem({
   icon: Icon,
   children,
   count,
+  strong,
 }: {
   href: string;
   active?: boolean;
   icon?: React.ComponentType<{ className?: string }>;
   children: React.ReactNode;
   count?: number;
+  /** Inbox count stands out; other folders get a quiet number. */
+  strong?: boolean;
 }) {
   return (
     <a
@@ -57,23 +53,17 @@ function NavItem({
         active && "bg-sidebar-accent font-semibold text-sidebar-foreground",
       )}
     >
-      {active && (
-        <span
-          className="absolute inset-y-2 left-0 w-[3px] rounded-r bg-lime"
-          aria-hidden="true"
-        />
-      )}
-      {Icon && (
-        <Icon
-          className={cn(
-            "size-4 shrink-0 text-sidebar-muted",
-            active && "text-lime",
-          )}
-        />
-      )}
+      {active && <span className="absolute inset-y-2 left-0 w-[3px] rounded-r bg-lime" aria-hidden="true" />}
+      {Icon && <Icon className={cn("size-4 shrink-0 text-sidebar-muted", active && "text-lime")} />}
       <span className="min-w-0 flex-1 truncate">{children}</span>
       {!!count && (
-        <span className="rounded-sm bg-lime px-1.5 text-[11px] font-bold leading-[18px] text-lime-ink tabular-nums">
+        <span
+          className={cn(
+            "rounded-sm px-1.5 text-[11px] leading-[18px] font-bold tabular-nums",
+            strong ? "bg-lime text-lime-ink" : "bg-sidebar-accent text-sidebar-foreground/80 group-hover:bg-sidebar",
+          )}
+          aria-label={`${count} unread`}
+        >
           {count}
         </span>
       )}
@@ -81,31 +71,19 @@ function NavItem({
   );
 }
 
-export async function Shell({
-  user,
-  mailboxId,
-  folder,
-  flash,
-  children,
-}: Props) {
-  const mailboxes = await listMailboxesForUser(user);
-  const current = mailboxes.find((m) => m.id === mailboxId) ?? null;
-
-  // One instance serves several domains, so group the mailbox list by domain.
-  const byDomain = new Map<string, typeof mailboxes>();
-  for (const m of mailboxes) {
-    const d = domainOf(m.address);
-    byDomain.set(d, [...(byDomain.get(d) ?? []), m]);
-  }
+export async function Shell({ user, mailboxId, folder, flash, bleed, children }: Props) {
+  const groups = await switcherGroups(user);
+  const all = groups.flatMap((g) => g.mailboxes);
+  const current = all.find((m) => m.id === mailboxId) ?? null;
+  const unread = current ? await unreadByFolder(current.id) : {};
+  // Sent mail is never "unread" for you, so it gets no badge.
+  const badge = (f: Folder) => (f === "sent" ? undefined : unread[f]);
 
   return (
-    <div className="min-h-screen md:grid md:grid-cols-[264px_minmax(0,1fr)]">
+    <div className="min-h-screen md:grid md:grid-cols-[256px_minmax(0,1fr)]">
       <aside className="scrollbar-thin flex flex-col gap-1 overflow-y-auto bg-sidebar p-3 text-sidebar-foreground md:sticky md:top-0 md:h-screen">
-        <div className="flex items-center gap-2 px-2 pt-1 md:pb-4">
-          <a
-            href="/"
-            className="flex flex-1 items-center gap-2.5 text-[17px] text-sidebar-foreground"
-          >
+        <div className="flex items-center gap-2 px-2 pt-1 md:pb-3">
+          <a href="/" className="flex flex-1 items-center gap-2.5 text-[17px] text-sidebar-foreground">
             <LogoMark />
             <Wordmark />
           </a>
@@ -129,16 +107,17 @@ export async function Shell({
         {/* Phones: the rest of the sidebar folds behind the menu button (no JS needed). */}
         <input type="checkbox" id="nav-toggle" className="peer sr-only" />
         <div className="hidden flex-1 flex-col gap-1 pt-3 peer-checked:flex md:flex md:pt-0">
+          {all.length > 0 && (
+            <div className="mb-3">
+              <MailboxSwitcher
+                current={current && { id: current.id, address: current.address, name: current.name }}
+                groups={groups}
+                folder={folder}
+              />
+            </div>
+          )}
           {current && (
             <>
-              <div className="mb-3 rounded-md border border-sidebar-border px-3 py-2.5">
-                <div className="truncate text-[13.5px] font-semibold">
-                  {current.display_name}
-                </div>
-                <div className="truncate text-xs text-sidebar-muted">
-                  {current.address}
-                </div>
-              </div>
               <a
                 href={`/mb/${current.id}/compose`}
                 className="mb-3 flex h-10 items-center justify-center gap-2 rounded-md bg-lime font-semibold text-lime-ink transition hover:bg-[#f0ff5b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet"
@@ -152,66 +131,19 @@ export async function Shell({
                     href={`/mb/${current.id}/${f.id}`}
                     active={folder === f.id}
                     icon={folderIcon[f.id]}
-                    count={f.id === "inbox" ? current.unread : undefined}
+                    count={badge(f.id)}
+                    strong={f.id === "inbox"}
                   >
                     {f.label}
                   </NavItem>
                 ))}
-                <NavItem
-                  href={`/mb/${current.id}/settings`}
-                  active={folder === "settings"}
-                  icon={Signature}
-                >
-                  Signature
+                <NavItem href={`/mb/${current.id}/settings`} active={folder === "settings"} icon={Settings}>
+                  Mailbox settings
                 </NavItem>
               </nav>
             </>
           )}
-
-          <div className="mt-4 flex flex-col gap-3 border-t border-sidebar-border pt-4">
-            {mailboxes.length === 0 && (
-              <p className="px-3 text-xs text-sidebar-muted">
-                No mailboxes yet.
-              </p>
-            )}
-            {[...byDomain].map(([domain, list]) => (
-              <div key={domain}>
-                <div className="px-3 pb-1 text-xs font-medium text-sidebar-muted">
-                  {domain}
-                </div>
-                <nav className="flex flex-col gap-0.5">
-                  {list.map((m) => (
-                    <a
-                      key={m.id}
-                      href={`/mb/${m.id}/inbox`}
-                      title={m.address}
-                      className={cn(
-                        "flex h-8 items-center gap-2 rounded-md px-3 text-[13px] text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-foreground",
-                        m.id === mailboxId && "text-sidebar-foreground",
-                        !m.active && "opacity-45",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "size-1.5 shrink-0 rounded-full",
-                          m.id === mailboxId ? "bg-lime" : "bg-sidebar-border",
-                        )}
-                        aria-hidden="true"
-                      />
-                      <span className="min-w-0 flex-1 truncate">
-                        {m.address.slice(0, m.address.lastIndexOf("@"))}
-                      </span>
-                      {m.unread > 0 && (
-                        <span className="text-[11px] text-sidebar-muted tabular-nums">
-                          {m.unread}
-                        </span>
-                      )}
-                    </a>
-                  ))}
-                </nav>
-              </div>
-            ))}
-          </div>
+          {all.length === 0 && <p className="px-3 text-xs text-sidebar-muted">No mailboxes yet.</p>}
 
           <div className="mt-auto flex flex-col gap-1 border-t border-sidebar-border pt-3">
             {user.role === "admin" && (
@@ -224,75 +156,66 @@ export async function Shell({
                 </NavItem>
               </>
             )}
-            <UserMenu
-              name={user.name}
-              email={user.email}
-              isAdmin={user.role === "admin"}
-            />
+            <UserMenu name={user.name} email={user.email} isAdmin={user.role === "admin"} />
           </div>
         </div>
       </aside>
 
-      <main className="min-w-0 px-4 pt-6 pb-20 md:px-10 md:pt-8">
-        <div className="mx-auto max-w-[1120px]">
-          {flash?.msg && (
-            <div
-              role="status"
-              className="mb-5 flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-medium"
-            >
-              <span
-                className="size-2 rounded-full bg-unread"
-                aria-hidden="true"
-              />
-              {flash.msg}
-            </div>
-          )}
-          {flash?.err && (
-            <div
-              role="alert"
-              className="mb-5 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive"
-            >
-              {flash.err}
-            </div>
-          )}
-          {children}
-        </div>
+      <main className={cn("flex min-w-0 flex-col", !bleed && "px-4 pt-6 pb-20 md:px-8 md:pt-7")}>
+        {(flash?.msg || flash?.err) && (
+          <div className={cn(bleed && "px-4 pt-4 md:px-6")}>
+            {flash?.msg && (
+              <div role="status" className="mb-5 flex items-center gap-2 rounded-md border bg-card px-4 py-2.5 text-sm font-medium">
+                <span className="size-2 rounded-full bg-unread" aria-hidden="true" />
+                {flash.msg}
+              </div>
+            )}
+            {flash?.err && (
+              <div
+                role="alert"
+                className="mb-5 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive"
+              >
+                {flash.err}
+              </div>
+            )}
+          </div>
+        )}
+        {children}
       </main>
+      <Toaster position="bottom-right" />
     </div>
   );
 }
 
-/** Page title in the Softwaiz display face, with optional actions on the right. */
+/** Page title with an optional line under it and actions on the right. */
 export function PageHeader({
   title,
   back,
   sub,
   children,
+  className,
 }: {
   title: React.ReactNode;
   back?: { href: string; label: string };
   sub?: React.ReactNode;
   children?: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <header className={cn("mb-6 flex flex-wrap items-end justify-between gap-4", className)}>
       <div className="min-w-0">
         {back && (
           <a
             href={back.href}
-            className="mb-2 inline-flex items-center gap-1 text-[13px] font-medium text-muted-foreground hover:text-foreground"
+            className="mb-1.5 inline-flex items-center gap-1 text-[13px] font-medium text-muted-foreground hover:text-foreground"
           >
             <span aria-hidden="true">‹</span> {back.label}
           </a>
         )}
-        <h1 className="font-display text-[40px] leading-[1.05] tracking-[-0.01em]">
-          {title}
-        </h1>
-        {sub && (
-          <div className="mt-1.5 text-sm text-muted-foreground">{sub}</div>
-        )}
+        <h1 className="text-2xl leading-tight font-semibold tracking-[-0.02em]">{title}</h1>
+        {sub && <div className="mt-1 text-sm text-muted-foreground">{sub}</div>}
       </div>
-      {children}
+      {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
     </header>
   );
 }

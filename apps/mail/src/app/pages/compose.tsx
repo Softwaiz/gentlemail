@@ -1,17 +1,20 @@
 import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
-import { Paperclip, Send } from "lucide-react";
+import { Paperclip } from "lucide-react";
+import { removeSenderRule, saveMailboxSettings } from "@/app/actions/mail";
+import { ActionButton, ActionForm } from "@/app/components/action-form";
+import { ComposeForm } from "@/app/components/compose-form";
+import { Field, Section } from "@/app/components/section";
+import { Checkbox } from "@/app/components/ui/checkbox";
 import { PageHeader, Shell, flashFrom } from "@/app/components/shell";
 import { Badge } from "@/app/components/ui/badge";
-import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
-import { Label } from "@/app/components/ui/label";
 import { Textarea } from "@/app/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { field, notFound, redirect, withFlash } from "@/app/http";
+import { notFound } from "@/app/http";
+import type { SenderRule } from "@/lib/spam";
 import { type Mailbox, type MessageRow, getHtmlBody, getMailboxForUser, listAttachments, parseAddrs } from "@/lib/db";
-import { SendError, sendMail } from "@/lib/outbound";
-import { type Addr, formatAddr, formatBytes, formatDate, htmlToText, isEmail, parseAddressList } from "@/lib/util";
+import { type Addr, formatAddr, formatBytes, formatDate, htmlToText } from "@/lib/util";
 
 async function loadOriginal(mailbox: Mailbox, id: string | null) {
   if (!id) return null;
@@ -75,8 +78,10 @@ export async function ComposePage({ params, ctx, request }: RequestInfo) {
   return (
     <Shell user={user} mailboxId={mailbox.id} flash={flashFrom(request)}>
       <PageHeader title={mode === "reply" ? "Reply" : mode === "forward" ? "Forward" : "New message"} />
+      <div className="w-full max-w-5xl">
 
-      <form method="post" encType="multipart/form-data" className="max-w-[880px] overflow-hidden rounded-lg border bg-card shadow-[0_1px_2px_rgb(8_11_16/5%),0_8px_24px_rgb(8_11_16/5%)]">
+      <ComposeForm discardHref={original ? `/mb/${mailbox.id}/thread/${original.thread_id}?f=${original.folder}` : `/mb/${mailbox.id}/inbox`}>
+        <input type="hidden" name="mailbox_id" value={mailbox.id} />
         {original && <input type="hidden" name="original" value={original.id} />}
         {mode && <input type="hidden" name="mode" value={mode} />}
 
@@ -88,7 +93,7 @@ export async function ComposePage({ params, ctx, request }: RequestInfo) {
           </span>
         </div>
         <ComposeRow label="To">
-          <input name="to" defaultValue={to} placeholder="name@example.com, …" required autoFocus={!to} className={fieldCls} />
+          <input name="to" defaultValue={to} placeholder="name@example.com, …" autoFocus={!to} className={fieldCls} />
         </ComposeRow>
         <ComposeRow label="Cc">
           <input name="cc" defaultValue={cc} className={fieldCls} />
@@ -111,7 +116,7 @@ export async function ComposePage({ params, ctx, request }: RequestInfo) {
         {mailbox.signature.trim() && (
           <div className="border-t border-dashed px-5 py-3">
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="signature" value="1" defaultChecked className="size-4 accent-[var(--violet)]" /> Add signature
+              <Checkbox name="signature" defaultChecked /> Add signature
             </label>
             <pre className="mt-2 font-sans text-sm whitespace-pre-wrap text-muted-foreground">-- {"\n"}{mailbox.signature}</pre>
           </div>
@@ -138,21 +143,8 @@ export async function ComposePage({ params, ctx, request }: RequestInfo) {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-3 border-t bg-muted/40 px-5 py-3">
-          <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
-            <Paperclip className="size-4" /> Attach
-            <input type="file" name="files" multiple className="max-w-56 text-xs file:hidden" />
-          </label>
-          <span className="text-xs text-muted-foreground">Up to 25 MB in total</span>
-          <span className="flex-1" />
-          <Button variant="ghost" asChild>
-            <a href={`/mb/${mailbox.id}/inbox`}>Discard</a>
-          </Button>
-          <Button type="submit" className="min-w-28">
-            <Send /> Send
-          </Button>
-        </div>
-      </form>
+      </ComposeForm>
+      </div>
     </Shell>
   );
 }
@@ -168,107 +160,81 @@ function ComposeRow({ label, children }: { label: string; children: React.ReactN
   );
 }
 
-export async function composeAction({ params, ctx, request }: RequestInfo) {
-  const mailbox = await getMailboxForUser(ctx.user!, params.mailboxId);
-  if (!mailbox) return notFound();
-  if (!mailbox.active) {
-    return redirect(withFlash(`/mb/${mailbox.id}/inbox`, "err", "This mailbox is disabled."));
-  }
-  const form = await request.formData();
-  const self = new URL(request.url);
-  const retry = self.pathname + self.search;
-
-  const to = parseAddressList(field(form, "to"));
-  const cc = parseAddressList(field(form, "cc"));
-  const bcc = parseAddressList(field(form, "bcc"));
-  const bad = [...to, ...cc, ...bcc].find((a) => !isEmail(a.address));
-  if (bad) return redirect(withFlash(retry, "err", `Invalid address: ${bad.address}`));
-
-  const files = [];
-  for (const f of form.getAll("files")) {
-    if (typeof f === "string" || !f.size) continue;
-    files.push({ filename: f.name, type: f.type, content: await f.arrayBuffer() });
-  }
-
-  const original = await loadOriginal(mailbox, field(form, "original") || null);
-  const modeRaw = field(form, "mode");
-  const mode = modeRaw === "reply" || modeRaw === "forward" ? modeRaw : null;
-
-  try {
-    await sendMail({
-      mailbox,
-      to,
-      cc,
-      bcc,
-      subject: field(form, "subject"),
-      body: String(form.get("body") ?? ""),
-      includeSignature: form.get("signature") === "1",
-      files,
-      original,
-      mode,
-    });
-  } catch (e) {
-    const msg = e instanceof SendError ? e.message : "Sending failed.";
-    // Note: typed text is lost on error since this is a plain form post.
-    return redirect(withFlash(retry, "err", msg));
-  }
-
-  if (original && mode === "reply") {
-    return redirect(withFlash(`/mb/${mailbox.id}/thread/${original.thread_id}?f=${original.folder}`, "msg", "Reply sent."));
-  }
-  return redirect(withFlash(`/mb/${mailbox.id}/sent`, "msg", "Message sent."));
-}
-
 /* ---------- Mailbox settings (signature, display name) ---------- */
 
 export async function SettingsPage({ params, ctx, request }: RequestInfo) {
   const user = ctx.user!;
   const mailbox = await getMailboxForUser(user, params.mailboxId);
   if (!mailbox) return notFound();
+  const { results: rules } = await env.DB.prepare("SELECT * FROM sender_rules WHERE mailbox_id = ? ORDER BY created_at DESC")
+    .bind(mailbox.id)
+    .all<SenderRule>();
+  const lists = [
+    {
+      kind: "block",
+      title: "Blocked senders",
+      description: "Their mail goes straight to spam. Added when you mark a conversation as spam.",
+      empty: "Nobody blocked.",
+    },
+    {
+      kind: "allow",
+      title: "Trusted senders",
+      description: "Their mail always reaches the inbox. Added when you mark a conversation as not spam.",
+      empty: "Nobody trusted yet.",
+    },
+  ] as const;
+
   return (
     <Shell user={user} mailboxId={mailbox.id} folder="settings" flash={flashFrom(request)}>
-      <PageHeader title="Signature" sub={`How ${mailbox.address} signs its mail`} />
-      <div className="grid max-w-[980px] gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <form method="post" className="flex flex-col gap-5 rounded-lg border bg-card p-6">
-          <div className="grid gap-2">
-            <Label htmlFor="display_name">Sender name</Label>
-            <Input id="display_name" name="display_name" defaultValue={mailbox.display_name} required />
-            <p className="text-xs text-muted-foreground">Recipients see this next to the address.</p>
+      <PageHeader title="Mailbox settings" sub={mailbox.address} />
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Section title="Name and signature">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_240px]">
+            <ActionForm action={saveMailboxSettings} submitLabel="Save">
+              <input type="hidden" name="mailbox_id" value={mailbox.id} />
+              <Field label="Sender name" hint="Recipients see this next to the address.">
+                <Input name="display_name" defaultValue={mailbox.display_name} required />
+              </Field>
+              <Field label="Signature" hint="Plain text. Links become clickable when sent.">
+                <Textarea name="signature" rows={7} defaultValue={mailbox.signature} placeholder={"Jane Doe\nAcme Inc., https://example.com"} />
+              </Field>
+            </ActionForm>
+            <aside className="text-sm">
+              <div className="text-xs font-medium text-muted-foreground">How it looks</div>
+              <div className="mt-2 rounded-md border bg-background p-4">
+                <div className="text-muted-foreground">…your message</div>
+                <pre className="mt-3 font-sans whitespace-pre-wrap">-- {"\n"}{mailbox.signature.trim() || "No signature yet"}</pre>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">You can leave it out of any single message.</p>
+            </aside>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="signature">Signature</Label>
-            <Textarea
-              id="signature"
-              name="signature"
-              rows={7}
-              defaultValue={mailbox.signature}
-              placeholder={"Jane Doe\nAcme Inc., https://example.com"}
-            />
-            <p className="text-xs text-muted-foreground">Plain text. Links become clickable when sent.</p>
-          </div>
-          <div>
-            <Button type="submit">Save signature</Button>
-          </div>
-        </form>
-        <aside className="rounded-lg border border-dashed p-5 text-sm">
-          <div className="font-medium">How it looks</div>
-          <div className="mt-3 rounded-md bg-card p-4 shadow-sm">
-            <div className="text-muted-foreground">…your message</div>
-            <pre className="mt-3 font-sans whitespace-pre-wrap">-- {"\n"}{mailbox.signature.trim() || "No signature yet"}</pre>
-          </div>
-          <p className="mt-3 text-xs text-muted-foreground">You can leave it out of any single message while writing.</p>
-        </aside>
+        </Section>
+
+        <div className="grid content-start gap-6">
+          {lists.map((l) => {
+            const items = rules.filter((r) => r.kind === l.kind);
+            return (
+              <Section key={l.kind} title={l.title} description={l.description}>
+                {items.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{l.empty}</p>
+                ) : (
+                  <ul className="divide-y rounded-md border">
+                    {items.map((r) => (
+                      <li key={r.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                        <span className="min-w-0 flex-1 truncate font-medium">{r.sender}</span>
+                        <span className="text-xs text-muted-foreground">{formatDate(r.created_at)}</span>
+                        <ActionButton variant="ghost" size="sm" className="h-7" action={removeSenderRule} args={[mailbox.id, r.id]}>
+                          Remove
+                        </ActionButton>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Section>
+            );
+          })}
+        </div>
       </div>
     </Shell>
   );
-}
-
-export async function settingsAction({ params, ctx, request }: RequestInfo) {
-  const mailbox = await getMailboxForUser(ctx.user!, params.mailboxId);
-  if (!mailbox) return notFound();
-  const form = await request.formData();
-  await env.DB.prepare("UPDATE mailboxes SET display_name = ?, signature = ? WHERE id = ?")
-    .bind(field(form, "display_name") || mailbox.display_name, String(form.get("signature") ?? "").slice(0, 5000), mailbox.id)
-    .run();
-  return redirect(withFlash(`/mb/${mailbox.id}/settings`, "msg", "Settings saved."));
 }

@@ -123,7 +123,7 @@ export async function AdminDomainPage({ params, ctx, request }: RequestInfo) {
       .all<Mailbox>(),
     checkDomain(domain.name),
   ]);
-  const worker = env.WORKER_NAME || "<worker-name>";
+  const worker = __WORKER_NAME__ || "<worker-name>";
   const d = domain.name;
   const steps = [
     { title: `Allow sending from *@${d}`, cmd: `npx wrangler email sending enable ${d}` },

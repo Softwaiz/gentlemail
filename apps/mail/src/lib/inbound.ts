@@ -1,6 +1,7 @@
-import { env } from "cloudflare:workers";
+import { env, waitUntil } from "cloudflare:workers";
 import PostalMime, { type Address } from "postal-mime";
 import { resolveThreadId } from "./threads";
+import { emitMessageEvent } from "./webhooks";
 import { type Addr, makeSnippet, newId, now, stripBrackets } from "./util";
 
 const D1_TEXT_LIMIT = 900_000; // keep rows well under D1's 2 MB limit
@@ -131,4 +132,9 @@ export async function handleInbound(message: ForwardableEmailMessage) {
   }
 
   await env.DB.batch(stmts);
+
+  // Spam doesn't wake up webhooks; everything that reaches the inbox does.
+  if (!spamFlag) {
+    waitUntil(emitMessageEvent("message.received", id).catch((e) => console.error("webhook emit failed", e)));
+  }
 }

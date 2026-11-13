@@ -1,6 +1,7 @@
-import { env } from "cloudflare:workers";
+import { env, waitUntil } from "cloudflare:workers";
 import { type Mailbox, type MessageRow, domainOf, getHtmlBody, isDomainActive, parseAddrs } from "./db";
 import { resolveThreadId } from "./threads";
+import { emitMessageEvent } from "./webhooks";
 import {
   type Addr,
   escapeHtml,
@@ -29,6 +30,10 @@ export type SendInput = {
   /** Message being replied to / forwarded (quoted below the new text). */
   original?: MessageRow | null;
   mode?: "reply" | "forward" | null;
+  /** Ready-made HTML body (API). When absent, HTML is built from `body`. */
+  html?: string;
+  /** Quote the original below the new text (default true). */
+  quote?: boolean;
 };
 
 const toApi = (a: Addr): string | EmailAddress => (a.name ? { email: a.address, name: a.name } : a.address);
@@ -88,12 +93,12 @@ export async function sendMail(input: SendInput): Promise<string> {
   if (total > MAX_TOTAL) throw new SendError("Attachments exceed the 25 MB limit.");
 
   const sig = input.includeSignature && mailbox.signature.trim() ? mailbox.signature.trim() : "";
-  const quote = original && mode ? await buildQuote(original, mode) : { text: "", html: "" };
+  const quote = original && mode && input.quote !== false ? await buildQuote(original, mode) : { text: "", html: "" };
 
   const text = input.body + (sig ? `\n\n-- \n${sig}` : "") + quote.text;
   const html =
     `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5">` +
-    textToHtml(input.body) +
+    (input.html ?? textToHtml(input.body)) +
     (sig ? `<br><br><div style="color:#555">-- <br>${textToHtml(sig)}</div>` : "") +
     quote.html +
     `</div>`;
@@ -186,5 +191,6 @@ export async function sendMail(input: SendInput): Promise<string> {
     );
   }
   await env.DB.batch(stmts);
+  waitUntil(emitMessageEvent("message.sent", id).catch((e) => console.error("webhook emit failed", e)));
   return id;
 }

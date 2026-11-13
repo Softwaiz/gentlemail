@@ -97,3 +97,10 @@ export function toBase64(buf: ArrayBuffer | Uint8Array): string {
   }
   return btoa(bin);
 }
+
+/**
+ * True when an HTML email paints its own colours. Those are designed for a
+ * white page and stay on white; plain HTML follows the reader's theme.
+ */
+export const htmlHasOwnColors = (html: string) =>
+  /\bbgcolor\s*=|\bbackground(-color)?\s*:|(^|[\s;"'{])color\s*:|<font[^>]*\bcolor\s*=|<body[^>]*\b(text|link)\s*=/i.test(html);

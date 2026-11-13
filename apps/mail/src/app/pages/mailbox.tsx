@@ -33,7 +33,7 @@ import {
   listAttachments,
   parseAddrs,
 } from "@/lib/db";
-import { formatAddr, formatBytes, formatDate } from "@/lib/util";
+import { formatAddr, formatBytes, formatDate, htmlHasOwnColors } from "@/lib/util";
 
 const PAGE_SIZE = 50;
 
@@ -461,7 +461,7 @@ function MessageCard({
       <div className="px-4 pb-4 md:pl-16">
         {hasHtml ? (
           <>
-            <MailFrame src={`/body/${m.id}`} title={m.subject} />
+            <MailFrame src={`/body/${m.id}`} title={m.subject} adaptive={!!m.html_body && !htmlHasOwnColors(m.html_body)} />
             <p className="mt-2 text-xs text-muted-foreground">
               Remote images are blocked to protect your privacy.{" "}
               <a href={`/body/${m.id}?images=1`} target="_blank" rel="noopener" className="font-medium text-foreground underline underline-offset-2">

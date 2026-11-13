@@ -23,6 +23,17 @@ import { FolderPage, ThreadPage, actionsHandler } from "@/app/pages/mailbox";
 import { type User, getUserFromRequest } from "@/lib/auth";
 import { listMailboxesForUser } from "@/lib/db";
 import { handleInbound } from "@/lib/inbound";
+import { retryDueDeliveries } from "@/lib/webhooks";
+import {
+  apiNotFound,
+  attachmentApiHandler,
+  listHandler,
+  mailboxesHandler,
+  messageActionHandler,
+  messageHandler,
+  sendHandler,
+} from "@/app/api";
+import { DevelopersPage, WebhookPage, developersAction, webhookAction } from "@/app/pages/developers";
 
 export type AppContext = { user: User | null };
 
@@ -45,6 +56,14 @@ const app = defineApp([
   route("/raw/:id", [requireUser, rawHandler]),
   route("/body/:id", [requireUser, bodyHandler]),
   route("/mb/:mailboxId/actions", { post: [requireUser, actionsHandler] }),
+  // Public API (API keys, no cookies). See src/app/api.ts.
+  route("/api/v1/send", { post: sendHandler }),
+  route("/api/v1/mailboxes", { get: mailboxesHandler }),
+  route("/api/v1/messages", { get: listHandler }),
+  route("/api/v1/messages/:id", { get: messageHandler, post: messageActionHandler }),
+  route("/api/v1/attachments/:id", { get: attachmentApiHandler }),
+  route("/api/*", apiNotFound),
+
   route("/admin/domains", { post: [requireAdmin, createDomainAction] }),
   route("/admin/mailboxes", { post: [requireAdmin, createMailboxAction] }),
   route("/admin/users", { post: [requireAdmin, createUserAction] }),
@@ -68,6 +87,8 @@ const app = defineApp([
     ]),
 
     route("/admin", [requireAdmin, AdminPage]),
+    route("/admin/api", { get: [requireAdmin, (i) => DevelopersPage(i)], post: [requireAdmin, developersAction] }),
+    route("/admin/webhooks/:id", { get: [requireAdmin, WebhookPage], post: [requireAdmin, webhookAction] }),
     route("/admin/domains/:id", { get: [requireAdmin, AdminDomainPage], post: [requireAdmin, adminDomainAction] }),
     route("/admin/mailboxes/:id", { get: [requireAdmin, AdminMailboxPage], post: [requireAdmin, adminMailboxAction] }),
     route("/admin/users/:id", { get: [requireAdmin, AdminUserPage], post: [requireAdmin, adminUserAction] }),
@@ -92,6 +113,11 @@ export default class MailWorker extends WorkerEntrypoint<Env> {
       // Temporary failure → sending server will retry later.
       message.setReject("451 4.3.0 Temporary failure, please retry");
     }
+  }
+
+  /** Cron (every minute): retry webhook deliveries that are due. */
+  async scheduled() {
+    await retryDueDeliveries();
   }
 
   override async fetch(request: Request) {

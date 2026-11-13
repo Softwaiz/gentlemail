@@ -1,5 +1,6 @@
 import {
   Archive,
+  Webhook,
   Inbox,
   Menu,
   OctagonAlert,
@@ -214,9 +215,14 @@ export async function Shell({
 
           <div className="mt-auto flex flex-col gap-1 border-t border-sidebar-border pt-3">
             {user.role === "admin" && (
-              <NavItem href="/admin" active={folder === "admin"} icon={Shield}>
-                Admin
-              </NavItem>
+              <>
+                <NavItem href="/admin" active={folder === "admin"} icon={Shield}>
+                  Admin
+                </NavItem>
+                <NavItem href="/admin/api" active={folder === "api"} icon={Webhook}>
+                  API &amp; webhooks
+                </NavItem>
+              </>
             )}
             <UserMenu
               name={user.name}

@@ -45,7 +45,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return diff === 0;
 }
 
-async function sha256(s: string) {
+export async function sha256(s: string) {
   const d = await crypto.subtle.digest("SHA-256", enc.encode(s));
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }

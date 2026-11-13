@@ -1,0 +1,2 @@
+# One-time token you type at /setup to create the first admin. Use a long random string (openssl rand -hex 32).
+SETUP_TOKEN=

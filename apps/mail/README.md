@@ -3,7 +3,9 @@
 Self-hosted, multi-domain, multi-mailbox webmail running entirely on Cloudflare, built with [RedwoodSDK](https://rwsdk.com).
 One shared deployment serves any number of domains. Domains, mailboxes and users are managed in the app's **Admin** page.
 
-**Current deployment:** Worker `gentlemail` → https://mailer.softwaiz.com (also https://mail.kariboo.app), D1 + R2 named `kariboo-mail`.
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Softwaiz/gentlemail/tree/main/apps/mail)
+
+Website and guides: https://gentlemail.dev · [Deploy guide](https://gentlemail.dev/deploy) · [API and webhook docs](https://gentlemail.dev/docs)
 
 - **Receive**: Email Routing catch-all on your domain → this Worker's `email()` handler → parsed with `postal-mime`
 - **Store**: messages, mailboxes, users, sessions in **D1**; raw `.eml`, attachments and oversized HTML in **R2**
@@ -74,11 +76,26 @@ curl -X POST "http://localhost:5173/cdn-cgi/handler/email?from=a@example.org&to=
 Outbound mail is simulated locally (written under `.wrangler/tmp/email`).
 
 ## Deploy
+
+### One click
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Softwaiz/gentlemail/tree/main/apps/mail)
+
+The button copies this folder into a new repository on your GitHub account, creates the D1 database and the R2 bucket, asks for `SETUP_TOKEN` (any long random string, typed once at `/setup`), then builds and deploys. Every later push to that repository deploys again, with the database migrations applied first.
+
+You need a domain on Cloudflare and the Workers Paid plan ($5/month), which includes the outbound email. When the deploy finishes:
+1. Open `https://<your-worker>.workers.dev/setup` and create the admin account with your `SETUP_TOKEN`.
+2. Add your domain in **Admin → Domains** and run the commands it shows (below).
+3. Optional: serve the app on your own hostname by uncommenting `routes` in `wrangler.jsonc`, or under **Settings → Domains & Routes** in the dashboard.
+
+### From the command line
 ```sh
-pnpm release                          # migrate remote D1, build, deploy
 npx wrangler secret put SETUP_TOKEN   # first deploy only: any long random string, used once at /setup
+pnpm build && pnpm run deploy         # applies D1 migrations, then deploys
 ```
-Open `/setup` on the first deploy to create the admin account.
+Wrangler creates the D1 database and R2 bucket named in `wrangler.jsonc` on the first deploy.
+
+### Configuration
+`wrangler.jsonc` is the template every deployment starts from; values marked ◆ are yours to change in your copy (Worker name and `WORKER_NAME`, hostnames, `PUBLIC_URL`, `APP_NAME`). To pick up new releases, pull this repository into yours (`git remote add upstream https://github.com/Softwaiz/gentlemail && git pull upstream main`) and push.
 
 ## Adding a domain
 The domain must be a zone in the same Cloudflare account as the Worker.
@@ -89,11 +106,8 @@ The domain must be a zone in the same Cloudflare account as the Worker.
    npx wrangler email sending enable example.com
    npx wrangler email routing enable example.com
    npx wrangler email routing rules update example.com catch-all \
-     --action-type worker --action-value gentlemail --enabled true
+     --action-type worker --action-value <worker-name> --enabled true
    ```
 3. Create mailboxes on it in **Admin**.
 
 Address-specific routing rules (for example a forward to Gmail) keep priority over the catch-all. Mail to addresses with no mailbox is rejected with 550.
-
-## Running a separate instance
-To run a second deployment, create your own D1 database and R2 bucket, then edit the ◆ values in `wrangler.jsonc` (Worker name, `WORKER_NAME`, hostnames, D1/R2, `APP_NAME`).

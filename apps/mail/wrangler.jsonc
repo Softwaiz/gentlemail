@@ -1,11 +1,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Deployment config. One shared instance serves any number of domains:
-// domains and mailboxes are managed in the app's Admin page, not here.
-// Values marked ◆ are specific to this deployment.
+// Deployment config. One instance serves any number of domains: domains and
+// mailboxes are managed in the app's Admin page, not here.
+//
+// The top level is the template that "Deploy to Cloudflare" and a plain
+// `wrangler deploy` use: no custom domain (the app runs on workers.dev until you
+// add one) and no resource IDs, so Cloudflare creates the D1 database and the
+// R2 bucket for you. Values marked ◆ are yours to change in your own copy.
 // ─────────────────────────────────────────────────────────────────────────────
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "gentlemail", // ◆ Worker name (also the Email Routing catch-all target)
+  "name": "my-gentlemail", // ◆ Worker name (also the Email Routing catch-all target)
   "main": "src/worker.tsx",
   "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -18,18 +22,14 @@
     "enabled": true
   },
 
-  // ◆ Hostname(s) the webmail UI is served on (any of them works)
-  "routes": [
-    { "pattern": "mailer.softwaiz.com", "custom_domain": true },
-    { "pattern": "mail.kariboo.app", "custom_domain": true }
-  ],
+  // ◆ Hostname(s) the webmail is served on. Uncomment to use your own:
+  // "routes": [{ "pattern": "mail.example.com", "custom_domain": true }],
 
   // All mail, mailboxes, users and sessions
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "kariboo-mail", // ◆
-      "database_id": "d2d9a8ab-5aaf-4ed9-91bb-97acb840aee9", // ◆
+      "database_name": "gentlemail",
       "migrations_dir": "migrations"
     }
   ],
@@ -38,7 +38,7 @@
   "r2_buckets": [
     {
       "binding": "MAIL_BUCKET",
-      "bucket_name": "kariboo-mail" // ◆
+      "bucket_name": "gentlemail"
     }
   ],
 
@@ -49,15 +49,16 @@
   "send_email": [{ "name": "EMAIL" }],
 
   "vars": {
-    // ◆ Public address of the app; used for links in webhook payloads and API responses
-    "PUBLIC_URL": "https://mailer.softwaiz.com",
+    // ◆ Public address of the app, used for links in webhook payloads. Empty = links are relative.
+    "PUBLIC_URL": "",
     // ◆ Must match "name" above; used in the per-domain setup commands
-    "WORKER_NAME": "gentlemail",
+    "WORKER_NAME": "my-gentlemail",
     // ◆ Name shown in the UI and browser tab
     "APP_NAME": "GentleMail",
     // ◆ Optional: move mail to spam when Cloudflare's spam score (X-Cf-Spamh-Score) reaches this value. Empty = off.
     "SPAM_SCORE_THRESHOLD": ""
-  }
-  // Secrets (set with `wrangler secret put`):
+  },
+
+  // Secrets (listed in .dev.vars.example, set with `wrangler secret put`):
   //   SETUP_TOKEN — one-time token required to create the first admin at /setup
 }

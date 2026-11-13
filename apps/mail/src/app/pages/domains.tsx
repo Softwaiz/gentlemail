@@ -1,7 +1,10 @@
 import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
-import { Icon } from "@/app/components/icons";
-import { Shell, flashFrom } from "@/app/components/shell";
+import { PageHeader, Shell, flashFrom } from "@/app/components/shell";
+import { Section, StatusBadge } from "@/app/components/section";
+import { Button } from "@/app/components/ui/button";
+import { Input } from "@/app/components/ui/input";
+import { cn } from "@/lib/utils";
 import { field, notFound, redirect, withFlash } from "@/app/http";
 import type { Domain, Mailbox } from "@/lib/db";
 import { newId, now } from "@/lib/util";
@@ -22,52 +25,45 @@ export async function listDomainsWithCounts(): Promise<DomainWithCount[]> {
 
 export function DomainsSection({ domains }: { domains: DomainWithCount[] }) {
   return (
-    <section className="card">
-      <h2>Domains</h2>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Domain</th>
-            <th>Mailboxes</th>
-            <th>Status</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
+    <Section
+      title="Domains"
+      description="Every domain this app receives and sends mail for. Each must be a zone in the same Cloudflare account."
+    >
+      {domains.length === 0 ? (
+        <p className="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+          No domains yet. Add the first one below.
+        </p>
+      ) : (
+        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {domains.map((d) => (
-            <tr key={d.id}>
-              <td>{d.name}</td>
-              <td>{d.mailboxes}</td>
-              <td>{d.active ? <span className="tag ok">active</span> : <span className="tag">disabled</span>}</td>
-              <td>
-                <a className="btn btn-sm btn-ghost" href={`/admin/domains/${d.id}`}>
-                  Setup &amp; status
-                </a>
-              </td>
-            </tr>
+            <li key={d.id}>
+              <a
+                href={`/admin/domains/${d.id}`}
+                className="group flex h-full flex-col justify-between gap-4 rounded-md border p-4 transition-colors hover:border-foreground/30 hover:bg-accent/40"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="truncate text-[15px] font-semibold tracking-[-0.01em]">{d.name}</span>
+                  <StatusBadge on={!!d.active} />
+                </div>
+                <div className="flex items-end justify-between text-sm text-muted-foreground">
+                  <span>
+                    <span className="font-display text-2xl leading-none text-foreground tabular-nums">{d.mailboxes}</span>{" "}
+                    {d.mailboxes === 1 ? "mailbox" : "mailboxes"}
+                  </span>
+                  <span className="text-xs font-medium group-hover:text-foreground">Setup and status</span>
+                </div>
+              </a>
+            </li>
           ))}
-          {domains.length === 0 && (
-            <tr>
-              <td colSpan={4} className="muted">
-                No domains yet. Add the first one below.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+        </ul>
+      )}
 
-      <h3>Add domain</h3>
-      <form method="post" action="/admin/domains" className="row-form">
-        <input name="name" placeholder="example.com" required />
-        <button className="btn btn-primary" type="submit">
-          Add domain
-        </button>
+      <form method="post" action="/admin/domains" className="mt-5 flex flex-wrap items-center gap-3 rounded-md bg-muted/50 p-4">
+        <Input name="name" placeholder="example.com" required aria-label="Domain name" className="max-w-80 flex-1 bg-card" />
+        <Button type="submit">Add domain</Button>
+        <span className="text-xs text-muted-foreground">You'll get the commands that connect it next.</span>
       </form>
-      <p className="muted small">
-        The domain must be a zone in the same Cloudflare account as this Worker. After adding it, open
-        “Setup &amp; status” for the commands that connect it.
-      </p>
-    </section>
+    </Section>
   );
 }
 
@@ -134,8 +130,13 @@ async function checkDomain(name: string): Promise<Check[]> {
   ]);
 }
 
-const stateTag = (s: Check["state"]) =>
-  s === "ok" ? <span className="tag ok">ok</span> : <span className={`tag ${s === "warn" ? "" : "bad"}`}>{s}</span>;
+const stateStyle: Record<Check["state"], string> = {
+  ok: "bg-lime/25 text-foreground dark:bg-lime/15 dark:text-lime",
+  warn: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  missing: "bg-destructive/10 text-destructive",
+  error: "bg-muted text-muted-foreground",
+};
+const stateLabel: Record<Check["state"], string> = { ok: "OK", warn: "Check", missing: "Missing", error: "Unknown" };
 
 /* ---------- Single domain ---------- */
 
@@ -150,107 +151,124 @@ export async function AdminDomainPage({ params, ctx, request }: RequestInfo) {
   ]);
   const worker = env.WORKER_NAME || "<worker-name>";
   const d = domain.name;
+  const steps = [
+    { title: `Allow sending from *@${d}`, cmd: `npx wrangler email sending enable ${d}` },
+    { title: "Receive mail (adds MX and SPF records)", cmd: `npx wrangler email routing enable ${d}` },
+    {
+      title: "Deliver every address to this app",
+      cmd: null,
+      text: (
+        <>
+          In the Cloudflare dashboard, open {d}, then Email, then Email Routing, then Routing rules. Edit the
+          catch-all: action <strong>Send to a Worker</strong>, Worker <code className="font-mono">{worker}</code>, enabled.
+        </>
+      ),
+    },
+  ];
 
   return (
     <Shell user={ctx.user!} folder="admin" flash={flashFrom(request)}>
-      <header className="toolbar">
-        <div>
-          <a href="/admin" className="back-link">
-            <Icon name="back" size={16} /> Admin
-          </a>
-          <h1>{d}</h1>
-        </div>
-      </header>
+      <PageHeader title={d} back={{ href: "/admin", label: "Admin" }}>
+        <StatusBadge on={!!domain.active} />
+      </PageHeader>
 
-      <section className="card">
-        <h2>DNS status</h2>
-        <table className="table">
-          <tbody>
+      <div className="grid max-w-[980px] gap-6">
+        <Section title="DNS status" description="Live lookup of public DNS. Refresh the page after a change.">
+          <ul className="divide-y rounded-md border">
             {checks.map((c) => (
-              <tr key={c.label}>
-                <td>{c.label}</td>
-                <td>{stateTag(c.state)}</td>
-                <td className="muted small break">{c.detail}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="muted small">
-          Live public DNS lookup. The catch-all rule and the sending setup can't be checked from here, so verify
-          them with the commands below.
-        </p>
-      </section>
-
-      <section className="card">
-        <h2>Connect this domain</h2>
-        <p className="muted small">Run once, from the app folder, with a Cloudflare login that owns the zone:</p>
-        <pre className="code">{`# 1. Allow sending from *@${d}
-npx wrangler email sending enable ${d}
-
-# 2. Receive mail (adds MX + SPF records)
-npx wrangler email routing enable ${d}
-
-# 3. Deliver every address on ${d} to this app
-npx wrangler email routing rules update ${d} catch-all \\
-  --action-type worker --action-value ${worker} --enabled true
-
-# Check
-npx wrangler email sending list
-npx wrangler email routing rules list ${d}`}</pre>
-        <p className="muted small">
-          Address-specific routing rules (for example a forward to Gmail) still take priority over the catch-all.
-          Mail to addresses with no mailbox here is rejected.
-        </p>
-      </section>
-
-      <section className="card">
-        <h2>Mailboxes on {d}</h2>
-        {mailboxes.length === 0 ? (
-          <p className="muted">None yet. Create one from the Admin page.</p>
-        ) : (
-          <ul className="plain-list">
-            {mailboxes.map((m) => (
-              <li key={m.id}>
-                <a href={`/admin/mailboxes/${m.id}`}>{m.address}</a> {!m.active && <span className="tag">disabled</span>}
+              <li key={c.label} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
+                <span className="w-32 text-sm font-medium">{c.label}</span>
+                <span className={cn("rounded-sm px-2 py-0.5 text-xs font-semibold", stateStyle[c.state])}>{stateLabel[c.state]}</span>
+                <span className="min-w-0 flex-1 font-mono text-xs break-all text-muted-foreground">{c.detail}</span>
               </li>
             ))}
           </ul>
-        )}
-      </section>
+        </Section>
 
-      <form method="post" className="card stack narrow">
-        <input type="hidden" name="op" value="update" />
-        <h2>Status</h2>
-        <label className="check">
-          <input type="checkbox" name="active" value="1" defaultChecked={!!domain.active} /> Active (when off, inbound
-          mail to {d} is rejected and sending is blocked)
-        </label>
-        <div>
-          <button className="btn btn-primary" type="submit">
-            Save
-          </button>
-        </div>
-      </form>
+        <Section
+          title="Connect this domain"
+          description="Run once, from apps/mail, logged in to the Cloudflare account that owns the zone."
+        >
+          <ol className="grid gap-4">
+            {steps.map((s, i) => (
+              <li key={s.title} className="grid grid-cols-[28px_minmax(0,1fr)] gap-3">
+                <span className="grid size-7 place-items-center rounded-sm bg-primary font-display text-sm text-primary-foreground">
+                  {i + 1}
+                </span>
+                <div className="min-w-0">
+                  <div className="pt-0.5 text-sm font-medium">{s.title}</div>
+                  {s.cmd ? (
+                    <pre className="mt-2 overflow-x-auto rounded-md bg-sidebar px-4 py-3 font-mono text-[12.5px] text-sidebar-foreground">
+                      <span className="text-lime select-none">$ </span>
+                      {s.cmd}
+                    </pre>
+                  ) : (
+                    <p className="mt-1 text-sm text-muted-foreground">{s.text}</p>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-5 text-xs text-muted-foreground">
+            Rules for a specific address, such as a forward to Gmail, still take priority over the catch-all. Mail to an
+            address with no mailbox here is rejected.
+          </p>
+        </Section>
 
-      <form method="post" className="card stack narrow danger-zone">
-        <input type="hidden" name="op" value="delete" />
-        <h2>Remove domain</h2>
-        {mailboxes.length > 0 ? (
-          <p className="muted small">Delete its {mailboxes.length} mailbox(es) first.</p>
-        ) : (
-          <>
-            <p className="muted small">
-              Removes {d} from this app. It doesn't change any Cloudflare settings, so also turn off the catch-all
-              rule if you no longer want mail delivered here.
-            </p>
+        <Section title={`Mailboxes on ${d}`}>
+          {mailboxes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">None yet. Create one from the Admin page.</p>
+          ) : (
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {mailboxes.map((m) => (
+                <li key={m.id}>
+                  <a href={`/admin/mailboxes/${m.id}`} className="flex items-center justify-between gap-2 rounded-md border px-3 py-2.5 text-sm hover:bg-accent/40">
+                    <span className="truncate font-medium">{m.address}</span>
+                    <StatusBadge on={!!m.active} />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+
+        <Section title="Status">
+          <form method="post" className="grid gap-4">
+            <input type="hidden" name="op" value="update" />
+            <label className="flex items-start gap-2.5 text-sm">
+              <input type="checkbox" name="active" value="1" defaultChecked={!!domain.active} className="mt-0.5 size-4 accent-[var(--violet)]" />
+              <span>
+                <span className="font-medium">Active</span>
+                <span className="block text-muted-foreground">When off, mail to {d} is rejected and sending from it is blocked.</span>
+              </span>
+            </label>
             <div>
-              <button className="btn btn-danger" type="submit">
-                Remove domain
-              </button>
+              <Button type="submit">Save status</Button>
             </div>
-          </>
-        )}
-      </form>
+          </form>
+        </Section>
+
+        <Section title="Remove domain" tone="danger">
+          {mailboxes.length > 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Delete its {mailboxes.length} {mailboxes.length === 1 ? "mailbox" : "mailboxes"} first.
+            </p>
+          ) : (
+            <form method="post" className="grid gap-3">
+              <input type="hidden" name="op" value="delete" />
+              <p className="text-sm text-muted-foreground">
+                Removes {d} from this app. Cloudflare settings stay as they are, so turn off the catch-all too if mail
+                shouldn't reach this app anymore.
+              </p>
+              <div>
+                <Button type="submit" variant="destructive">
+                  Remove {d}
+                </Button>
+              </div>
+            </form>
+          )}
+        </Section>
+      </div>
     </Shell>
   );
 }

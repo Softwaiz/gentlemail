@@ -6,6 +6,7 @@ export const Document: React.FC<{ children: React.ReactNode }> = ({ children }) 
     <head>
       <meta charSet="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <meta name="theme-color" content="#080b10" />
       <meta name="robots" content="noindex, nofollow" />
       <title>{env.APP_NAME || "Mail"}</title>
       <link rel="icon" href="/favicon.svg" type="image/svg+xml" />

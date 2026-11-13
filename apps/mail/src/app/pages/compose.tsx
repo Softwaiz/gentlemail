@@ -1,7 +1,13 @@
 import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
-import { Icon } from "@/app/components/icons";
-import { Shell, flashFrom } from "@/app/components/shell";
+import { Paperclip, Send } from "lucide-react";
+import { PageHeader, Shell, flashFrom } from "@/app/components/shell";
+import { Badge } from "@/app/components/ui/badge";
+import { Button } from "@/app/components/ui/button";
+import { Input } from "@/app/components/ui/input";
+import { Label } from "@/app/components/ui/label";
+import { Textarea } from "@/app/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { field, notFound, redirect, withFlash } from "@/app/http";
 import { type Mailbox, type MessageRow, getHtmlBody, getMailboxForUser, listAttachments, parseAddrs } from "@/lib/db";
 import { SendError, sendMail } from "@/lib/outbound";
@@ -68,81 +74,97 @@ export async function ComposePage({ params, ctx, request }: RequestInfo) {
 
   return (
     <Shell user={user} mailboxId={mailbox.id} flash={flashFrom(request)}>
-      <header className="toolbar">
-        <h1>{mode === "reply" ? "Reply" : mode === "forward" ? "Forward" : "New message"}</h1>
-      </header>
+      <PageHeader title={mode === "reply" ? "Reply" : mode === "forward" ? "Forward" : "New message"} />
 
-      <form method="post" encType="multipart/form-data" className="compose">
+      <form method="post" encType="multipart/form-data" className="max-w-[880px] overflow-hidden rounded-lg border bg-card shadow-[0_1px_2px_rgb(8_11_16/5%),0_8px_24px_rgb(8_11_16/5%)]">
         {original && <input type="hidden" name="original" value={original.id} />}
         {mode && <input type="hidden" name="mode" value={mode} />}
 
-        <div className="compose-row">
-          <span className="compose-label">From</span>
-          <span>
-            {mailbox.display_name} &lt;{mailbox.address}&gt;
+        <div className="flex items-center gap-3 border-b bg-muted/40 px-5 py-3 text-sm">
+          <span className="w-14 shrink-0 text-muted-foreground">From</span>
+          <span className="min-w-0 truncate">
+            <span className="font-medium">{mailbox.display_name}</span>{" "}
+            <span className="text-muted-foreground">{mailbox.address}</span>
           </span>
         </div>
-        <label className="compose-row">
-          <span className="compose-label">To</span>
-          <input name="to" defaultValue={to} placeholder="name@example.com, …" required autoFocus={!to} />
-        </label>
-        <label className="compose-row">
-          <span className="compose-label">Cc</span>
-          <input name="cc" defaultValue={cc} />
-        </label>
-        <label className="compose-row">
-          <span className="compose-label">Bcc</span>
-          <input name="bcc" />
-        </label>
-        <label className="compose-row">
-          <span className="compose-label">Subject</span>
-          <input name="subject" defaultValue={subject} />
-        </label>
+        <ComposeRow label="To">
+          <input name="to" defaultValue={to} placeholder="name@example.com, …" required autoFocus={!to} className={fieldCls} />
+        </ComposeRow>
+        <ComposeRow label="Cc">
+          <input name="cc" defaultValue={cc} className={fieldCls} />
+        </ComposeRow>
+        <ComposeRow label="Bcc">
+          <input name="bcc" className={fieldCls} />
+        </ComposeRow>
+        <ComposeRow label="Subject">
+          <input name="subject" defaultValue={subject} className={cn(fieldCls, "font-medium")} />
+        </ComposeRow>
 
-        <textarea name="body" rows={14} placeholder="Write your message…" autoFocus={!!to} />
+        <textarea
+          name="body"
+          rows={14}
+          placeholder="Write your message…"
+          autoFocus={!!to}
+          className="block min-h-72 w-full resize-y bg-transparent px-5 py-4 text-[15px] leading-relaxed outline-none placeholder:text-muted-foreground"
+        />
 
         {mailbox.signature.trim() && (
-          <div className="sig-preview">
-            <label className="check">
-              <input type="checkbox" name="signature" value="1" defaultChecked /> Add signature
+          <div className="border-t border-dashed px-5 py-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="signature" value="1" defaultChecked className="size-4 accent-[var(--violet)]" /> Add signature
             </label>
-            <pre>-- {"\n"}{mailbox.signature}</pre>
+            <pre className="mt-2 font-sans text-sm whitespace-pre-wrap text-muted-foreground">-- {"\n"}{mailbox.signature}</pre>
           </div>
         )}
 
         {original && (
-          <div className="quoted">
-            <div className="muted small">
+          <div className="mx-5 mb-4 max-h-56 overflow-auto border-l-2 border-input pl-4">
+            <div className="text-xs text-muted-foreground">
               {mode === "reply"
                 ? `On ${formatDate(original.date, true)}, ${original.from_name || original.from_addr} wrote:`
-                : `Forwarded message from ${original.from_name || original.from_addr} — included below your text`}
+                : `Forwarded message from ${original.from_name || original.from_addr}, added below your text`}
             </div>
-            <pre>{quotePreview.slice(0, 2000)}</pre>
+            <pre className="mt-1.5 font-sans text-sm whitespace-pre-wrap text-muted-foreground">{quotePreview.slice(0, 2000)}</pre>
           </div>
         )}
 
         {fwdAtts.length > 0 && (
-          <div className="muted small">
-            Original attachments included: {fwdAtts.map((a) => `${a.filename} (${formatBytes(a.size)})`).join(", ")}
+          <div className="mx-5 mb-4 flex flex-wrap gap-2">
+            {fwdAtts.map((a) => (
+              <Badge key={a.id} variant="secondary" className="gap-1.5 font-normal">
+                <Paperclip className="size-3" /> {a.filename} ({formatBytes(a.size)})
+              </Badge>
+            ))}
           </div>
         )}
 
-        <div className="compose-foot">
-          <label className="file-pick">
-            <Icon name="clip" size={16} /> Attach files
-            <input type="file" name="files" multiple />
+        <div className="flex flex-wrap items-center gap-3 border-t bg-muted/40 px-5 py-3">
+          <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
+            <Paperclip className="size-4" /> Attach
+            <input type="file" name="files" multiple className="max-w-56 text-xs file:hidden" />
           </label>
-          <span className="muted small">Max 25 MB total</span>
-          <span className="spacer" />
-          <a className="btn btn-ghost" href={`/mb/${mailbox.id}/inbox`}>
-            Discard
-          </a>
-          <button className="btn btn-primary" type="submit">
-            Send
-          </button>
+          <span className="text-xs text-muted-foreground">Up to 25 MB in total</span>
+          <span className="flex-1" />
+          <Button variant="ghost" asChild>
+            <a href={`/mb/${mailbox.id}/inbox`}>Discard</a>
+          </Button>
+          <Button type="submit" className="min-w-28">
+            <Send /> Send
+          </Button>
         </div>
       </form>
     </Shell>
+  );
+}
+
+const fieldCls = "h-11 w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground";
+
+function ComposeRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex items-center gap-3 border-b px-5 focus-within:bg-accent/30">
+      <span className="w-14 shrink-0 text-sm text-muted-foreground">{label}</span>
+      {children}
+    </label>
   );
 }
 
@@ -205,28 +227,38 @@ export async function SettingsPage({ params, ctx, request }: RequestInfo) {
   if (!mailbox) return notFound();
   return (
     <Shell user={user} mailboxId={mailbox.id} folder="settings" flash={flashFrom(request)}>
-      <header className="toolbar">
-        <div>
-          <h1>Settings</h1>
-          <div className="muted small">{mailbox.address}</div>
-        </div>
-      </header>
-      <form method="post" className="card stack narrow">
-        <label>
-          Sender name
-          <input name="display_name" defaultValue={mailbox.display_name} required />
-        </label>
-        <label>
-          Signature
-          <textarea name="signature" rows={6} defaultValue={mailbox.signature} placeholder={"Jane Doe\nAcme Inc. · https://example.com"} />
-        </label>
-        <div className="muted small">Plain text. Links are made clickable automatically.</div>
-        <div>
-          <button className="btn btn-primary" type="submit">
-            Save
-          </button>
-        </div>
-      </form>
+      <PageHeader title="Signature" sub={`How ${mailbox.address} signs its mail`} />
+      <div className="grid max-w-[980px] gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <form method="post" className="flex flex-col gap-5 rounded-lg border bg-card p-6">
+          <div className="grid gap-2">
+            <Label htmlFor="display_name">Sender name</Label>
+            <Input id="display_name" name="display_name" defaultValue={mailbox.display_name} required />
+            <p className="text-xs text-muted-foreground">Recipients see this next to the address.</p>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="signature">Signature</Label>
+            <Textarea
+              id="signature"
+              name="signature"
+              rows={7}
+              defaultValue={mailbox.signature}
+              placeholder={"Jane Doe\nAcme Inc., https://example.com"}
+            />
+            <p className="text-xs text-muted-foreground">Plain text. Links become clickable when sent.</p>
+          </div>
+          <div>
+            <Button type="submit">Save signature</Button>
+          </div>
+        </form>
+        <aside className="rounded-lg border border-dashed p-5 text-sm">
+          <div className="font-medium">How it looks</div>
+          <div className="mt-3 rounded-md bg-card p-4 shadow-sm">
+            <div className="text-muted-foreground">…your message</div>
+            <pre className="mt-3 font-sans whitespace-pre-wrap">-- {"\n"}{mailbox.signature.trim() || "No signature yet"}</pre>
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">You can leave it out of any single message while writing.</p>
+        </aside>
+      </div>
     </Shell>
   );
 }

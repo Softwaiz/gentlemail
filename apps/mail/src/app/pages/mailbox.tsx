@@ -1,7 +1,26 @@
 import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
-import { Icon } from "@/app/components/icons";
-import { Shell, flashFrom } from "@/app/components/shell";
+import {
+  Archive,
+  ChevronLeft,
+  Download,
+  Forward,
+  Inbox,
+  Mail,
+  MailOpen,
+  OctagonAlert,
+  Paperclip,
+  Reply,
+  ReplyAll,
+  Search,
+  Star,
+  Trash2,
+} from "lucide-react";
+import { PageHeader, Shell, flashFrom } from "@/app/components/shell";
+import { Badge } from "@/app/components/ui/badge";
+import { Button } from "@/app/components/ui/button";
+import { Input } from "@/app/components/ui/input";
+import { cn } from "@/lib/utils";
 import { MailFrame } from "@/app/components/mail-frame";
 import { field, notFound, redirect, withFlash } from "@/app/http";
 import {
@@ -68,104 +87,115 @@ export async function FolderPage({ params, ctx, request }: RequestInfo) {
   rows = rows.slice(0, PAGE_SIZE);
   const label = FOLDERS.find((f) => f.id === folder)!.label;
   const back = url.pathname + url.search;
+  const unreadHere = rows.filter((r) => r.thread_unread > 0).length;
 
   return (
     <Shell user={user} mailboxId={mailbox.id} folder={q ? undefined : folder} flash={flashFrom(request)}>
-      <header className="toolbar">
-        <h1>{q ? `Results for “${q}”` : label}</h1>
-        <form method="get" action={`/mb/${mailbox.id}/inbox`} className="search" role="search">
-          <Icon name="search" size={16} />
-          <input name="q" type="search" placeholder={`Search ${mailbox.address}`} defaultValue={q} aria-label="Search mail" />
+      <PageHeader
+        title={q ? "Search" : label}
+        sub={
+          q
+            ? `Results for “${q}” in ${mailbox.address}`
+            : rows.length === 0
+              ? mailbox.address
+              : `${rows.length}${hasMore ? "+" : ""} conversations${unreadHere ? `, ${unreadHere} unread` : ""}`
+        }
+      >
+        <form method="get" action={`/mb/${mailbox.id}/inbox`} role="search" className="relative w-full sm:w-80">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input name="q" type="search" placeholder="Search this mailbox" defaultValue={q} aria-label="Search mail" className="h-10 bg-card pl-9" />
         </form>
-      </header>
+      </PageHeader>
 
       <form method="post" action={`/mb/${mailbox.id}/actions`}>
         <input type="hidden" name="back" value={back} />
         <input type="hidden" name="folder" value={folder} />
         <input type="hidden" name="scope" value={q ? "message" : "thread"} />
-        <div className="bulkbar">
-          <span className="muted small">Selected:</span>
-          {folder !== "inbox" && <ActionBtn value="inbox">Move to inbox</ActionBtn>}
-          {folder !== "archive" && folder !== "sent" && <ActionBtn value="archive">Archive</ActionBtn>}
-          <ActionBtn value="read">Mark read</ActionBtn>
-          <ActionBtn value="unread">Mark unread</ActionBtn>
-          {folder !== "spam" && folder !== "sent" && <ActionBtn value="spam">Spam</ActionBtn>}
-          {folder === "trash" ? (
-            <ActionBtn value="delete" danger>
-              Delete forever
-            </ActionBtn>
-          ) : (
-            <ActionBtn value="trash" danger>
-              Trash
-            </ActionBtn>
-          )}
-        </div>
 
         {rows.length === 0 ? (
-          <div className="empty">{q ? "No messages match your search." : `No messages in ${label}.`}</div>
+          <div className="grid place-items-center rounded-lg border border-dashed border-input bg-card px-6 py-20 text-center">
+            <div className="font-display text-2xl">{q ? "Nothing found" : `${label} is empty`}</div>
+            <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+              {q
+                ? "Try a name, an address or a word from the subject."
+                : folder === "inbox"
+                  ? `New mail to ${mailbox.address} shows up here.`
+                  : "Conversations you move here will show up in this list."}
+            </p>
+          </div>
         ) : (
-          <ul className="msg-list">
-            {rows.map((m) => {
-              const unread = m.thread_unread > 0;
-              const who =
-                m.direction === "out"
-                  ? "To: " + (parseAddrs(m.to_json).map((a) => a.name || a.address).join(", ") || "—")
-                  : m.from_name || m.from_addr;
-              return (
-                <li key={m.id} className={`msg-row ${unread ? "unread" : ""}`}>
-                  <input
-                    type="checkbox"
-                    name="ids"
-                    value={q ? m.id : m.thread_id}
-                    aria-label="Select"
-                  />
-                  <a
-                    className="msg-link"
-                    href={`/mb/${mailbox.id}/thread/${m.thread_id}?f=${q ? m.folder : folder}`}
-                  >
-                    <span className="msg-from truncate">
-                      <span className="unread-dot" aria-label={unread ? "Unread" : undefined} />
-                      {who}
-                      {m.thread_count > 1 && <span className="count"> {m.thread_count}</span>}
-                    </span>
-                    <span className="msg-subject truncate">
-                      <strong>{m.subject}</strong>
-                      <span className="snippet">{m.snippet}</span>
-                    </span>
-                    <span className="msg-meta">
-                      {q && <span className="tag">{m.folder}</span>}
-                      {m.is_starred ? (
-                        <span className="star on" title="Starred">
-                          <Icon name="star" size={15} filled />
-                        </span>
-                      ) : null}
-                      {m.has_attachments ? (
-                        <span title="Has attachments">
-                          <Icon name="clip" size={15} />
-                        </span>
-                      ) : null}
-                      <time>{formatDate(m.date)}</time>
-                    </span>
-                  </a>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="overflow-hidden rounded-lg border bg-card">
+            <div className="flex flex-wrap items-center gap-1 border-b bg-muted/40 px-3 py-1.5">
+              <span className="mr-2 pl-1 text-xs text-muted-foreground">Selected</span>
+              {folder !== "inbox" && <ActionBtn value="inbox" icon={Inbox}>Move to inbox</ActionBtn>}
+              {folder !== "archive" && folder !== "sent" && <ActionBtn value="archive" icon={Archive}>Archive</ActionBtn>}
+              <ActionBtn value="read" icon={MailOpen}>Mark read</ActionBtn>
+              <ActionBtn value="unread" icon={Mail}>Mark unread</ActionBtn>
+              {folder !== "spam" && folder !== "sent" && <ActionBtn value="spam" icon={OctagonAlert}>Spam</ActionBtn>}
+              {folder === "trash" ? (
+                <ActionBtn value="delete" icon={Trash2} danger>Delete forever</ActionBtn>
+              ) : (
+                <ActionBtn value="trash" icon={Trash2} danger>Trash</ActionBtn>
+              )}
+            </div>
+            <ul className="divide-y">
+              {rows.map((m) => {
+                const unread = m.thread_unread > 0;
+                const who =
+                  m.direction === "out"
+                    ? "To " + (parseAddrs(m.to_json).map((a) => a.name || a.address).join(", ") || "nobody")
+                    : m.from_name || m.from_addr;
+                return (
+                  <li key={m.id} className={cn("group relative flex items-center gap-3 pl-4 transition-colors hover:bg-accent/60", unread && "bg-card")}>
+                    {unread && <span className="absolute inset-y-0 left-0 w-[3px] bg-unread" aria-hidden="true" />}
+                    <input
+                      type="checkbox"
+                      name="ids"
+                      value={q ? m.id : m.thread_id}
+                      aria-label={`Select ${m.subject}`}
+                      className="size-4 shrink-0 accent-[var(--violet)]"
+                    />
+                    <a
+                      href={`/mb/${mailbox.id}/thread/${m.thread_id}?f=${q ? m.folder : folder}`}
+                      className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-0.5 py-3 pr-4 md:grid-cols-[200px_minmax(0,1fr)_auto]"
+                    >
+                      <span className={cn("flex min-w-0 items-center gap-2 truncate", unread ? "font-semibold text-foreground" : "text-muted-foreground")}>
+                        <span className="truncate">{who}</span>
+                        {m.thread_count > 1 && <span className="text-xs font-normal text-muted-foreground tabular-nums">{m.thread_count}</span>}
+                      </span>
+                      <span className="col-span-2 row-start-2 min-w-0 truncate md:col-span-1 md:row-start-auto">
+                        <span className={unread ? "font-semibold" : "font-medium"}>{m.subject || "(no subject)"}</span>
+                        <span className="ml-2 text-muted-foreground">{m.snippet}</span>
+                      </span>
+                      <span className="flex items-center gap-2 justify-self-end text-xs whitespace-nowrap text-muted-foreground tabular-nums">
+                        {q && <Badge variant="secondary">{m.folder}</Badge>}
+                        {m.is_starred ? <Star className="size-3.5 fill-current text-violet" aria-label="Starred" /> : null}
+                        {m.has_attachments ? <Paperclip className="size-3.5" aria-label="Has attachments" /> : null}
+                        <time className={cn(unread && "font-semibold text-foreground")}>{formatDate(m.date)}</time>
+                      </span>
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         )}
       </form>
 
-      <div className="pager">
-        {page > 1 && (
-          <a className="btn btn-ghost" href={pageUrl(url, page - 1)}>
-            Newer
-          </a>
-        )}
-        {hasMore && (
-          <a className="btn btn-ghost" href={pageUrl(url, page + 1)}>
-            Older
-          </a>
-        )}
-      </div>
+      {(page > 1 || hasMore) && (
+        <div className="flex justify-end gap-2 pt-4">
+          {page > 1 && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={pageUrl(url, page - 1)}>Newer</a>
+            </Button>
+          )}
+          {hasMore && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={pageUrl(url, page + 1)}>Older</a>
+            </Button>
+          )}
+        </div>
+      )}
     </Shell>
   );
 }
@@ -176,11 +206,29 @@ const pageUrl = (url: URL, p: number) => {
   return u.pathname + u.search;
 };
 
-function ActionBtn({ value, children, danger }: { value: string; children: React.ReactNode; danger?: boolean }) {
+function ActionBtn({
+  value,
+  children,
+  danger,
+  icon: I,
+}: {
+  value: string;
+  children: React.ReactNode;
+  danger?: boolean;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
   return (
-    <button type="submit" name="action" value={value} className={`btn btn-sm ${danger ? "btn-danger" : "btn-ghost"}`}>
+    <Button
+      type="submit"
+      name="action"
+      value={value}
+      variant="ghost"
+      size="sm"
+      className={cn("h-8 text-[13px] text-muted-foreground", danger && "text-destructive hover:text-destructive")}
+    >
+      <I className="size-3.5" />
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -289,59 +337,68 @@ export async function ThreadPage({ params, ctx, request }: RequestInfo) {
   const lastIncoming = [...msgs].reverse().find((m) => m.direction === "in") ?? last;
   const back = `/mb/${mailbox.id}/${folder}`;
   const here = url.pathname + url.search;
+  const people = new Set(msgs.map((m) => m.from_addr.toLowerCase())).size;
 
   return (
     <Shell user={user} mailboxId={mailbox.id} folder={folder} flash={flashFrom(request)}>
-      <header className="toolbar">
-        <div>
-          <a href={back} className="back-link">
-            <Icon name="back" size={16} /> {FOLDERS.find((f) => f.id === folder)?.label}
-          </a>
-          <h1 className="thread-subject">{last.subject || "(no subject)"}</h1>
-          <div className="muted small">
-            {msgs.length} {msgs.length === 1 ? "message" : "messages"}
-          </div>
+      <div className="max-w-[880px]">
+        <a href={back} className="mb-3 inline-flex items-center gap-1 text-[13px] font-medium text-muted-foreground hover:text-foreground">
+          <ChevronLeft className="size-4" /> {FOLDERS.find((f) => f.id === folder)?.label}
+        </a>
+        <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.025em] text-balance md:text-[32px]">
+          {last.subject || "(no subject)"}
+        </h1>
+        <div className="mt-2 text-sm text-muted-foreground">
+          {msgs.length} {msgs.length === 1 ? "message" : "messages"}, {people} {people === 1 ? "person" : "people"}
         </div>
-      </header>
 
-      <form method="post" action={`/mb/${mailbox.id}/actions`} className="bulkbar">
-        <input type="hidden" name="ids" value={params.threadId} />
-        <input type="hidden" name="scope" value="thread" />
-        <input type="hidden" name="back" value={here} />
-        <input type="hidden" name="after" value={back} />
-        {folder !== "inbox" && <ActionBtn value="inbox">Move to inbox</ActionBtn>}
-        {folder !== "archive" && folder !== "sent" && <ActionBtn value="archive">Archive</ActionBtn>}
-        <button type="submit" name="action" value="unread" className="btn btn-sm btn-ghost" formAction={`/mb/${mailbox.id}/actions`}>
-          Mark unread
-        </button>
-        {folder !== "spam" && folder !== "sent" && <ActionBtn value="spam">Spam</ActionBtn>}
-        {folder === "trash" ? (
-          <ActionBtn value="delete" danger>
-            Delete forever
-          </ActionBtn>
-        ) : (
-          <ActionBtn value="trash" danger>
-            Trash
-          </ActionBtn>
-        )}
-      </form>
+        <form method="post" action={`/mb/${mailbox.id}/actions`} className="my-5 flex flex-wrap items-center gap-1 border-y py-1.5">
+          <input type="hidden" name="ids" value={params.threadId} />
+          <input type="hidden" name="scope" value="thread" />
+          <input type="hidden" name="back" value={here} />
+          <input type="hidden" name="after" value={back} />
+          {folder !== "inbox" && <ActionBtn value="inbox" icon={Inbox}>Move to inbox</ActionBtn>}
+          {folder !== "archive" && folder !== "sent" && <ActionBtn value="archive" icon={Archive}>Archive</ActionBtn>}
+          <ActionBtn value="unread" icon={Mail}>Mark unread</ActionBtn>
+          {folder !== "spam" && folder !== "sent" && <ActionBtn value="spam" icon={OctagonAlert}>Spam</ActionBtn>}
+          {folder === "trash" ? (
+            <ActionBtn value="delete" icon={Trash2} danger>Delete forever</ActionBtn>
+          ) : (
+            <ActionBtn value="trash" icon={Trash2} danger>Trash</ActionBtn>
+          )}
+        </form>
 
-      <div className="thread">
-        {msgs.map((m) => (
-          <MessageCard key={m.id} m={m} mailboxId={mailbox.id} attachments={byMsg.get(m.id) ?? []} open={m.id === last.id || msgs.length <= 3} isLast={m.id === last.id} here={here} />
-        ))}
-      </div>
+        <div className="flex flex-col gap-3">
+          {msgs.map((m) => (
+            <MessageCard
+              key={m.id}
+              m={m}
+              mailboxId={mailbox.id}
+              attachments={byMsg.get(m.id) ?? []}
+              open={m.id === last.id || msgs.length <= 3}
+              isLast={m.id === last.id}
+              here={here}
+            />
+          ))}
+        </div>
 
-      <div className="reply-bar">
-        <a className="btn btn-primary" href={`/mb/${mailbox.id}/compose?reply=${lastIncoming.id}`}>
-          <Icon name="reply" size={17} /> Reply
-        </a>
-        <a className="btn btn-ghost" href={`/mb/${mailbox.id}/compose?reply=${lastIncoming.id}&all=1`}>
-          <Icon name="replyAll" size={17} /> Reply all
-        </a>
-        <a className="btn btn-ghost" href={`/mb/${mailbox.id}/compose?forward=${last.id}`}>
-          <Icon name="forward" size={17} /> Forward
-        </a>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Button asChild>
+            <a href={`/mb/${mailbox.id}/compose?reply=${lastIncoming.id}`}>
+              <Reply /> Reply
+            </a>
+          </Button>
+          <Button variant="outline" asChild>
+            <a href={`/mb/${mailbox.id}/compose?reply=${lastIncoming.id}&all=1`}>
+              <ReplyAll /> Reply all
+            </a>
+          </Button>
+          <Button variant="outline" asChild>
+            <a href={`/mb/${mailbox.id}/compose?forward=${last.id}`}>
+              <Forward /> Forward
+            </a>
+          </Button>
+        </div>
       </div>
     </Shell>
   );
@@ -367,103 +424,127 @@ function MessageCard({
   const bcc = parseAddrs(m.bcc_json);
   const hasHtml = !!(m.html_body || m.html_key);
   const files = attachments.filter((a) => a.disposition !== "inline" || !a.content_id);
+  const name = m.from_name || m.from_addr;
 
   return (
-    <details className="msg-card" open={open}>
-      <summary>
-        <div className="avatar">{(m.from_name || m.from_addr).slice(0, 1).toUpperCase()}</div>
-        <div className="msg-head">
-          <div>
-            <strong>{m.from_name || m.from_addr}</strong>{" "}
-            {m.from_name && <span className="muted small">&lt;{m.from_addr}&gt;</span>}
-          </div>
-          <div className="muted small truncate">
-            to {to.map(formatAddr).join(", ") || "—"}
-            {cc.length > 0 && <> · cc {cc.map(formatAddr).join(", ")}</>}
-            {bcc.length > 0 && <> · bcc {bcc.map(formatAddr).join(", ")}</>}
-          </div>
-        </div>
-        <div className="muted small nowrap">
-          {files.length > 0 && <Icon name="clip" size={14} />}
+    <details open={open} className="group/msg rounded-lg border bg-card [&:not([open])]:bg-card/60">
+      <summary className="flex cursor-pointer list-none items-center gap-3 rounded-lg px-4 py-3.5 hover:bg-accent/40 group-open/msg:hover:bg-transparent [&::-webkit-details-marker]:hidden">
+        <span
+          className={cn(
+            "grid size-9 shrink-0 place-items-center rounded-full text-sm font-bold",
+            m.direction === "out" ? "bg-lime text-lime-ink" : "bg-secondary text-secondary-foreground",
+          )}
+        >
+          {name.slice(0, 1).toUpperCase()}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate">
+            <span className="font-semibold">{name}</span>
+            {m.from_name && <span className="ml-1.5 text-xs text-muted-foreground">{m.from_addr}</span>}
+          </span>
+          <span className="block truncate text-xs text-muted-foreground">
+            <span className="hidden group-open/msg:inline">
+              to {to.map(formatAddr).join(", ") || "nobody"}
+              {cc.length > 0 && <>, cc {cc.map(formatAddr).join(", ")}</>}
+              {bcc.length > 0 && <>, bcc {bcc.map(formatAddr).join(", ")}</>}
+            </span>
+            <span className="group-open/msg:hidden">{m.snippet}</span>
+          </span>
+        </span>
+        <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
+          {m.is_starred ? <Star className="size-3.5 fill-current text-violet" /> : null}
+          {files.length > 0 && <Paperclip className="size-3.5" />}
           {formatDate(m.date, true)}
-        </div>
+        </span>
       </summary>
 
-      <div className="msg-body">
+      <div className="px-4 pb-4 md:pl-16">
         {hasHtml ? (
           <>
             <MailFrame src={`/body/${m.id}`} title={m.subject} />
-            <div className="small muted body-tools">
-              Remote images are blocked for privacy.{" "}
-              <a href={`/body/${m.id}?images=1`} target="_blank" rel="noopener">
+            <p className="mt-2 text-xs text-muted-foreground">
+              Remote images are blocked to protect your privacy.{" "}
+              <a href={`/body/${m.id}?images=1`} target="_blank" rel="noopener" className="font-medium text-foreground underline underline-offset-2">
                 Open with images
               </a>
-            </div>
+            </p>
           </>
         ) : (
-          <pre className="plain">{m.text_body ?? ""}</pre>
+          <pre className="max-w-[75ch] font-sans text-[14.5px] leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">{m.text_body ?? ""}</pre>
         )}
 
         {files.length > 0 && (
-          <div className="attachments">
-            {files.map((a) => (
-              <div key={a.id} className="att">
-                {a.content_type.startsWith("image/") ? (
-                  <a href={`/attachments/${a.id}?inline=1`} target="_blank" rel="noopener">
-                    <img src={`/attachments/${a.id}?inline=1`} alt={a.filename} loading="lazy" />
-                  </a>
-                ) : (
-                  <div className="att-icon">{(a.filename.split(".").pop() ?? "file").slice(0, 4).toUpperCase()}</div>
-                )}
-                <div className="att-info">
-                  <div className="truncate" title={a.filename}>
-                    {a.filename}
-                  </div>
-                  <div className="muted small">
-                    {formatBytes(a.size)} ·{" "}
-                    {/^(image\/|application\/pdf|text\/plain)/.test(a.content_type) && (
-                      <>
-                        <a href={`/attachments/${a.id}?inline=1`} target="_blank" rel="noopener">
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {files.map((a) => {
+              const viewable = /^(image\/|application\/pdf|text\/plain)/.test(a.content_type);
+              return (
+                <div key={a.id} className="flex items-center gap-3 rounded-md border p-2">
+                  {a.content_type.startsWith("image/") ? (
+                    <a href={`/attachments/${a.id}?inline=1`} target="_blank" rel="noopener" className="shrink-0">
+                      <img src={`/attachments/${a.id}?inline=1`} alt={a.filename} loading="lazy" className="size-11 rounded-sm object-cover" />
+                    </a>
+                  ) : (
+                    <span className="grid size-11 shrink-0 place-items-center rounded-sm bg-secondary text-[10px] font-bold text-muted-foreground uppercase">
+                      {(a.filename.split(".").pop() ?? "file").slice(0, 4)}
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1 text-[13px]">
+                    <div className="truncate font-medium" title={a.filename}>
+                      {a.filename}
+                    </div>
+                    <div className="flex gap-2 text-xs text-muted-foreground">
+                      <span>{formatBytes(a.size)}</span>
+                      {viewable && (
+                        <a href={`/attachments/${a.id}?inline=1`} target="_blank" rel="noopener" className="font-medium text-foreground hover:underline">
                           View
-                        </a>{" "}
-                        ·{" "}
-                      </>
-                    )}
-                    <a href={`/attachments/${a.id}`}>Download</a>
+                        </a>
+                      )}
+                      <a href={`/attachments/${a.id}`} className="font-medium text-foreground hover:underline">
+                        Download
+                      </a>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
-        <div className="msg-actions">
-          {/* The last message is answered from the bar under the thread. */}
+        <div className="mt-4 -ml-2 flex flex-wrap gap-1">
+          {/* The last message is answered from the buttons under the thread. */}
           {!isLast && (
             <>
-              <a className="btn btn-sm btn-ghost" href={`/mb/${mailboxId}/compose?reply=${m.id}`}>
-                <Icon name="reply" size={15} /> Reply
-              </a>
-              <a className="btn btn-sm btn-ghost" href={`/mb/${mailboxId}/compose?reply=${m.id}&all=1`}>
-                <Icon name="replyAll" size={15} /> Reply all
-              </a>
-              <a className="btn btn-sm btn-ghost" href={`/mb/${mailboxId}/compose?forward=${m.id}`}>
-                <Icon name="forward" size={15} /> Forward
-              </a>
+              <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
+                <a href={`/mb/${mailboxId}/compose?reply=${m.id}`}>
+                  <Reply /> Reply
+                </a>
+              </Button>
+              <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
+                <a href={`/mb/${mailboxId}/compose?reply=${m.id}&all=1`}>
+                  <ReplyAll /> Reply all
+                </a>
+              </Button>
+              <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
+                <a href={`/mb/${mailboxId}/compose?forward=${m.id}`}>
+                  <Forward /> Forward
+                </a>
+              </Button>
             </>
           )}
           <form method="post" action={`/mb/${mailboxId}/actions`} className="inline">
             <input type="hidden" name="ids" value={m.id} />
             <input type="hidden" name="scope" value="message" />
             <input type="hidden" name="back" value={here} />
-            <button className="btn btn-sm btn-ghost" name="action" value={m.is_starred ? "unstar" : "star"}>
-              <Icon name="star" size={15} filled={!!m.is_starred} /> {m.is_starred ? "Starred" : "Star"}
-            </button>
+            <Button variant="ghost" size="sm" className="text-muted-foreground" name="action" value={m.is_starred ? "unstar" : "star"}>
+              <Star className={cn(m.is_starred && "fill-current text-violet")} /> {m.is_starred ? "Starred" : "Star"}
+            </Button>
           </form>
           {m.raw_key && (
-            <a className="btn btn-sm btn-ghost" href={`/raw/${m.id}`}>
-              <Icon name="download" size={15} /> Original .eml
-            </a>
+            <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
+              <a href={`/raw/${m.id}`}>
+                <Download /> Original .eml
+              </a>
+            </Button>
           )}
         </div>
       </div>

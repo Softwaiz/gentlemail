@@ -15,7 +15,8 @@ import {
   createUserAction,
 } from "@/app/pages/admin";
 import { AdminDomainPage, adminDomainAction, createDomainAction } from "@/app/pages/domains";
-import { LoginPage, SetupPage, loginAction, logoutAction, setupAction } from "@/app/pages/auth";
+import { Button } from "@/app/components/ui/button";
+import { AuthCard, LoginPage, SetupPage, loginAction, logoutAction, setupAction } from "@/app/pages/auth";
 import { ComposePage, SettingsPage, composeAction, settingsAction } from "@/app/pages/compose";
 import { attachmentHandler, bodyHandler, rawHandler } from "@/app/pages/files";
 import { FolderPage, ThreadPage, actionsHandler } from "@/app/pages/mailbox";
@@ -55,15 +56,14 @@ const app = defineApp([
     route("/no-mailbox", [
       requireUser,
       () => (
-        <div className="auth-wrap">
-          <div className="auth-card">
-            <h1>No mailbox yet</h1>
-            <p>Ask an admin to give you access to a mailbox.</p>
-            <form method="post" action="/logout">
-              <button className="btn btn-ghost">Log out</button>
-            </form>
-          </div>
-        </div>
+        <AuthCard title="No mailbox yet">
+          <p className="text-sm text-muted-foreground">Ask an admin to give you access to a mailbox, then sign in again.</p>
+          <form method="post" action="/logout" className="mt-5">
+            <Button variant="outline" className="w-full">
+              Log out
+            </Button>
+          </form>
+        </AuthCard>
       ),
     ]),
 

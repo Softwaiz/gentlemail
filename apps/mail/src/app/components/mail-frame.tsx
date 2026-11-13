@@ -21,7 +21,7 @@ export function MailFrame({ src, title }: { src: string; title: string }) {
       ref={ref}
       src={src}
       title={title}
-      className="mail-frame"
+      className="block min-h-[120px] w-full rounded-md border bg-white px-3 py-2"
       // Scripts never run. same-origin is only so we can measure the height.
       sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
       referrerPolicy="no-referrer"

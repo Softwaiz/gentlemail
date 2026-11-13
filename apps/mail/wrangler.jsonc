@@ -49,7 +49,7 @@
     // ◆ Must match "name" above; used in the per-domain setup commands
     "WORKER_NAME": "gentlemail",
     // ◆ Name shown in the UI and browser tab
-    "APP_NAME": "Mail"
+    "APP_NAME": "GentleMail"
   }
   // Secrets (set with `wrangler secret put`):
   //   SETUP_TOKEN — one-time token required to create the first admin at /setup

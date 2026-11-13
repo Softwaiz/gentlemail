@@ -5,25 +5,18 @@ import { defineApp, type RequestInfo } from "rwsdk/worker";
 import { Document } from "@/app/document";
 import { setCommonHeaders } from "@/app/headers";
 import { checkOrigin, redirect, requireAdmin, requireUser } from "@/app/http";
-import {
-  AdminMailboxPage,
-  AdminPage,
-  AdminUserPage,
-  adminMailboxAction,
-  adminUserAction,
-  createMailboxAction,
-  createUserAction,
-} from "@/app/pages/admin";
-import { AdminDomainPage, adminDomainAction, createDomainAction } from "@/app/pages/domains";
+import { AdminMailboxPage, AdminPage } from "@/app/pages/admin";
+import { AdminDomainPage } from "@/app/pages/domains";
 import { Button } from "@/app/components/ui/button";
 import { AuthCard, LoginPage, SetupPage, loginAction, logoutAction, setupAction } from "@/app/pages/auth";
-import { ComposePage, SettingsPage, composeAction, settingsAction } from "@/app/pages/compose";
+import { ComposePage, SettingsPage } from "@/app/pages/compose";
 import { attachmentHandler, bodyHandler, rawHandler } from "@/app/pages/files";
-import { FolderPage, ThreadPage, actionsHandler } from "@/app/pages/mailbox";
+import { FolderPage, ThreadPage } from "@/app/pages/mailbox";
 import { type User, getUserFromRequest } from "@/lib/auth";
 import { listMailboxesForUser } from "@/lib/db";
 import { handleInbound } from "@/lib/inbound";
 import { retryDueDeliveries } from "@/lib/webhooks";
+import { purgeOldSpam } from "@/lib/spam";
 import {
   apiNotFound,
   attachmentApiHandler,
@@ -33,7 +26,7 @@ import {
   messageHandler,
   sendHandler,
 } from "@/app/api";
-import { DevelopersPage, WebhookPage, developersAction, webhookAction } from "@/app/pages/developers";
+import { DevelopersPage, WebhookPage } from "@/app/pages/developers";
 
 export type AppContext = { user: User | null };
 
@@ -55,7 +48,6 @@ const app = defineApp([
   route("/attachments/:id", [requireUser, attachmentHandler]),
   route("/raw/:id", [requireUser, rawHandler]),
   route("/body/:id", [requireUser, bodyHandler]),
-  route("/mb/:mailboxId/actions", { post: [requireUser, actionsHandler] }),
   // Public API (API keys, no cookies). See src/app/api.ts.
   route("/api/v1/send", { post: sendHandler }),
   route("/api/v1/mailboxes", { get: mailboxesHandler }),
@@ -63,10 +55,6 @@ const app = defineApp([
   route("/api/v1/messages/:id", { get: messageHandler, post: messageActionHandler }),
   route("/api/v1/attachments/:id", { get: attachmentApiHandler }),
   route("/api/*", apiNotFound),
-
-  route("/admin/domains", { post: [requireAdmin, createDomainAction] }),
-  route("/admin/mailboxes", { post: [requireAdmin, createMailboxAction] }),
-  route("/admin/users", { post: [requireAdmin, createUserAction] }),
 
   render(Document, [
     route("/setup", { get: SetupPage, post: setupAction }),
@@ -86,15 +74,17 @@ const app = defineApp([
       ),
     ]),
 
+    // Pages. Their forms call server functions (src/app/actions), which rwsdk
+    // posts to the page URL itself; each function checks access on its own too.
     route("/admin", [requireAdmin, AdminPage]),
-    route("/admin/api", { get: [requireAdmin, (i) => DevelopersPage(i)], post: [requireAdmin, developersAction] }),
-    route("/admin/webhooks/:id", { get: [requireAdmin, WebhookPage], post: [requireAdmin, webhookAction] }),
-    route("/admin/domains/:id", { get: [requireAdmin, AdminDomainPage], post: [requireAdmin, adminDomainAction] }),
-    route("/admin/mailboxes/:id", { get: [requireAdmin, AdminMailboxPage], post: [requireAdmin, adminMailboxAction] }),
-    route("/admin/users/:id", { get: [requireAdmin, AdminUserPage], post: [requireAdmin, adminUserAction] }),
+    route("/admin/api", [requireAdmin, DevelopersPage]),
+    route("/admin/webhooks/:id", [requireAdmin, WebhookPage]),
+    route("/admin/domains/:id", [requireAdmin, AdminDomainPage]),
+    route("/admin/mailboxes/:id", [requireAdmin, AdminMailboxPage]),
+    route("/admin/users/:id", [requireAdmin, () => redirect("/admin")]),
 
-    route("/mb/:mailboxId/compose", { get: [requireUser, ComposePage], post: [requireUser, composeAction] }),
-    route("/mb/:mailboxId/settings", { get: [requireUser, SettingsPage], post: [requireUser, settingsAction] }),
+    route("/mb/:mailboxId/compose", [requireUser, ComposePage]),
+    route("/mb/:mailboxId/settings", [requireUser, SettingsPage]),
     route("/mb/:mailboxId/thread/:threadId", [requireUser, ThreadPage]),
     route("/mb/:mailboxId/:folder", [requireUser, FolderPage]),
   ]),
@@ -115,9 +105,10 @@ export default class MailWorker extends WorkerEntrypoint<Env> {
     }
   }
 
-  /** Cron (every minute): retry webhook deliveries that are due. */
-  async scheduled() {
+  /** Cron (every minute): retry due webhook deliveries; once an hour, purge old spam. */
+  async scheduled(controller: ScheduledController) {
     await retryDueDeliveries();
+    if (new Date(controller.scheduledTime).getUTCMinutes() === 0) await purgeOldSpam();
   }
 
   override async fetch(request: Request) {

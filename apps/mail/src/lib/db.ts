@@ -47,6 +47,7 @@ export type MessageRow = {
   is_read: number;
   is_starred: number;
   date: number;
+  spam_reason: string | null;
 };
 
 export type AttachmentRow = {
@@ -146,4 +147,30 @@ export async function listDomains(activeOnly = false): Promise<Domain[]> {
 export async function isDomainActive(name: string): Promise<boolean> {
   const row = await env.DB.prepare("SELECT 1 FROM domains WHERE name = ? AND active = 1").bind(name).first();
   return !!row;
+}
+
+export type SwitcherGroup = {
+  domain: string;
+  mailboxes: { id: string; address: string; name: string; unread: number; active: boolean }[];
+};
+
+/** Mailboxes a user can open, grouped by domain, with inbox unread counts. */
+export async function switcherGroups(user: User): Promise<SwitcherGroup[]> {
+  const groups = new Map<string, SwitcherGroup>();
+  for (const m of await listMailboxesForUser(user)) {
+    const d = domainOf(m.address);
+    if (!groups.has(d)) groups.set(d, { domain: d, mailboxes: [] });
+    groups.get(d)!.mailboxes.push({ id: m.id, address: m.address, name: m.display_name, unread: m.unread, active: !!m.active });
+  }
+  return [...groups.values()].sort((a, b) => a.domain.localeCompare(b.domain));
+}
+
+/** Unread messages per folder of one mailbox. */
+export async function unreadByFolder(mailboxId: string): Promise<Partial<Record<Folder, number>>> {
+  const { results } = await env.DB.prepare(
+    "SELECT folder, COUNT(*) AS n FROM messages WHERE mailbox_id = ? AND is_read = 0 GROUP BY folder",
+  )
+    .bind(mailboxId)
+    .all<{ folder: Folder; n: number }>();
+  return Object.fromEntries(results.map((r) => [r.folder, r.n]));
 }

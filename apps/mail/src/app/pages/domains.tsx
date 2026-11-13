@@ -3,13 +3,11 @@ import type { RequestInfo } from "rwsdk/worker";
 import { PageHeader, Shell, flashFrom } from "@/app/components/shell";
 import { Section, StatusBadge } from "@/app/components/section";
 import { Button } from "@/app/components/ui/button";
-import { Input } from "@/app/components/ui/input";
 import { cn } from "@/lib/utils";
-import { field, notFound, redirect, withFlash } from "@/app/http";
+import { deleteDomain, setDomainActive } from "@/app/actions/admin";
+import { ActionSwitch, ConfirmAction } from "@/app/components/action-form";
+import { notFound } from "@/app/http";
 import type { Domain, Mailbox } from "@/lib/db";
-import { newId, now } from "@/lib/util";
-
-const DOMAIN_RE = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
 type DomainWithCount = Domain & { mailboxes: number };
 
@@ -21,63 +19,39 @@ export async function listDomainsWithCounts(): Promise<DomainWithCount[]> {
   return results;
 }
 
-/* ---------- Section on the admin overview ---------- */
+/* ---------- Grid on the admin overview ---------- */
 
-export function DomainsSection({ domains }: { domains: DomainWithCount[] }) {
+export function DomainsGrid({ domains }: { domains: DomainWithCount[] }) {
+  if (domains.length === 0)
+    return (
+      <p className="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+        No domains yet. Use “New domain” to add the first one.
+      </p>
+    );
   return (
-    <Section
-      title="Domains"
-      description="Every domain this app receives and sends mail for. Each must be a zone in the same Cloudflare account."
-    >
-      {domains.length === 0 ? (
-        <p className="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-          No domains yet. Add the first one below.
-        </p>
-      ) : (
-        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {domains.map((d) => (
-            <li key={d.id}>
-              <a
-                href={`/admin/domains/${d.id}`}
-                className="group flex h-full flex-col justify-between gap-4 rounded-md border p-4 transition-colors hover:border-foreground/30 hover:bg-accent/40"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="truncate text-[15px] font-semibold tracking-[-0.01em]">{d.name}</span>
-                  <StatusBadge on={!!d.active} />
-                </div>
-                <div className="flex items-end justify-between text-sm text-muted-foreground">
-                  <span>
-                    <span className="font-display text-2xl leading-none text-foreground tabular-nums">{d.mailboxes}</span>{" "}
-                    {d.mailboxes === 1 ? "mailbox" : "mailboxes"}
-                  </span>
-                  <span className="text-xs font-medium group-hover:text-foreground">Setup and status</span>
-                </div>
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <form method="post" action="/admin/domains" className="mt-5 flex flex-wrap items-center gap-3 rounded-md bg-muted/50 p-4">
-        <Input name="name" placeholder="example.com" required aria-label="Domain name" className="max-w-80 flex-1 bg-card" />
-        <Button type="submit">Add domain</Button>
-        <span className="text-xs text-muted-foreground">You'll get the commands that connect it next.</span>
-      </form>
-    </Section>
+    <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+      {domains.map((d) => (
+        <li key={d.id}>
+          <a
+            href={`/admin/domains/${d.id}`}
+            className="group flex h-full flex-col justify-between gap-4 rounded-md border p-4 transition-colors hover:border-foreground/30 hover:bg-accent/40"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <span className="truncate text-[15px] font-semibold tracking-[-0.01em]">{d.name}</span>
+              <StatusBadge on={!!d.active} />
+            </div>
+            <div className="flex items-end justify-between text-sm text-muted-foreground">
+              <span>
+                <span className="font-semibold text-foreground tabular-nums">{d.mailboxes}</span>{" "}
+                {d.mailboxes === 1 ? "mailbox" : "mailboxes"}
+              </span>
+              <span className="text-xs font-medium group-hover:text-foreground">Setup and status</span>
+            </div>
+          </a>
+        </li>
+      ))}
+    </ul>
   );
-}
-
-export async function createDomainAction({ request }: RequestInfo) {
-  const form = await request.formData();
-  const name = field(form, "name").toLowerCase().replace(/^@/, "").replace(/\.$/, "");
-  if (!DOMAIN_RE.test(name)) return redirect(withFlash("/admin", "err", "That doesn't look like a domain name."));
-  const exists = await env.DB.prepare("SELECT 1 FROM domains WHERE name = ?").bind(name).first();
-  if (exists) return redirect(withFlash("/admin", "err", `${name} is already added.`));
-  const id = newId();
-  await env.DB.prepare("INSERT INTO domains (id, name, active, created_at) VALUES (?, ?, 1, ?)")
-    .bind(id, name, now())
-    .run();
-  return redirect(withFlash(`/admin/domains/${id}`, "msg", `${name} added. Finish the setup below.`));
 }
 
 /* ---------- DNS checks (public DNS over HTTPS) ---------- */
@@ -169,10 +143,13 @@ export async function AdminDomainPage({ params, ctx, request }: RequestInfo) {
   return (
     <Shell user={ctx.user!} folder="admin" flash={flashFrom(request)}>
       <PageHeader title={d} back={{ href: "/admin", label: "Admin" }}>
-        <StatusBadge on={!!domain.active} />
+        <label className="flex items-center gap-2.5 rounded-md border bg-card px-3 py-2 text-sm">
+          <ActionSwitch action={setDomainActive} id={domain.id} checked={!!domain.active} label={`${d} active`} />
+          {domain.active ? "Active" : "Turned off"}
+        </label>
       </PageHeader>
 
-      <div className="grid max-w-[980px] gap-6">
+      <div className="grid gap-6 xl:grid-cols-2">
         <Section title="DNS status" description="Live lookup of public DNS. Refresh the page after a change.">
           <ul className="divide-y rounded-md border">
             {checks.map((c) => (
@@ -192,7 +169,7 @@ export async function AdminDomainPage({ params, ctx, request }: RequestInfo) {
           <ol className="grid gap-4">
             {steps.map((s, i) => (
               <li key={s.title} className="grid grid-cols-[28px_minmax(0,1fr)] gap-3">
-                <span className="grid size-7 place-items-center rounded-sm bg-primary font-display text-sm text-primary-foreground">
+                <span className="grid size-7 place-items-center rounded-sm bg-primary text-sm font-semibold text-primary-foreground">
                   {i + 1}
                 </span>
                 <div className="min-w-0">
@@ -215,9 +192,9 @@ export async function AdminDomainPage({ params, ctx, request }: RequestInfo) {
           </p>
         </Section>
 
-        <Section title={`Mailboxes on ${d}`}>
+        <Section title={`Mailboxes on ${d}`} className="xl:col-span-2">
           {mailboxes.length === 0 ? (
-            <p className="text-sm text-muted-foreground">None yet. Create one from the Admin page.</p>
+            <p className="text-sm text-muted-foreground">None yet. Create one from Admin, then Mailboxes.</p>
           ) : (
             <ul className="grid gap-2 sm:grid-cols-2">
               {mailboxes.map((m) => (
@@ -232,64 +209,31 @@ export async function AdminDomainPage({ params, ctx, request }: RequestInfo) {
           )}
         </Section>
 
-        <Section title="Status">
-          <form method="post" className="grid gap-4">
-            <input type="hidden" name="op" value="update" />
-            <label className="flex items-start gap-2.5 text-sm">
-              <input type="checkbox" name="active" value="1" defaultChecked={!!domain.active} className="mt-0.5 size-4 accent-[var(--violet)]" />
-              <span>
-                <span className="font-medium">Active</span>
-                <span className="block text-muted-foreground">When off, mail to {d} is rejected and sending from it is blocked.</span>
-              </span>
-            </label>
-            <div>
-              <Button type="submit">Save status</Button>
-            </div>
-          </form>
-        </Section>
-
-        <Section title="Remove domain" tone="danger">
+        <Section title="Remove domain" tone="danger" className="xl:col-span-2">
           {mailboxes.length > 0 ? (
             <p className="text-sm text-muted-foreground">
               Delete its {mailboxes.length} {mailboxes.length === 1 ? "mailbox" : "mailboxes"} first.
             </p>
           ) : (
-            <form method="post" className="grid gap-3">
-              <input type="hidden" name="op" value="delete" />
+            <div className="grid gap-3">
               <p className="text-sm text-muted-foreground">
                 Removes {d} from this app. Cloudflare settings stay as they are, so turn off the catch-all too if mail
                 shouldn't reach this app anymore.
               </p>
               <div>
-                <Button type="submit" variant="destructive">
-                  Remove {d}
-                </Button>
+                <ConfirmAction
+                  trigger={<Button variant="destructive">Remove {d}</Button>}
+                  title={`Remove ${d}?`}
+                  description="Mail to this domain is rejected from now on. You can add it again later."
+                  confirmLabel="Remove domain"
+                  action={deleteDomain}
+                  args={[domain.id]}
+                />
               </div>
-            </form>
+            </div>
           )}
         </Section>
       </div>
     </Shell>
   );
-}
-
-export async function adminDomainAction({ params, request }: RequestInfo) {
-  const domain = await env.DB.prepare("SELECT * FROM domains WHERE id = ?").bind(params.id).first<Domain>();
-  if (!domain) return notFound();
-  const form = await request.formData();
-  const here = `/admin/domains/${domain.id}`;
-
-  if (field(form, "op") === "delete") {
-    const used = await env.DB.prepare("SELECT 1 FROM mailboxes WHERE address LIKE ? LIMIT 1")
-      .bind(`%@${domain.name}`)
-      .first();
-    if (used) return redirect(withFlash(here, "err", "Delete the mailboxes on this domain first."));
-    await env.DB.prepare("DELETE FROM domains WHERE id = ?").bind(domain.id).run();
-    return redirect(withFlash("/admin", "msg", `${domain.name} removed.`));
-  }
-
-  await env.DB.prepare("UPDATE domains SET active = ? WHERE id = ?")
-    .bind(form.get("active") === "1" ? 1 : 0, domain.id)
-    .run();
-  return redirect(withFlash(here, "msg", "Saved."));
 }

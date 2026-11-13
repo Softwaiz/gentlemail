@@ -1,6 +1,7 @@
 import { env, waitUntil } from "cloudflare:workers";
 import PostalMime, { type Address } from "postal-mime";
 import { resolveThreadId } from "./threads";
+import { spamVerdict } from "./spam";
 import { emitMessageEvent } from "./webhooks";
 import { type Addr, makeSnippet, newId, now, stripBrackets } from "./util";
 
@@ -65,16 +66,15 @@ export async function handleInbound(message: ForwardableEmailMessage) {
     counterpart: from.address,
   });
 
-  const spamFlag = email.headers.some(
-    (h) => h.key === "x-spam-flag" && /yes/i.test(h.value),
-  );
+  const spamReason = await spamVerdict(mailbox.id, from.address, email.headers);
+  const spamFlag = spamReason !== null;
 
   const stmts: D1PreparedStatement[] = [
     env.DB.prepare(
       `INSERT INTO messages (id, mailbox_id, thread_id, folder, direction, message_id, in_reply_to, references_hdr,
         from_addr, from_name, to_json, cc_json, bcc_json, reply_to, subject, snippet, text_body, html_body, html_key,
-        raw_key, size, has_attachments, is_read, date, created_at)
-       VALUES (?, ?, ?, ?, 'in', ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+        raw_key, size, has_attachments, is_read, date, created_at, spam_reason)
+       VALUES (?, ?, ?, ?, 'in', ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
     ).bind(
       id,
       mailbox.id,
@@ -98,6 +98,7 @@ export async function handleInbound(message: ForwardableEmailMessage) {
       email.attachments.some((a) => a.disposition !== "inline" || !a.contentId) ? 1 : 0,
       email.date ? Date.parse(email.date) || ts : ts,
       ts,
+      spamReason,
     ),
   ];
 

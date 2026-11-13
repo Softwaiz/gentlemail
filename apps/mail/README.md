@@ -27,6 +27,15 @@ Incoming HTML is untrusted. Three independent layers keep it inert:
 
 Session cookies are `HttpOnly` and `SameSite=Lax`, and attachments of risky types (HTML, SVG…) are always downloaded, never displayed.
 
+## Spam
+Cloudflare Email Routing rejects mail that fails SPF and DKIM, fails the sender's DMARC policy, or comes from a blocklisted server, before it reaches the app. Of the rest, a message goes to **Spam** when:
+1. you blocked its sender (marking a conversation as spam blocks that address for the mailbox),
+2. it arrives flagged `X-Spam-Flag: YES`,
+3. DMARC failed but wasn't enforced (`p=none` or `p=quarantine`),
+4. `SPAM_SCORE_THRESHOLD` is set and Cloudflare's `X-Cf-Spamh-Score` reaches it (off by default).
+
+"Not spam" moves it back and trusts the sender from then on; trusted senders skip every rule. Both lists are under **Mailbox settings**. Spam doesn't trigger webhooks and is deleted after 30 days by the hourly purge.
+
 ## API & webhooks
 Create keys and webhooks in **Admin → API & webhooks** (the page has a full quick reference).
 
@@ -38,7 +47,7 @@ Create keys and webhooks in **Admin → API & webhooks** (the page has a full qu
 
 ## Layout
 ```
-migrations/                D1 schema (0001 init, 0002 domains, 0003 API keys + webhooks)
+migrations/                D1 schema (0001 init, 0002 domains, 0003 API keys + webhooks, 0004 sender rules)
 src/worker.tsx             routes + Worker entry (fetch + email)
 src/lib/inbound.ts         receive → D1/R2
 src/lib/outbound.ts        send via EMAIL binding → saved in "sent"
@@ -46,6 +55,9 @@ src/lib/threads.ts         conversation grouping
 src/lib/apikeys.ts         API key creation and checks
 src/lib/webhooks.ts        webhook signing, delivery, retries
 src/app/api.ts             public /api/v1 routes
+src/app/actions/           server functions: serverAction (mutations) and serverQuery (data only);
+                           each checks access itself (guards.ts), whatever page it is posted to
+src/lib/spam.ts            spam rules, sender lists, 30-day purge
 src/lib/auth.ts            PBKDF2 passwords, D1 sessions
 src/app/pages/*            UI (server components + plain HTML forms)
 ```

@@ -106,7 +106,19 @@ If you connect a copy of the whole repository to Workers Builds yourself (instea
 The Deploy button doesn't need this: it copies `apps/mail` to the root of your new repository.
 
 ### Configuration
-`wrangler.jsonc` is the template every deployment starts from; values marked ◆ are yours to change in your copy (Worker name, hostnames, `PUBLIC_URL`, `APP_NAME`). The Worker name shown in the setup steps is read from `name` at build time, so renaming the Worker needs no other change. To pick up new releases, pull this repository into yours (`git remote add upstream https://github.com/Softwaiz/gentlemail && git pull upstream main`) and push.
+`wrangler.jsonc` is the template every deployment starts from; values marked ◆ are yours to change in your copy (Worker name, hostnames, `PUBLIC_URL`, `APP_NAME`). The Worker name shown in the setup steps is read from `name` at build time, so renaming the Worker needs no other change. To pick up new releases, pull them into your repository and push:
+
+```sh
+git remote add upstream https://github.com/Softwaiz/gentlemail
+
+# Repository made by the Deploy button (the app is at its root):
+git pull -X subtree=apps/mail upstream main && git push
+
+# Fork or clone of the whole repository:
+git pull upstream main && git push
+```
+
+The first pull into a Deploy-button repository needs `--allow-unrelated-histories`, and Git reports every file changed since you deployed as a conflict. Keep GentleMail's version (`git checkout --theirs .`), restore your own `wrangler.jsonc` and any file you changed (`git checkout --ours wrangler.jsonc`), then commit. Later pulls merge normally.
 
 ## Adding a domain
 The domain must be a zone in the same Cloudflare account as the Worker.

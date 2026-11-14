@@ -244,7 +244,7 @@ export function ConfirmAction({
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             disabled={pending || blocked}
-            className="bg-destructive text-white hover:bg-destructive/90"
+            variant="destructive"
             onClick={(e) => {
               e.preventDefault(); // keep it open until the action finishes
               run(...(confirmText !== undefined ? [...args, typed] : args));

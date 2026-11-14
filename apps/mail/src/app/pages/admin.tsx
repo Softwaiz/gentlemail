@@ -21,7 +21,7 @@ import { Input } from "@/app/components/ui/input";
 import { Switch } from "@/app/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
 import { Textarea } from "@/app/components/ui/textarea";
-import { notFound } from "@/app/http";
+import { missing } from "@/app/pages/errors";
 import { DomainsGrid, listDomainsWithCounts } from "@/app/pages/domains";
 import { type Mailbox, domainOf } from "@/lib/db";
 
@@ -313,9 +313,10 @@ export async function AdminPage({ ctx, request }: RequestInfo) {
 
 /* ---------- Single mailbox ---------- */
 
-export async function AdminMailboxPage({ params, ctx, request }: RequestInfo) {
+export async function AdminMailboxPage(ri: RequestInfo) {
+  const { params, ctx, request } = ri;
   const mailbox = await env.DB.prepare("SELECT * FROM mailboxes WHERE id = ?").bind(params.id).first<Mailbox>();
-  if (!mailbox) return notFound();
+  if (!mailbox) return missing(ri, "mailbox");
   const { results: users } = await env.DB.prepare(
     `SELECT u.id, u.name, u.email, u.role,
        EXISTS(SELECT 1 FROM mailbox_members mm WHERE mm.user_id = u.id AND mm.mailbox_id = ?) AS member

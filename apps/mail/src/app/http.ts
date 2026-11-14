@@ -39,9 +39,4 @@ export function requireUser({ ctx, request }: RequestInfo) {
   }
 }
 
-export function requireAdmin({ ctx }: RequestInfo) {
-  if (!ctx.user) return redirect("/login");
-  if (ctx.user.role !== "admin") return new Response("Admins only", { status: 403 });
-}
-
 export const notFound = () => new Response("Not found", { status: 404 });

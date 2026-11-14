@@ -6,7 +6,7 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/lib/utils";
 import { deleteDomain, setDomainActive } from "@/app/actions/admin";
 import { ActionSwitch, ConfirmAction } from "@/app/components/action-form";
-import { notFound } from "@/app/http";
+import { missing } from "@/app/pages/errors";
 import type { Domain, Mailbox } from "@/lib/db";
 
 type DomainWithCount = Domain & { mailboxes: number };
@@ -114,9 +114,10 @@ const stateLabel: Record<Check["state"], string> = { ok: "OK", warn: "Check", mi
 
 /* ---------- Single domain ---------- */
 
-export async function AdminDomainPage({ params, ctx, request }: RequestInfo) {
+export async function AdminDomainPage(ri: RequestInfo) {
+  const { params, ctx, request } = ri;
   const domain = await env.DB.prepare("SELECT * FROM domains WHERE id = ?").bind(params.id).first<Domain>();
-  if (!domain) return notFound();
+  if (!domain) return missing(ri, "domain");
   const [{ results: mailboxes }, checks] = await Promise.all([
     env.DB.prepare("SELECT * FROM mailboxes WHERE address LIKE ? ORDER BY address")
       .bind(`%@${domain.name}`)

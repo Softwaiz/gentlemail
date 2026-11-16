@@ -42,15 +42,17 @@ Pick one of three ways. They all end with the same Worker.
 | Build command | `npm run build` |
 | Deploy command | `npm run deploy` (applies the D1 migrations, then deploys) |
 
-Add `SETUP_TOKEN` as a secret under **Settings → Variables and Secrets**.
+Add `SETUP_TOKEN` as a secret under **Settings → Variables and Secrets**. The deploy command's migration step needs the D1 database to exist; if the very first build stops there, do the first deploy from the command line (below), then retry the build.
 
-**Command line.** From `apps/mail`:
+**Command line.** From `apps/mail`, the first time:
 ```sh
 npm install
-npx wrangler secret put SETUP_TOKEN   # any long random string, used once at /setup
-npm run build && npm run deploy       # applies D1 migrations, then deploys
+npm run build
+npx wrangler deploy                            # creates the Worker, the D1 database and the R2 bucket named in wrangler.jsonc
+npx wrangler d1 migrations apply DB --remote   # creates the tables
+npx wrangler secret put SETUP_TOKEN            # any long random string, used once at /setup
 ```
-Wrangler creates the D1 database and the R2 bucket named in `wrangler.jsonc` on the first deploy.
+Use `wrangler deploy` directly this first time: `npm run deploy` applies the migrations *before* deploying, and the database doesn't exist yet. From then on, deploy with `npm run build && npm run deploy` (the `deploy` script doesn't build).
 
 ## 2. Create the admin account
 Open `https://<your-worker>.<your-subdomain>.workers.dev/setup`, enter your `SETUP_TOKEN` and create the admin account. The setup page works only once.
@@ -100,7 +102,7 @@ Values in `wrangler.jsonc` (marked ◆), plus one secret:
 | `SETUP_TOKEN` (secret) | One-time token for `/setup`. Listed in `.dev.vars.example`. |
 
 ## Updating
-Your repository is yours to change. To pick up a new release, pull it and push: the push deploys.
+Your repository is yours to change. To pick up a new release, add this repository as a remote and pull from it. A repository made by the Deploy button has no history in common with this one, which is why the first pull needs the extra step below.
 ```sh
 git remote add upstream https://github.com/Softwaiz/gentlemail
 
@@ -111,6 +113,10 @@ git pull -X subtree=apps/mail upstream main && git push
 git pull upstream main && git push
 ```
 The first pull into a Deploy-button repository also needs `--allow-unrelated-histories`, and Git reports every file changed since you deployed as a conflict. Keep GentleMail's version (`git checkout --theirs .`), restore your own `wrangler.jsonc` and any file you changed (`git checkout --ours wrangler.jsonc`), then commit. Later pulls merge normally.
+
+Then deploy the update:
+- **Repository connected to Workers Builds** (the Deploy button sets this up): the `git push` deploys, migrations included.
+- **Command line**: a push deploys nothing. Run `npm run build && npm run deploy` from `apps/mail` (it applies the new migrations, then deploys).
 
 ## Troubleshooting
 | Symptom | Check |
@@ -178,14 +184,14 @@ Session cookies are `HttpOnly` and `SameSite=Lax`, and attachments of risky type
 
 | When | Command (from `apps/mail`) |
 |---|---|
-| Deploying with the Deploy button, Workers Builds or `npm run deploy` | Nothing to do: the `deploy` script runs `wrangler d1 migrations apply DB --remote` before `wrangler deploy`. |
+| Deploying with the Deploy button, Workers Builds or `npm run deploy` | Nothing to do: the `deploy` script runs `wrangler d1 migrations apply DB --remote` before `wrangler deploy`. Exception: the very first command-line deploy, see [Deploy](#1-deploy). |
 | Apply pending migrations to your Cloudflare D1 by hand | `npx wrangler d1 migrations apply DB --remote` |
 | See which migrations are pending | `npx wrangler d1 migrations list DB --remote` |
 | Apply them to your local dev database | `npm run db:migrate:local` |
 | Add a migration (when changing the schema) | `npx wrangler d1 migrations create DB short_description`, then write the SQL in the new file |
 | Run a query against production | `npx wrangler d1 execute DB --remote --command "SELECT COUNT(*) FROM messages"` |
 
-`DB` is the binding name from `wrangler.jsonc`, so these commands work whatever you named the database. After `git pull`ing a new release, pushing deploys it and applies its migrations; if you deploy another way, run the `apply` command first.
+`DB` is the binding name from `wrangler.jsonc`, so these commands work whatever you named the database. After pulling a new release, deploying it the usual way applies its migrations (see [Updating](#updating)).
 
 ## Layout
 ```
@@ -194,7 +200,7 @@ apps/mail/
 ├── vite.config.mts          Vite + Cloudflare plugin + RedwoodSDK; injects the Worker name at build time
 ├── package.json             scripts (see below) and the descriptions the Deploy button shows
 ├── .dev.vars.example        secrets the app expects (SETUP_TOKEN)
-├── migrations/              D1 schema, plain SQL (0001 init, 0002 domains, 0003 API keys + webhooks, 0004 sender rules)
+├── migrations/              D1 schema as numbered SQL files, applied in order
 ├── public/                  static files (favicon)
 ├── types/                   ambient TypeScript types
 └── src/
@@ -217,7 +223,7 @@ apps/mail/
         ├── outbound.ts      send via the EMAIL binding → saved in Sent
         ├── threads.ts       conversation grouping
         ├── spam.ts          spam rules, sender lists, 30-day purge
-        ├── apikeys.ts       API key creation and checks
+        ├── apikeys.ts       API keys and their access checks
         └── webhooks.ts      webhook signing, delivery, retries
 ```
 
@@ -228,11 +234,15 @@ Run from `apps/mail` with `npm run <script>` (or `pnpm <script>`).
 |---|---|
 | `dev` | Local dev server with local D1/R2 (Miniflare) on http://localhost:5173 |
 | `build` | Production build into `dist/` |
-| `deploy` | Applies remote D1 migrations, then `wrangler deploy` (what the Deploy button and Workers Builds run) |
+| `deploy` | Applies remote D1 migrations, then `wrangler deploy` (what the Deploy button and Workers Builds run, after `build`). It doesn't build, so run `build` first; and the database must already exist (see [Deploy](#1-deploy)) |
 | `db:migrate:local` / `db:migrate:remote` | Apply migrations to the local or the remote database |
 | `generate` | Regenerate `worker-configuration.d.ts` from `wrangler.jsonc` (after changing bindings or vars) |
 | `types` | Type-check with `tsc` |
+| `check` | `generate`, then `types` (calls pnpm) |
 | `preview` | Serve the production build locally |
+| `clean` | Delete Vite's cache (`node_modules/.vite`), the fix when the dev server reports a missing module |
+| `release` | Clean, apply remote migrations, build and deploy in one go (calls pnpm; needs a Cloudflare login) |
+| `dev:init` / `worker:run` | RedwoodSDK helpers: prepare the dev environment, and run a script inside the Worker environment (`npm run worker:run ./path/to/script.ts`) |
 
 ## Local development
 ```sh

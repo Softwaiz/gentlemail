@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { chunks } from "./util";
 import type { User } from "./auth";
 import type { Addr } from "./util";
 
@@ -105,13 +106,16 @@ export async function getMessageForUser(user: User, messageId: string) {
 }
 
 export async function listAttachments(messageIds: string[]): Promise<AttachmentRow[]> {
-  if (!messageIds.length) return [];
-  const { results } = await env.DB.prepare(
-    `SELECT * FROM attachments WHERE message_id IN (${messageIds.map(() => "?").join(",")}) ORDER BY created_at`,
-  )
-    .bind(...messageIds)
-    .all<AttachmentRow>();
-  return results;
+  const out: AttachmentRow[] = [];
+  for (const part of chunks(messageIds)) {
+    const { results } = await env.DB.prepare(
+      `SELECT * FROM attachments WHERE message_id IN (${part.map(() => "?").join(",")}) ORDER BY created_at`,
+    )
+      .bind(...part)
+      .all<AttachmentRow>();
+    out.push(...results);
+  }
+  return out;
 }
 
 export async function getHtmlBody(msg: MessageRow): Promise<string | null> {

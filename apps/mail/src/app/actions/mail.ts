@@ -6,7 +6,7 @@ import { type ActionResult, fail, ok, signedIn, text } from "@/app/actions/guard
 import { type MessageRow, deleteMessageForever, getMailboxForUser, isFolder } from "@/lib/db";
 import { SendError, sendMail } from "@/lib/outbound";
 import { learnFrom } from "@/lib/spam";
-import { isEmail, parseAddressList } from "@/lib/util";
+import { chunks, isEmail, parseAddressList } from "@/lib/util";
 
 /* Mailbox mutations. signedIn runs first; each action then checks access to the mailbox. */
 
@@ -40,16 +40,22 @@ export const updateMessages = serverAction([
 
     const col = input.scope === "message" ? "id" : "thread_id";
     const inFolder = input.scope === "thread" && input.folder && isFolder(input.folder);
-    const { results: msgs } = await env.DB.prepare(
-      `SELECT * FROM messages WHERE mailbox_id = ? AND ${col} IN (${ids.map(() => "?").join(",")}) ${inFolder ? "AND folder = ?" : ""}`,
-    )
-      .bind(mailbox.id, ...ids, ...(inFolder ? [input.folder] : []))
-      .all<MessageRow>();
+    const msgs: MessageRow[] = [];
+    for (const part of chunks(ids)) {
+      const { results } = await env.DB.prepare(
+        `SELECT * FROM messages WHERE mailbox_id = ? AND ${col} IN (${part.map(() => "?").join(",")}) ${inFolder ? "AND folder = ?" : ""}`,
+      )
+        .bind(mailbox.id, ...part, ...(inFolder ? [input.folder] : []))
+        .all<MessageRow>();
+      msgs.push(...results);
+    }
     if (!msgs.length) return ok();
-    const msgIds = msgs.map((m) => m.id);
-    const ph = msgIds.map(() => "?").join(",");
     const update = (set: string, ...vals: unknown[]) =>
-      env.DB.prepare(`UPDATE messages SET ${set} WHERE id IN (${ph})`).bind(...vals, ...msgIds).run();
+      env.DB.batch(
+        chunks(msgs.map((m) => m.id)).map((part) =>
+          env.DB.prepare(`UPDATE messages SET ${set} WHERE id IN (${part.map(() => "?").join(",")})`).bind(...vals, ...part),
+        ),
+      );
 
     switch (input.action) {
       case "read":
@@ -85,6 +91,26 @@ export const updateMessages = serverAction([
     }
     if (input.action === "inbox" && msgs.some((m) => m.folder === "spam")) return ok("Not spam. Mail from this sender stays in the inbox.");
     return ok(DONE[input.action]);
+  },
+]);
+
+/**
+ * Marks a conversation read once its page has opened. Kept out of the page
+ * render, which only reads. Matches the messages the page shows (trash only
+ * when opened from Trash), with no list of ids, so any thread size works.
+ */
+export const markThreadRead = serverAction([
+  signedIn,
+  async (input: { mailboxId: string; threadId: string; folder: string }): Promise<ActionResult> => {
+    const mailbox = await mailboxFor(input.mailboxId);
+    if (!mailbox) return fail("You don't have access to this mailbox.");
+    await env.DB.prepare(
+      `UPDATE messages SET is_read = 1 WHERE mailbox_id = ? AND thread_id = ? AND is_read = 0
+       ${input.folder === "trash" ? "" : "AND folder != 'trash'"}`,
+    )
+      .bind(mailbox.id, input.threadId)
+      .run();
+    return ok();
   },
 ]);
 

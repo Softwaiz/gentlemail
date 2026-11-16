@@ -1,10 +1,10 @@
 "use client";
 
 import { Archive, Inbox, Mail, OctagonAlert, ShieldCheck, Star, Trash2 } from "lucide-react";
-import { useTransition } from "react";
+import { useEffect, useTransition } from "react";
 import { navigate } from "rwsdk/client";
 import { toast } from "sonner";
-import { type MailAction, updateMessages } from "@/app/actions/mail";
+import { type MailAction, markThreadRead, updateMessages } from "@/app/actions/mail";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +22,20 @@ function useMailAction(mailboxId: string) {
       }
     });
   return { run, pending };
+}
+
+/**
+ * Marks the conversation read once it's on screen, through a server action
+ * (the page render itself doesn't write). The action's re-render refreshes the
+ * unread counts. Renders nothing.
+ */
+export function MarkThreadRead({ mailboxId, threadId, folder }: { mailboxId: string; threadId: string; folder: string }) {
+  useEffect(() => {
+    markThreadRead({ mailboxId, threadId, folder }).catch(() => {
+      // Not worth interrupting reading for; it stays unread and is retried next time it's opened.
+    });
+  }, [mailboxId, threadId, folder]);
+  return null;
 }
 
 /** Actions above a conversation. Moving it away returns to the folder. */

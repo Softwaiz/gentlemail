@@ -18,7 +18,7 @@ export default defineConfig({
       favicon: "/favicon.svg",
       social: [{ icon: "github", label: "GitHub", href: repo }],
       editLink: { baseUrl: `${repo}/edit/main/apps/docs/` },
-      customCss: ["@fontsource-variable/dm-sans", "./src/styles/theme.css"],
+      customCss: ["@fontsource-variable/google-sans", "./src/styles/theme.css"],
       lastUpdated: true,
       sidebar: [
         { label: "Start here", items: ["index", "deploy", "updating"] },

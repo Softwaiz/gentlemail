@@ -25,7 +25,7 @@ export default defineConfig({
         { label: "Using GentleMail", items: ["guides/two-step", "guides/spam"] },
         {
           label: "API",
-          items: ["api", "api/keys", "api/send", "api/read", "api/errors"],
+          items: ["api", "sdk", "api/keys", "api/send", "api/read", "api/errors"],
         },
         { label: "Webhooks", items: ["webhooks", "webhooks/verify", "webhooks/recipes"] },
         { label: "Changelog", link: "/changelog/" },

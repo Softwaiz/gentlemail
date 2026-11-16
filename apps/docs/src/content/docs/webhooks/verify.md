@@ -3,6 +3,8 @@ title: Verify a webhook
 description: Check the HMAC-SHA256 signature of GentleMail webhook deliveries and reject replays.
 ---
 
+With the [JavaScript SDK](/docs/sdk/#webhooks) it's one call: `await verifyWebhook(request, secret)`. Without it, here's what to check.
+
 The signature is an HMAC-SHA256 of the timestamp, a dot and the raw body, keyed with your secret and written in hex:
 
 ```

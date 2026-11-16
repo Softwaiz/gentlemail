@@ -35,7 +35,8 @@ A small [pnpm workspace](https://pnpm.io/workspaces) monorepo with one app today
 ├── apps/
 │   ├── mail/              the app: webmail, REST API and webhooks (one Cloudflare Worker)
 │   └── docs/              the documentation site, served at gentlemail.dev/docs (Astro Starlight)
-├── packages/              reserved for shared packages (empty for now)
+├── packages/
+│   └── sdk/               the JavaScript SDK, published to npm as `gentlemail`
 ├── package.json           workspace scripts
 ├── pnpm-lock.yaml
 └── pnpm-workspace.yaml

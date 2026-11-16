@@ -24,16 +24,33 @@ One deployment serves any number of domains, mailboxes and people for the $5/mon
 
 You need a Cloudflare account on Workers Paid and a domain whose DNS is on Cloudflare. The full guide (every step, configuration, an end-to-end test, updating and troubleshooting) is in **[apps/mail/README.md](apps/mail/README.md)**.
 
+## No Cloudflare API token
+GentleMail never asks for a Cloudflare API token or account ID: it reaches D1, R2 and Email Service through Worker bindings. [More on why](apps/mail/README.md#gentlemail).
+
 ## Repository
+A small [pnpm workspace](https://pnpm.io/workspaces) monorepo with one app today.
 
-| Path | What |
-|---|---|
-| [`apps/mail`](apps/mail) | The app: webmail, API and webhooks (RedwoodSDK, D1, R2, Email Service). Self-contained, and the folder the Deploy button copies. |
+```
+.
+├── apps/
+│   └── mail/              the app: webmail, REST API and webhooks (one Cloudflare Worker)
+├── packages/              reserved for shared packages (empty for now)
+├── package.json           workspace scripts
+├── pnpm-lock.yaml
+└── pnpm-workspace.yaml
+```
 
+`apps/mail` is the folder the Deploy button copies and the **Root directory** for Workers Builds. It has its own `package.json`, `wrangler.jsonc` and migrations. Its README has the [tech stack](apps/mail/README.md#tech-stack) (Workers, RedwoodSDK, D1 with plain SQL and **no ORM**, R2, Email Service), [database and migration commands](apps/mail/README.md#database-and-migrations), a [file-by-file layout](apps/mail/README.md#layout) and every [script](apps/mail/README.md#scripts).
+
+### Commands
+From the repository root:
 ```sh
 pnpm install
-pnpm dev:mail      # local development, see apps/mail/README.md#local-development
+pnpm dev:mail                                    # local dev server, http://localhost:5173
+pnpm --filter @emails/mail db:migrate:local      # apply migrations to the local database
+pnpm types                                       # type-check
 ```
+The lockfile is the workspace's `pnpm-lock.yaml`, so pnpm is the tool for this repository. Inside `apps/mail`, the everyday scripts (`dev`, `build`, `deploy`, `db:migrate:*`) also run with npm; `check` and `release` call pnpm.
 
 ## Fork it
 

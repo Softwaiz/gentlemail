@@ -7,7 +7,7 @@ One deployment serves any number of domains, mailboxes and people for the $5/mon
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Softwaiz/gentlemail/tree/main/apps/mail)
 
-**Website:** https://gentlemail.dev · **Deploy guide:** https://gentlemail.dev/deploy · **API and webhook docs:** https://gentlemail.dev/docs
+**Website:** https://gentlemail.dev · **Deploy guide:** https://gentlemail.dev/deploy · **API and webhook docs:** https://gentlemail.dev/docs · **[Changelog](CHANGELOG.md)**
 
 - **Inbox and outbox**: a real webmail for people (conversations, search, attachments, spam folder, blocking) and a REST API for code.
 - **Many domains, one deployment**: add domains and mailboxes in Admin, and choose which people can open which mailboxes.

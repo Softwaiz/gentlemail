@@ -3,7 +3,7 @@
 import { env } from "cloudflare:workers";
 import { requestInfo, serverAction } from "rwsdk/worker";
 import { type ActionResult, adminOnly, fail, ok, text } from "@/app/actions/guards";
-import { createApiKey, SCOPES, type Scope } from "@/lib/apikeys";
+import { createApiKey, grantsFromForm, setApiKeyGrants } from "@/lib/apikeys";
 import { createUser, hashPassword } from "@/lib/auth";
 import { type Domain, type Mailbox, isDomainActive } from "@/lib/db";
 import { isEmail, newId, now } from "@/lib/util";
@@ -73,7 +73,10 @@ export const deleteDomain = serverAction([
     if (!domain) return fail("This domain no longer exists.");
     const used = await env.DB.prepare("SELECT 1 FROM mailboxes WHERE address LIKE ? LIMIT 1").bind(`%@${domain.name}`).first();
     if (used) return fail("Delete the mailboxes on this domain first.");
-    await env.DB.prepare("DELETE FROM domains WHERE id = ?").bind(id).run();
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM domains WHERE id = ?").bind(id),
+      env.DB.prepare("DELETE FROM api_key_grants WHERE target_type = 'domain' AND target_id = ?").bind(id),
+    ]);
     return ok(`${domain.name} removed.`, { redirect: "/admin" });
   },
 ]);
@@ -144,7 +147,10 @@ export const deleteMailbox = serverAction([
         cursor = list.truncated ? list.cursor : undefined;
       } while (cursor);
     }
-    await env.DB.prepare("DELETE FROM mailboxes WHERE id = ?").bind(id).run();
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM mailboxes WHERE id = ?").bind(id),
+      env.DB.prepare("DELETE FROM api_key_grants WHERE target_type = 'mailbox' AND target_id = ?").bind(id),
+    ]);
     return ok(`${mailbox.address} deleted.`, { redirect: "/admin" });
   },
 ]);
@@ -211,14 +217,25 @@ export const createKeyAction = serverAction([
   adminOnly,
   async (form: FormData): Promise<ActionResult<{ name: string; key: string }>> => {
     const name = text(form, "name").slice(0, 80);
-    const mailboxId = text(form, "mailbox_id");
-    const scopes = form.getAll("scopes").map(String).filter((s): s is Scope => SCOPES.some((x) => x.id === s));
     if (!name) return fail("Give the key a name, such as the program that uses it.");
-    if (!scopes.length) return fail("Pick at least one permission.");
-    if (mailboxId !== "all" && !(await mailboxExists(mailboxId))) return fail("Pick a mailbox.");
+    const grants = await grantsFromForm(form);
+    if (!grants.length) return fail("Tick Read or Send on at least one line.");
     // The key goes back in the action result only, never into a URL or the page.
-    const { key } = await createApiKey({ name, mailboxId: mailboxId === "all" ? null : mailboxId, scopes, userId: me().id });
+    const { key } = await createApiKey({ name, grants, userId: me().id });
     return ok("Key created.", { data: { name, key } });
+  },
+]);
+
+/** Changes what an existing key can read and send; programs using it keep the same key. */
+export const updateKeyAccessAction = serverAction([
+  adminOnly,
+  async (id: string, form: FormData): Promise<ActionResult> => {
+    const key = await env.DB.prepare("SELECT id FROM api_keys WHERE id = ? AND revoked_at IS NULL").bind(id).first();
+    if (!key) return fail("This key no longer exists or was revoked.");
+    const grants = await grantsFromForm(form);
+    if (!grants.length) return fail("Tick Read or Send on at least one line, or revoke the key instead.");
+    await setApiKeyGrants(id, grants);
+    return ok("Key access updated. It applies from the next request.");
   },
 ]);
 

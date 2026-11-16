@@ -141,7 +141,8 @@ Cloudflare Email Routing rejects mail that fails SPF and DKIM, fails the sender'
 ## API & webhooks
 Create keys and webhooks in **Admin → API & webhooks** (the page has a full quick reference).
 
-- **API keys** are limited to one mailbox or all, and to `send` and/or `read`. Only a SHA-256 fingerprint is stored.
+- **API keys** carry exactly the access you give them: **Read** and/or **Send**, set separately on all mailboxes, on whole domains (which also covers mailboxes added to the domain later) and on individual mailboxes. A key can mix them, for example read on all of `example.com` plus send from `billing@other.com` only. Change a key's access at any time with **Edit access**; the program keeps the same key. Only a SHA-256 fingerprint of the key is stored.
+  - `GET /api/v1/mailboxes` lists the mailboxes the key can use, with `"permissions": ["read", "send"]` on each.
   - `POST /api/v1/send`: JSON `{from, to, cc, bcc, subject, text, html, attachments: [{filename, content (base64), content_type}], reply_to_message_id, signature}`
   - `GET /api/v1/mailboxes`, `GET /api/v1/messages?mailbox=&folder=&unread=true&since=`, `GET /api/v1/messages/:id`, `POST /api/v1/messages/:id {"action": "archive"}`, `GET /api/v1/attachments/:id`
 - **Webhooks** receive `message.received` (not for spam) and/or `message.sent` as signed JSON:

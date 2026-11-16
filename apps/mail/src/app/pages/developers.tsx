@@ -34,15 +34,20 @@ const grantKey = (g: Grant) => (g.target_type === "all" ? "all" : `${g.target_ty
 const grantValue = (grants: Grant[]): AccessValue =>
   Object.fromEntries(grants.map((g) => [grantKey(g), { read: !!g.can_read, send: !!g.can_send }]));
 
+/** What each grant target is called, by grantKey(): "domain:<id>" → "All of example.com", "mailbox:<id>" → its address. */
+const targetNames = (targets: AccessTargets) =>
+  new Map<string, string>([
+    ...targets.domains.map((d) => [`domain:${d.id}`, `All of ${d.name}`] as const),
+    ...targets.mailboxes.map((m) => [`mailbox:${m.id}`, m.address] as const),
+  ]);
+
 /** One line per grant, broadest first: "All mailboxes · read, send". */
-function AccessSummary({ grants, targets }: { grants: Grant[]; targets: AccessTargets }) {
+function AccessSummary({ grants, names }: { grants: Grant[]; names: Map<string, string> }) {
   const order = { all: 0, domain: 1, mailbox: 2 } as const;
   const name = (g: Grant) =>
     g.target_type === "all"
       ? "All mailboxes"
-      : g.target_type === "domain"
-        ? `All of ${targets.domains.find((d) => d.id === g.target_id)?.name ?? "a removed domain"}`
-        : (targets.mailboxes.find((m) => m.id === g.target_id)?.address ?? "a deleted mailbox");
+      : (names.get(grantKey(g)) ?? (g.target_type === "domain" ? "a removed domain" : "a deleted mailbox"));
   const sorted = [...grants].sort((a, b) => order[a.target_type] - order[b.target_type]);
   if (!sorted.length) return <span className="text-muted-foreground">No access</span>;
   const shown = sorted.slice(0, 3);
@@ -103,13 +108,20 @@ const Code = ({ children }: { children: string }) => (
 
 export async function DevelopersPage({ ctx, request }: RequestInfo) {
   const mailboxes = await listMailboxes();
-  const label = (id: string | null) => (id ? (mailboxes.find((m) => m.id === id)?.address ?? "deleted mailbox") : "All mailboxes");
   const { results: domains } = await env.DB.prepare("SELECT id, name FROM domains ORDER BY name").all<{ id: string; name: string }>();
   const targets: AccessTargets = { domains, mailboxes };
+  const names = targetNames(targets);
+  const label = (id: string | null) => (id ? (names.get(`mailbox:${id}`) ?? "deleted mailbox") : "All mailboxes");
 
   const { results: keys } = await env.DB.prepare("SELECT * FROM api_keys ORDER BY revoked_at IS NOT NULL, created_at DESC").all<ApiKeyRow>();
   const grants = await listActiveGrants();
-  const grantsOf = (id: string) => grants.filter((g) => g.key_id === id);
+  const grantsByKey = new Map<string, Grant[]>();
+  for (const g of grants) {
+    const list = grantsByKey.get(g.key_id);
+    if (list) list.push(g);
+    else grantsByKey.set(g.key_id, [g]);
+  }
+  const grantsOf = (id: string) => grantsByKey.get(id) ?? [];
   const { results: hooks } = await env.DB.prepare(
     `SELECT w.*,
        (SELECT status FROM webhook_deliveries d WHERE d.webhook_id = w.id ORDER BY created_at DESC LIMIT 1) AS last_status,
@@ -148,7 +160,7 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
                   <TableCell className="font-medium">{k.name}</TableCell>
                   <TableCell className="font-mono text-xs">{k.prefix}…</TableCell>
                   <TableCell>
-                    {k.revoked_at ? <span className="text-muted-foreground">None</span> : <AccessSummary grants={grantsOf(k.id)} targets={targets} />}
+                    {k.revoked_at ? <span className="text-muted-foreground">None</span> : <AccessSummary grants={grantsOf(k.id)} names={names} />}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{k.last_used_at ? formatDate(k.last_used_at, true) : "Never"}</TableCell>
                   <TableCell className="text-right">

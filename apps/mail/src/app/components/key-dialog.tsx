@@ -45,10 +45,11 @@ function AccessEditor({ targets, initial }: { targets: AccessTargets; initial: A
   const groups = useMemo(() => {
     const byName = new Map(targets.domains.map((d) => [d.name.toLowerCase(), d]));
     const out = targets.domains.map((d) => ({ domain: d as { id: string; name: string } | null, mailboxes: [] as AccessTargets["mailboxes"] }));
+    const groupOf = new Map(out.map((g) => [g.domain!.id, g]));
     const other: AccessTargets["mailboxes"] = [];
     for (const m of targets.mailboxes) {
       const d = byName.get(domainOf(m.address));
-      if (d) out.find((g) => g.domain?.id === d.id)!.mailboxes.push(m);
+      if (d) groupOf.get(d.id)!.mailboxes.push(m);
       else other.push(m);
     }
     if (other.length) out.push({ domain: null, mailboxes: other });

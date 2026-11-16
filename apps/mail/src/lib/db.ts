@@ -13,7 +13,8 @@ export const FOLDERS: { id: Folder; label: string }[] = [
   { id: "spam", label: "Spam" },
   { id: "trash", label: "Trash" },
 ];
-export const isFolder = (f: string): f is Folder => FOLDERS.some((x) => x.id === f);
+const FOLDER_IDS: ReadonlySet<string> = new Set(FOLDERS.map((f) => f.id));
+export const isFolder = (f: string): f is Folder => FOLDER_IDS.has(f);
 
 export type Mailbox = {
   id: string;

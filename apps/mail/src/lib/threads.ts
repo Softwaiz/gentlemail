@@ -17,7 +17,11 @@ export async function resolveThreadId(opts: {
   const ids = [
     stripBrackets(opts.inReplyTo),
     ...(opts.references ?? "").split(/\s+/).map(stripBrackets),
-  ].filter((x): x is string => !!x);
+  ]
+    .filter((x): x is string => !!x)
+    // A long chain's References header can list hundreds of ids, past D1's 100
+    // bound values; In-Reply-To plus the first references is plenty.
+    .slice(0, 80);
 
   if (ids.length) {
     const row = await env.DB.prepare(

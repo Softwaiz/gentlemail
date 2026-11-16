@@ -107,3 +107,7 @@ export function toBase64(buf: ArrayBuffer | Uint8Array): string {
  */
 export const htmlHasOwnColors = (html: string) =>
   /\bbgcolor\s*=|\bbackground(-color)?\s*:|(^|[\s;"'{])color\s*:|<font[^>]*\bcolor\s*=|<body[^>]*\b(text|link)\s*=/i.test(html);
+
+/** D1 allows 100 bound values per query: split id lists (leaving room for a few other values). */
+export const chunks = <T>(list: T[], size = 90): T[][] =>
+  Array.from({ length: Math.ceil(list.length / size) }, (_, i) => list.slice(i * size, (i + 1) * size));

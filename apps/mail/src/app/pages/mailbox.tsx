@@ -3,7 +3,7 @@ import type { RequestInfo } from "rwsdk/worker";
 import { ChevronLeft, Download, Forward, OctagonAlert, Paperclip, Reply, ReplyAll, Search, Star } from "lucide-react";
 import { Shell, flashFrom } from "@/app/components/shell";
 import { type ListItem, MessageList } from "@/app/components/message-list";
-import { StarButton, ThreadToolbar } from "@/app/components/thread-actions";
+import { MarkThreadRead, StarButton, ThreadToolbar } from "@/app/components/thread-actions";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -178,12 +178,7 @@ export async function ThreadPage(ri: RequestInfo) {
     .all<MessageRow>();
   if (!msgs.length) return redirect(`/mb/${mailbox.id}/${folder}`);
 
-  const unreadIds = msgs.filter((m) => !m.is_read).map((m) => m.id);
-  if (unreadIds.length) {
-    await env.DB.prepare(`UPDATE messages SET is_read = 1 WHERE id IN (${unreadIds.map(() => "?").join(",")})`)
-      .bind(...unreadIds)
-      .run();
-  }
+  const hasUnread = msgs.some((m) => !m.is_read);
   const atts = await listAttachments(msgs.map((m) => m.id));
   const byMsg = new Map<string, AttachmentRow[]>();
   for (const a of atts) byMsg.set(a.message_id, [...(byMsg.get(a.message_id) ?? []), a]);
@@ -206,6 +201,7 @@ export async function ThreadPage(ri: RequestInfo) {
           {msgs.length} {msgs.length === 1 ? "message" : "messages"}, {people} {people === 1 ? "person" : "people"}
         </div>
 
+        {hasUnread && <MarkThreadRead mailboxId={mailbox.id} threadId={params.threadId} folder={folder} />}
         <div className="my-5 border-y py-1.5">
           <ThreadToolbar mailboxId={mailbox.id} threadId={params.threadId} folder={folder} />
         </div>

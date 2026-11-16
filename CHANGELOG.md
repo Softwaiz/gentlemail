@@ -10,6 +10,8 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 
 ## Unreleased
 
+## 0.4.0 (2026-11-16)
+
 ### Added
 - Two-step verification with any authenticator app: set up from **Security** (the menu under your name) with a QR code, 10 single-use recovery codes to download or copy, new codes on demand, and turning it off with a code. Signing in asks for the code after the password; 5 wrong codes and the password is needed again, and a code can't be reused. ([#10](https://github.com/Softwaiz/gentlemail/pull/10))
 - Admins can require two-step verification for everyone (people without it can only open Security until it's set up), see who has it on, and reset it for someone who lost their phone. ([#10](https://github.com/Softwaiz/gentlemail/pull/10))

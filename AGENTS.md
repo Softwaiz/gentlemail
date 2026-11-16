@@ -11,6 +11,12 @@ Instructions for anyone changing this repository, human or AI coding agent. The 
 - Changes nobody would notice (refactors, comments, tests only) can skip it. When in doubt, add a line.
 - A release turns **Unreleased** into `## x.y.z (YYYY-MM-DD)` when it's deployed, and leaves an empty **Unreleased** above it. While GentleMail is 0.x, a minor version (0.4.0) can hold anything and a patch (0.3.1) only fixes.
 
+## Releases
+1. In one pull request: cut the changelog section and set the same version in `apps/mail/package.json` (the app shows it to admins).
+2. After merging: tag the merge commit `vX.Y.Z` and publish a GitHub release whose notes are that changelog section (`gh release create vX.Y.Z --notes-file …`).
+3. Deploying is separate: an instance gets the release when it pulls and deploys it. If the release adds a migration, say so under **Upgrading**.
+4. Packages in `packages/` (such as the SDK) have their own versions and changelogs, released independently of the app.
+
 ## Code conventions
 - **Data access is plain SQL** through the D1 binding with bound parameters (`env.DB.prepare("… WHERE id = ?").bind(id)`). No ORM.
 - **D1 accepts at most 100 bound values per query.** Never build `IN (?, ?, …)` from a list that can grow; split it with `chunks()` from `src/lib/util.ts`, or express the filter as a join or subquery.

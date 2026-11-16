@@ -157,6 +157,16 @@ export async function Shell({ user, mailboxId, folder, flash, bleed, children }:
               </>
             )}
             <UserMenu name={user.name} email={user.email} isAdmin={user.role === "admin"} />
+            {user.role === "admin" && (
+              <a
+                href={`https://github.com/Softwaiz/gentlemail/releases/tag/v${__APP_VERSION__}`}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 pt-1 text-[11px] text-sidebar-muted tabular-nums hover:text-sidebar-foreground"
+              >
+                GentleMail {__APP_VERSION__}
+              </a>
+            )}
           </div>
         </div>
       </aside>

@@ -6,6 +6,10 @@ export type User = {
   email: string;
   name: string;
   role: "admin" | "member";
+  /** Two-step verification is on for this user. */
+  mfa: boolean;
+  /** An admin requires two-step for everyone and this user hasn't set it up: only the Security page is open to them. */
+  mustSetUpMfa: boolean;
 };
 
 const COOKIE = "kb_session";
@@ -59,15 +63,17 @@ function readCookie(request: Request, name: string): string | null {
   return null;
 }
 
-function cookieHeader(value: string, maxAgeSec: number, secure: boolean) {
-  return `${COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${secure ? "; Secure" : ""}`;
+function cookieHeader(value: string, maxAgeSec: number, secure: boolean, name = COOKIE, path = "/") {
+  return `${name}=${value}; Path=${path}; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${secure ? "; Secure" : ""}`;
 }
+
+const randomToken = () => b64(crypto.getRandomValues(new Uint8Array(32))).replace(/[+/=]/g, "");
 
 const isSecure = (request: Request) => new URL(request.url).protocol === "https:";
 
 /** Creates a session and returns the Set-Cookie header value. */
 export async function createSession(userId: string, request: Request): Promise<string> {
-  const token = b64(crypto.getRandomValues(new Uint8Array(32))).replace(/[+/=]/g, "");
+  const token = randomToken();
   await env.DB.prepare(
     "INSERT INTO sessions (id, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
   )
@@ -88,13 +94,57 @@ export async function getUserFromRequest(request: Request): Promise<User | null>
   const token = readCookie(request, COOKIE);
   if (!token) return null;
   const row = await env.DB.prepare(
-    `SELECT u.id, u.email, u.name, u.role FROM sessions s
+    `SELECT u.id, u.email, u.name, u.role, u.mfa_enabled_at IS NOT NULL AS mfa,
+       EXISTS (SELECT 1 FROM settings WHERE key = 'require_mfa' AND value = '1') AS required
+     FROM sessions s
      JOIN users u ON u.id = s.user_id
      WHERE s.id = ? AND s.expires_at > ?`,
   )
     .bind(await sha256(token), now())
-    .first<User>();
-  return row ?? null;
+    .first<Omit<User, "mfa" | "mustSetUpMfa"> & { mfa: number; required: number }>();
+  if (!row) return null;
+  const { required, ...user } = row;
+  return { ...user, mfa: !!row.mfa, mustSetUpMfa: !!required && !row.mfa };
+}
+
+/* ---------- Second step of a sign-in ---------- */
+
+const CHALLENGE_COOKIE = "kb_mfa";
+const CHALLENGE_TTL = 1000 * 60 * 10; // 10 minutes to enter the code
+export const CHALLENGE_MAX_ATTEMPTS = 5;
+
+/** The password was right and two-step is on: remember that until the code is entered. Returns Set-Cookie. */
+export async function createLoginChallenge(userId: string, next: string, request: Request): Promise<string> {
+  const token = randomToken();
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM login_challenges WHERE expires_at < ?").bind(now()),
+    env.DB.prepare("INSERT INTO login_challenges (id, user_id, next, expires_at) VALUES (?, ?, ?, ?)").bind(
+      await sha256(token),
+      userId,
+      next,
+      now() + CHALLENGE_TTL,
+    ),
+  ]);
+  return cookieHeader(token, CHALLENGE_TTL / 1000, isSecure(request), CHALLENGE_COOKIE, "/login");
+}
+
+export type LoginChallenge = { id: string; user_id: string; next: string; attempts: number; email: string };
+
+export async function getLoginChallenge(request: Request): Promise<LoginChallenge | null> {
+  const token = readCookie(request, CHALLENGE_COOKIE);
+  if (!token) return null;
+  return env.DB.prepare(
+    `SELECT c.id, c.user_id, c.next, c.attempts, u.email FROM login_challenges c JOIN users u ON u.id = c.user_id
+     WHERE c.id = ? AND c.expires_at > ?`,
+  )
+    .bind(await sha256(token), now())
+    .first<LoginChallenge>();
+}
+
+/** Ends the pending sign-in (done, or too many wrong codes). Returns Set-Cookie. */
+export async function endLoginChallenge(id: string, request: Request): Promise<string> {
+  await env.DB.prepare("DELETE FROM login_challenges WHERE id = ?").bind(id).run();
+  return cookieHeader("", 0, isSecure(request), CHALLENGE_COOKIE, "/login");
 }
 
 export async function createUser(input: {

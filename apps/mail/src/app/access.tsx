@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
-import { redirect } from "@/app/http";
+import { redirect, requireUser } from "@/app/http";
 import { showError } from "@/app/pages/errors";
 import { getMailboxForUser, isFolder } from "@/lib/db";
 
@@ -11,8 +11,9 @@ import { getMailboxForUser, isFolder } from "@/lib/db";
  */
 
 export function requireAdmin(ri: RequestInfo) {
-  if (!ri.ctx.user) return redirect("/login");
-  if (ri.ctx.user.role !== "admin") return showError(ri, "admin-restricted");
+  const denied = requireUser(ri);
+  if (denied) return denied;
+  if (ri.ctx.user!.role !== "admin") return showError(ri, "admin-restricted");
 }
 
 /** /mb/:mailboxId/…: "Mailbox not found" if it doesn't exist, "Access restricted" if it isn't yours. */

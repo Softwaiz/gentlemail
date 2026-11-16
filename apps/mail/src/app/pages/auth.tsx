@@ -1,6 +1,16 @@
 import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
-import { createSession, createUser, destroySession, verifyPassword } from "@/lib/auth";
+import {
+  CHALLENGE_MAX_ATTEMPTS,
+  createLoginChallenge,
+  createSession,
+  createUser,
+  destroySession,
+  endLoginChallenge,
+  getLoginChallenge,
+  verifyPassword,
+} from "@/lib/auth";
+import { recoveryCodesLeft, verifySecondFactor } from "@/lib/mfa";
 import { field, redirect, withFlash } from "@/app/http";
 import { LogoMark, appName } from "@/app/components/brand";
 import { Button } from "@/app/components/ui/button";
@@ -87,14 +97,87 @@ export async function loginAction({ request }: RequestInfo) {
   const email = field(form, "email").toLowerCase();
   const password = String(form.get("password") ?? "");
   const next = safeNext(field(form, "next"));
-  const row = await env.DB.prepare("SELECT id, password_hash FROM users WHERE email = ?")
+  const row = await env.DB.prepare("SELECT id, password_hash, mfa_enabled_at FROM users WHERE email = ?")
     .bind(email)
-    .first<{ id: string; password_hash: string }>();
+    .first<{ id: string; password_hash: string; mfa_enabled_at: number | null }>();
   if (!row || !(await verifyPassword(password, row.password_hash))) {
     return redirect(withFlash(`/login?next=${encodeURIComponent(next)}`, "err", "Wrong email or password."));
   }
+  if (row.mfa_enabled_at) {
+    // Second step: no session until the code is right.
+    return redirect("/login/verify", { "Set-Cookie": await createLoginChallenge(row.id, next, request) });
+  }
   const cookie = await createSession(row.id, request);
   return redirect(next, { "Set-Cookie": cookie });
+}
+
+/* ---------- Second step: code from the authenticator app, or a recovery code ---------- */
+
+export async function LoginVerifyPage({ request, ctx }: RequestInfo) {
+  if (ctx.user) return redirect("/");
+  const challenge = await getLoginChallenge(request);
+  if (!challenge) return redirect(withFlash("/login", "err", "Your sign-in timed out. Enter your password again."));
+  const err = new URL(request.url).searchParams.get("err");
+  return (
+    <AuthCard title="Two-step verification" err={err}>
+      <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+        Enter the 6-digit code from your authenticator app for <span className="font-medium text-foreground">{challenge.email}</span>.
+      </p>
+      <form method="post" className="grid gap-4">
+        <Field label="Code">
+          <Input
+            name="code"
+            required
+            autoFocus
+            autoComplete="one-time-code"
+            inputMode="numeric"
+            maxLength={20}
+            placeholder="123456"
+            className="h-11 font-mono text-lg tracking-[0.3em]"
+          />
+        </Field>
+        <Button type="submit" size="lg" className="w-full">
+          Verify
+        </Button>
+      </form>
+      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+        No access to your app? Type one of your recovery codes (like <span className="font-mono">abcde-23456</span>) in the same box. Each one works once.
+      </p>
+      <a href="/login" className="mt-3 inline-block text-xs font-medium text-muted-foreground underline-offset-4 hover:underline">
+        Use another account
+      </a>
+    </AuthCard>
+  );
+}
+
+export async function loginVerifyAction({ request }: RequestInfo) {
+  const challenge = await getLoginChallenge(request);
+  if (!challenge) return redirect(withFlash("/login", "err", "Your sign-in timed out. Enter your password again."));
+  const code = String((await request.formData()).get("code") ?? "");
+  const result = await verifySecondFactor(challenge.user_id, code, { allowRecovery: true });
+
+  if (!result.ok) {
+    const attempts = challenge.attempts + 1;
+    if (attempts >= CHALLENGE_MAX_ATTEMPTS) {
+      const cookie = await endLoginChallenge(challenge.id, request);
+      return redirect(withFlash("/login", "err", "Too many wrong codes. Enter your password again."), { "Set-Cookie": cookie });
+    }
+    await env.DB.prepare("UPDATE login_challenges SET attempts = ? WHERE id = ?").bind(attempts, challenge.id).run();
+    const left = CHALLENGE_MAX_ATTEMPTS - attempts;
+    return redirect(withFlash("/login/verify", "err", `That code didn't work. ${left} ${left === 1 ? "try" : "tries"} left.`));
+  }
+
+  const headers = new Headers();
+  headers.append("Set-Cookie", await endLoginChallenge(challenge.id, request));
+  headers.append("Set-Cookie", await createSession(challenge.user_id, request));
+  let next = safeNext(challenge.next);
+  if (result.usedRecovery) {
+    const left = await recoveryCodesLeft(challenge.user_id);
+    next = withFlash("/account/security", left ? "msg" : "err", left
+      ? `Signed in with a recovery code. ${left} left.`
+      : "That was your last recovery code. Make new ones now.");
+  }
+  return redirect(next, headers);
 }
 
 export async function logoutAction({ request }: RequestInfo) {

@@ -4,11 +4,14 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 
 **How it's kept**
 - Every pull request adds its lines under **Unreleased**, in the same pull request.
-- A release turns **Unreleased** into a version and a date when it's deployed. Versions follow [Semantic Versioning](https://semver.org): while GentleMail is 0.x, a new minor version (0.3.0) can contain anything; a patch (0.2.1) only fixes.
+- A release is its own pull request: it turns **Unreleased** into a version and a date and sets the same version in `apps/mail/package.json`. Merging it deploys it; the merge commit is then tagged `vX.Y.Z` with a GitHub release holding that section. Versions follow [Semantic Versioning](https://semver.org): while GentleMail is 0.x, a new minor version (0.3.0) can contain anything; a patch (0.2.1) only fixes.
 - Sections: **Added**, **Changed**, **Fixed**, **Security**, **Removed**. A release with a database migration or anything to do by hand also gets **Upgrading**.
 - Lines describe the effect for the people using the app, not the code. Link the pull request.
 
 ## Unreleased
+
+### Added
+- Admins see the running version at the bottom of the sidebar, linked to the changelog. A build with changes not yet released shows `+dev` after the last release number (`0.3.0+dev`). Each release is tagged `vX.Y.Z` on GitHub with its changelog section as release notes. ([#9](https://github.com/Softwaiz/gentlemail/pull/9))
 
 ## 0.3.0 (2026-11-16)
 

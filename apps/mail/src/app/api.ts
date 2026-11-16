@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
-import { type ApiAuth, type Scope, apiError, apiJson, authenticate, can, permFor } from "@/lib/apikeys";
+import { type ApiAuth, GRANT_COVERS_SQL, type Scope, apiError, apiJson, authenticate, can } from "@/lib/apikeys";
 import { type Mailbox, type MessageRow, getHtmlBody, isFolder, listAttachments } from "@/lib/db";
 import { SendError, type OutgoingFile, sendMail } from "@/lib/outbound";
 import { type Addr, htmlToText, isEmail, parseAddressList } from "@/lib/util";
@@ -13,15 +13,15 @@ import { messageJson } from "@/lib/webhooks";
  *   GET  /api/v1/messages             list (scope: read)
  *   GET  /api/v1/messages/:id         one message with text and HTML (scope: read)
  *   POST /api/v1/messages/:id         mark read/unread, archive, trash, star… (scope: read)
+ *   GET  /api/v1/attachments/:id      attachment bytes (scope: read)
  *
  * A key's access is a set of grants (all mailboxes, a domain, a mailbox), each
  * with read and/or send; every request is checked against the mailbox it touches.
- *   GET  /api/v1/attachments/:id      attachment bytes (scope: read)
  */
 
 type Handler = (info: RequestInfo, auth: ApiAuth) => Promise<Response>;
 
-/** Wraps a handler with key auth; `scope: null` accepts any valid key. */
+/** Wraps a handler with key auth; `scope: null` accepts a key with any permission. */
 const withKey =
   (scope: Scope | null, fn: Handler) =>
   async (info: RequestInfo): Promise<Response> => {
@@ -74,15 +74,17 @@ async function messageFor(auth: ApiAuth, id: string, scope: Scope) {
   return msg;
 }
 
-/** Every mailbox with this key's permissions on it, keeping those where it can do something. */
+/** The mailboxes this key can do something on, with what it can do there. */
 async function usableMailboxes(auth: ApiAuth) {
-  const { results } = await env.DB.prepare("SELECT id, address, display_name, active FROM mailboxes ORDER BY address").all<{
-    id: string;
-    address: string;
-    display_name: string;
-    active: number;
-  }>();
-  return results.map((m) => ({ ...m, perm: permFor(auth, m) })).filter((m) => m.perm.read || m.perm.send);
+  const { results } = await env.DB.prepare(
+    `SELECT b.id, b.address, b.display_name, b.active, MAX(g.can_read) AS can_read, MAX(g.can_send) AS can_send
+     FROM mailboxes b JOIN api_key_grants g ON g.key_id = ? AND ${GRANT_COVERS_SQL}
+     GROUP BY b.id HAVING MAX(g.can_read) = 1 OR MAX(g.can_send) = 1
+     ORDER BY b.address`,
+  )
+    .bind(auth.key.id)
+    .all<{ id: string; address: string; display_name: string; active: number; can_read: number; can_send: number }>();
+  return results;
 }
 
 /* ---------- POST /api/v1/send ---------- */
@@ -96,10 +98,13 @@ export const sendHandler = withKey("send", async ({ request }, auth) => {
   if (!mailbox) return apiError(403, "mailbox_not_allowed", `This key can't send from ${b.from}.`);
   if (!mailbox.active) return apiError(422, "mailbox_disabled", `${mailbox.address} is disabled.`);
 
-  // Optional threading: reply to a message stored in this mailbox.
+  // Optional threading: reply to a message stored in this mailbox. A reply
+  // quotes and threads the original, so the key must also be able to read it.
   let original: MessageRow | null = null;
   if (b.reply_to_message_id != null) {
-    original = await messageFor(auth, String(b.reply_to_message_id), "send");
+    if (!can(auth, mailbox, "read"))
+      return apiError(403, "read_required", `Replying needs the "read" permission on ${mailbox.address}.`);
+    original = await messageFor(auth, String(b.reply_to_message_id), "read");
     if (!original || original.mailbox_id !== mailbox.id)
       return apiError(404, "original_not_found", "reply_to_message_id isn't a message in this mailbox.");
   }
@@ -163,10 +168,10 @@ export const sendHandler = withKey("send", async ({ request }, auth) => {
 export const mailboxesHandler = withKey(null, async (_info, auth) => {
   const mailboxes = await usableMailboxes(auth);
   return apiJson({
-    data: mailboxes.map(({ perm, ...m }) => ({
+    data: mailboxes.map(({ can_read, can_send, ...m }) => ({
       ...m,
       active: !!m.active,
-      permissions: [...(perm.read ? ["read"] : []), ...(perm.send ? ["send"] : [])],
+      permissions: [...(can_read ? ["read"] : []), ...(can_send ? ["send"] : [])],
     })),
   });
 });
@@ -184,12 +189,10 @@ export const listHandler = withKey("read", async ({ request }, auth) => {
     if (!mb) return apiError(403, "mailbox_not_allowed", `This key can't read ${mailboxParam}.`);
     where.push("m.mailbox_id = ?");
     binds.push(mb.id);
-  } else if (!auth.grants.some((g) => g.target_type === "all" && g.can_read)) {
-    // Only the mailboxes this key may read.
-    const ids = (await usableMailboxes(auth)).filter((m) => m.perm.read).map((m) => m.id);
-    if (!ids.length) return apiJson({ data: [] });
-    where.push(`m.mailbox_id IN (${ids.map(() => "?").join(",")})`);
-    binds.push(...ids);
+  } else {
+    // Only the mailboxes this key may read, worked out in SQL (no limit on how many).
+    where.push(`m.mailbox_id IN (SELECT b.id FROM mailboxes b JOIN api_key_grants g ON g.key_id = ? AND g.can_read = 1 AND ${GRANT_COVERS_SQL})`);
+    binds.push(auth.key.id);
   }
   const folder = q.get("folder") ?? "inbox";
   if (folder !== "all") {

@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { sha256 } from "./auth";
-import { newId, now } from "./util";
+import { domainOf, newId, now } from "./util";
 
 /*
  * API keys. A key holds grants; each grant gives read and/or send on every
@@ -78,20 +78,35 @@ export async function createApiKey(input: { name: string; grants: Grant[]; userI
   return { id, key };
 }
 
-/** Replaces a key's grants; the key itself is unchanged. */
+/**
+ * Replaces a key's grants; the key itself is unchanged. Also clears the legacy
+ * api_keys.mailbox_id, whose ON DELETE CASCADE would otherwise delete the key
+ * along with that mailbox.
+ */
 export async function setApiKeyGrants(keyId: string, grants: Grant[]) {
-  await env.DB.batch(grantStatements(keyId, grants));
+  await env.DB.batch([
+    env.DB.prepare("UPDATE api_keys SET mailbox_id = NULL WHERE id = ?").bind(keyId),
+    ...grantStatements(keyId, grants),
+  ]);
 }
 
-export async function listGrants(keyIds: string[]): Promise<(Grant & { key_id: string })[]> {
-  if (!keyIds.length) return [];
+/** Grants of every key that isn't revoked (one query, however many keys). */
+export async function listActiveGrants(): Promise<(Grant & { key_id: string })[]> {
   const { results } = await env.DB.prepare(
-    `SELECT * FROM api_key_grants WHERE key_id IN (${keyIds.map(() => "?").join(",")})`,
-  )
-    .bind(...keyIds)
-    .all<Grant & { key_id: string }>();
+    "SELECT g.* FROM api_key_grants g JOIN api_keys k ON k.id = g.key_id WHERE k.revoked_at IS NULL",
+  ).all<Grant & { key_id: string }>();
   return results;
 }
+
+/**
+ * SQL condition: grant `g` covers mailbox `b`. The same rule as permFor():
+ * every mailbox, that mailbox, or a mailbox whose address ends in "@<domain>".
+ */
+export const GRANT_COVERS_SQL = `(g.target_type = 'all'
+  OR (g.target_type = 'mailbox' AND g.target_id = b.id)
+  OR (g.target_type = 'domain' AND EXISTS (
+    SELECT 1 FROM domains d WHERE d.id = g.target_id
+      AND substr(lower(b.address), -length(d.name) - 1) = '@' || lower(d.name))))`;
 
 /* ---------- Checking a request ---------- */
 
@@ -105,7 +120,8 @@ export const apiJson = (body: unknown, status = 200) => json(status, body);
 
 /**
  * Checks the Bearer key. With a scope, the key must hold it on at least one
- * grant; which mailbox it may use is checked per request with `can()`.
+ * grant; with `null`, any permission will do. Which mailbox it may use is
+ * checked per request with `can()`.
  */
 export async function authenticate(request: Request, scope: Scope | null): Promise<ApiAuth | Response> {
   const header = request.headers.get("Authorization") ?? "";
@@ -123,14 +139,13 @@ export async function authenticate(request: Request, scope: Scope | null): Promi
     .bind(key.id)
     .all<ResolvedGrant>();
   const auth = { key, grants };
-  if (scope && !grants.some((g) => (scope === "read" ? g.can_read : g.can_send)))
-    return apiError(403, "forbidden", `This key has no "${scope}" permission on any mailbox.`);
+  const holds = (g: Grant) => (scope === "read" ? g.can_read : scope === "send" ? g.can_send : g.can_read || g.can_send);
+  if (!grants.some(holds))
+    return apiError(403, "forbidden", scope ? `This key has no "${scope}" permission on any mailbox.` : "This key has no permission on any mailbox.");
   // Cheap enough to do on every call; keeps "last used" honest in the admin UI.
   await env.DB.prepare("UPDATE api_keys SET last_used_at = ? WHERE id = ?").bind(now(), key.id).run();
   return auth;
 }
-
-const domainOf = (address: string) => address.slice(address.lastIndexOf("@") + 1).toLowerCase();
 
 /** What the key may do on this mailbox: the union of every grant that covers it. */
 export function permFor(auth: ApiAuth, mailbox: { id: string; address: string }): Perm {

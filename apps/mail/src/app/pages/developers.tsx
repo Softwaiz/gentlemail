@@ -21,7 +21,7 @@ import { Input } from "@/app/components/ui/input";
 import { Switch } from "@/app/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
 import { missing } from "@/app/pages/errors";
-import { type ApiKeyRow, type Grant, listGrants } from "@/lib/apikeys";
+import { type ApiKeyRow, type Grant, listActiveGrants } from "@/lib/apikeys";
 import { type Mailbox } from "@/lib/db";
 import { formatDate } from "@/lib/util";
 import { cn } from "@/lib/utils";
@@ -108,7 +108,7 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
   const targets: AccessTargets = { domains, mailboxes };
 
   const { results: keys } = await env.DB.prepare("SELECT * FROM api_keys ORDER BY revoked_at IS NOT NULL, created_at DESC").all<ApiKeyRow>();
-  const grants = await listGrants(keys.map((k) => k.id));
+  const grants = await listActiveGrants();
   const grantsOf = (id: string) => grants.filter((g) => g.key_id === id);
   const { results: hooks } = await env.DB.prepare(
     `SELECT w.*,
@@ -148,7 +148,7 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
                   <TableCell className="font-medium">{k.name}</TableCell>
                   <TableCell className="font-mono text-xs">{k.prefix}…</TableCell>
                   <TableCell>
-                    <AccessSummary grants={grantsOf(k.id)} targets={targets} />
+                    {k.revoked_at ? <span className="text-muted-foreground">None</span> : <AccessSummary grants={grantsOf(k.id)} targets={targets} />}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{k.last_used_at ? formatDate(k.last_used_at, true) : "Never"}</TableCell>
                   <TableCell className="text-right">
@@ -156,19 +156,19 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
                       <span className="text-xs text-muted-foreground">Revoked</span>
                     ) : (
                       <div className="flex justify-end gap-1">
-                      <EditKeyAccessDialog keyId={k.id} name={k.name} targets={targets} initial={grantValue(grantsOf(k.id))} />
-                      <ConfirmAction
-                        trigger={
-                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                            Revoke
-                          </Button>
-                        }
-                        title={`Revoke “${k.name}”?`}
-                        description="Programs using this key are refused from the next request. This can't be undone."
-                        confirmLabel="Revoke key"
-                        action={revokeKeyAction}
-                        args={[k.id]}
-                      />
+                        <EditKeyAccessDialog keyId={k.id} name={k.name} targets={targets} initial={grantValue(grantsOf(k.id))} />
+                        <ConfirmAction
+                          trigger={
+                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                              Revoke
+                            </Button>
+                          }
+                          title={`Revoke “${k.name}”?`}
+                          description="Programs using this key are refused from the next request. This can't be undone."
+                          confirmLabel="Revoke key"
+                          action={revokeKeyAction}
+                          args={[k.id]}
+                        />
                       </div>
                     )}
                   </TableCell>
@@ -183,8 +183,6 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
               )}
             </TableBody>
           </Table>
-
-
         </Section>
 
         <Section
@@ -225,8 +223,6 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
               ))}
             </ul>
           )}
-
-
         </Section>
 
         <Section title="Quick reference" description={`Base URL ${base}/api/v1. Send the key as a Bearer token.`}>

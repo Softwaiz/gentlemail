@@ -13,11 +13,18 @@ CREATE TABLE api_key_grants (
 );
 CREATE INDEX api_key_grants_target ON api_key_grants(target_type, target_id);
 
--- Existing keys keep exactly the access they had.
+-- Existing keys keep exactly the access they had. A key with no known scope
+-- gets no grant (and so no access), rather than a grant that allows nothing.
 INSERT INTO api_key_grants (key_id, target_type, target_id, can_read, can_send)
 SELECT id,
        CASE WHEN mailbox_id IS NULL THEN 'all' ELSE 'mailbox' END,
        COALESCE(mailbox_id, ''),
        instr(scopes, 'read') > 0,
        instr(scopes, 'send') > 0
-FROM api_keys;
+FROM api_keys
+WHERE instr(scopes, 'read') > 0 OR instr(scopes, 'send') > 0;
+
+-- api_keys.mailbox_id has ON DELETE CASCADE: left set, deleting that mailbox
+-- would delete the key, even after its access was changed. Access now lives in
+-- the grants above (which are removed with the mailbox instead).
+UPDATE api_keys SET mailbox_id = NULL;

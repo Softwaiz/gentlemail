@@ -18,6 +18,7 @@ import {
 } from "@/app/components/ui/dialog";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
+import { domainOf } from "@/lib/util";
 import { cn } from "@/lib/utils";
 
 export type AccessTargets = {
@@ -28,12 +29,14 @@ export type AccessTargets = {
 export type AccessValue = Record<string, { read: boolean; send: boolean }>;
 
 type Perm = "read" | "send";
-const domainOf = (address: string) => address.slice(address.lastIndexOf("@") + 1).toLowerCase();
 
 /**
  * Read / Send per line: every mailbox, each domain (mailboxes added to it later
  * included) and each mailbox. A line already covered by a broader one shows as
- * ticked and locked. Posts checkboxes named "read" and "send".
+ * ticked and locked. Posts checkboxes named "read" and "send"; the server
+ * replaces all of a key's grants with what is posted, so every grant must be
+ * in the form: the filter only hides rows, and a locked line still posts its
+ * own grant, so removing the broader line later leaves it in place.
  */
 function AccessEditor({ targets, initial }: { targets: AccessTargets; initial: AccessValue }) {
   const [value, setValue] = useState<AccessValue>(initial);
@@ -59,7 +62,10 @@ function AccessEditor({ targets, initial }: { targets: AccessTargets; initial: A
 
   const cell = (target: string, perm: Perm, inherited: boolean, label: string) =>
     inherited ? (
-      <Checkbox checked disabled aria-label={`${label}: included by a broader line`} />
+      <>
+        <Checkbox checked disabled aria-label={`${label}: included by a broader line`} />
+        {own(target, perm) && <input type="hidden" name={perm} value={target} />}
+      </>
     ) : (
       <Checkbox name={perm} value={target} checked={own(target, perm)} onCheckedChange={(c) => toggle(target, perm, c === true)} aria-label={label} />
     );
@@ -70,14 +76,19 @@ function AccessEditor({ targets, initial }: { targets: AccessTargets; initial: A
     hint,
     inherited,
     level,
+    hidden = false,
   }: {
     target: string;
     title: string;
     hint?: string;
     inherited: Record<Perm, boolean>;
     level: 0 | 1;
+    hidden?: boolean;
   }) => (
-    <div key={target} className={cn("grid grid-cols-[minmax(0,1fr)_56px_56px] items-center gap-2 px-3 py-2", level === 0 ? "bg-muted/40" : "pl-7")}>
+    <div
+      key={target}
+      className={cn("grid grid-cols-[minmax(0,1fr)_56px_56px] items-center gap-2 px-3 py-2", level === 0 ? "bg-muted/40" : "pl-7", hidden && "hidden")}
+    >
       <div className="min-w-0">
         <div className={cn("truncate text-sm", level === 0 && "font-medium")}>{title}</div>
         {hint && <div className="truncate text-xs text-muted-foreground">{hint}</div>}
@@ -115,10 +126,11 @@ function AccessEditor({ targets, initial }: { targets: AccessTargets; initial: A
               read: allOn.read || (!!g.domain && own(dKey, "read")),
               send: allOn.send || (!!g.domain && own(dKey, "send")),
             };
-            const shown = g.mailboxes.filter((m) => !q || m.address.toLowerCase().includes(q));
-            if (q && !shown.length && !g.domain?.name.toLowerCase().includes(q)) return null;
+            // Filtered-out rows are hidden, not removed, so their grants are still posted.
+            const matches = (m: { address: string }) => !q || m.address.toLowerCase().includes(q);
+            const groupHidden = !!q && !g.mailboxes.some(matches) && !g.domain?.name.toLowerCase().includes(q);
             return (
-              <div key={dKey || "other"} className="divide-y">
+              <div key={dKey || "other"} className={cn("divide-y", groupHidden && "hidden")}>
                 {g.domain ? (
                   row({
                     target: dKey,
@@ -130,7 +142,9 @@ function AccessEditor({ targets, initial }: { targets: AccessTargets; initial: A
                 ) : (
                   <div className="bg-muted/40 px-3 py-2 text-sm font-medium">Other mailboxes</div>
                 )}
-                {shown.map((m) => row({ target: `mailbox:${m.id}`, title: m.address, inherited: mInherited, level: 1 }))}
+                {g.mailboxes.map((m) =>
+                  row({ target: `mailbox:${m.id}`, title: m.address, inherited: mInherited, level: 1, hidden: !matches(m) }),
+                )}
               </div>
             );
           })}

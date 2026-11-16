@@ -11,7 +11,9 @@ import {
   updateMailbox,
   updateUserAction,
 } from "@/app/actions/admin";
-import { ActionForm, ConfirmAction, FormDialog } from "@/app/components/action-form";
+import { ActionForm, ActionSwitch, ConfirmAction, FormDialog } from "@/app/components/action-form";
+import { resetUserMfaAction, setRequireMfaAction } from "@/app/actions/security";
+import { isMfaRequired } from "@/lib/mfa";
 import { FormSelect } from "@/app/components/form-select";
 import { Field, Section, StatusBadge } from "@/app/components/section";
 import { PageHeader, Shell, flashFrom } from "@/app/components/shell";
@@ -25,7 +27,7 @@ import { missing } from "@/app/pages/errors";
 import { DomainsGrid, listDomainsWithCounts } from "@/app/pages/domains";
 import { type Mailbox, domainOf } from "@/lib/db";
 
-type UserRow = { id: string; email: string; name: string; role: string; created_at: number };
+type UserRow = { id: string; email: string; name: string; role: string; created_at: number; mfa_enabled_at: number | null };
 
 const ROLES = [
   { value: "member", label: "Member", hint: "" },
@@ -64,16 +66,17 @@ function CheckList({
 
 export async function AdminPage({ ctx, request }: RequestInfo) {
   const user = ctx.user!;
-  const [{ results: mailboxes }, { results: users }, { results: members }, domains] = await Promise.all([
+  const [{ results: mailboxes }, { results: users }, { results: members }, domains, mfaRequired] = await Promise.all([
     env.DB.prepare(
       `SELECT m.*,
         (SELECT COUNT(*) FROM messages x WHERE x.mailbox_id = m.id) AS total,
         (SELECT GROUP_CONCAT(u.name, ', ') FROM mailbox_members mm JOIN users u ON u.id = mm.user_id WHERE mm.mailbox_id = m.id) AS member_names
        FROM mailboxes m ORDER BY m.address`,
     ).all<Mailbox & { total: number; member_names: string | null }>(),
-    env.DB.prepare("SELECT id, email, name, role, created_at FROM users ORDER BY created_at").all<UserRow>(),
+    env.DB.prepare("SELECT id, email, name, role, created_at, mfa_enabled_at FROM users ORDER BY created_at").all<UserRow>(),
     env.DB.prepare("SELECT mailbox_id, user_id FROM mailbox_members").all<{ mailbox_id: string; user_id: string }>(),
     listDomainsWithCounts(),
+    isMfaRequired(),
   ]);
   const usable = domains.filter((d) => d.active);
   const memberUsers = users.filter((u) => u.role !== "admin");
@@ -246,12 +249,24 @@ export async function AdminPage({ ctx, request }: RequestInfo) {
             </FormDialog>
           }
         >
+          <label className="mb-4 flex items-start gap-3 rounded-md border px-4 py-3">
+            <ActionSwitch action={setRequireMfaAction} id="require_mfa" checked={mfaRequired} label="Require two-step verification for everyone" />
+            <span className="text-sm">
+              <span className="block font-medium">Require two-step verification for everyone</span>
+              <span className="block text-muted-foreground">
+                {mfaRequired
+                  ? "On: people without it must set it up before they can open their mail."
+                  : "Off: each person can still turn it on for themselves in Security."}
+              </span>
+            </span>
+          </label>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Login email</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Two-step</TableHead>
                 <TableHead>Mailboxes</TableHead>
                 <TableHead />
               </TableRow>
@@ -269,6 +284,9 @@ export async function AdminPage({ ctx, request }: RequestInfo) {
                     <TableCell>
                       <StatusBadge on={u.role === "admin"} onLabel="Admin" offLabel="Member" />
                     </TableCell>
+                    <TableCell>
+                      <StatusBadge on={!!u.mfa_enabled_at} onLabel="On" offLabel="Off" />
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{u.role === "admin" ? "All" : access.size}</TableCell>
                     <TableCell className="text-right whitespace-nowrap">
                       <FormDialog
@@ -285,6 +303,20 @@ export async function AdminPage({ ctx, request }: RequestInfo) {
                       >
                         {userFields(u)}
                       </FormDialog>
+                      {u.id !== user.id && !!u.mfa_enabled_at && (
+                        <ConfirmAction
+                          trigger={
+                            <Button variant="ghost" size="sm">
+                              Reset two-step
+                            </Button>
+                          }
+                          title={`Reset two-step verification for ${u.name}?`}
+                          description="For someone who lost their phone and their recovery codes. Two-step is turned off and they're signed out everywhere; they sign in with their password and set it up again."
+                          confirmLabel="Reset two-step"
+                          action={resetUserMfaAction}
+                          args={[u.id]}
+                        />
+                      )}
                       {u.id !== user.id && (
                         <ConfirmAction
                           trigger={

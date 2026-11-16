@@ -157,6 +157,13 @@ Create keys and webhooks in **Admin → API & webhooks** (the page has a full qu
 - **Webhooks** receive `message.received` (not for spam) and/or `message.sent` as signed JSON:
   `X-GentleMail-Signature: v1=<hex HMAC-SHA256(secret, timestamp + "." + body)>`. Non-2xx answers are retried after 1 min, 5 min, 30 min, 2 h, 6 h and 12 h by a once-a-minute cron.
 
+## Two-step verification
+Everyone can turn on two-step verification under **Security** (the menu under their name). It works with any authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, Bitwarden, Authy…): after the password, signing in asks for the 6-digit code from the app.
+- Setting it up gives **10 recovery codes**, shown once, to download as a `.txt` or copy. Each signs in once without the phone. New codes can be made at any time (the old ones stop working).
+- A sign-in allows 5 wrong codes, then asks for the password again; a code can't be used twice.
+- **Admin → Users → Require two-step verification for everyone** makes it mandatory: people without it can only open the Security page until they've set it up. When it's off, each person decides for themselves.
+- **Reset two-step** (Admin → Users) is for someone who lost their phone and their recovery codes: it turns two-step off and signs them out everywhere, so they sign in with their password and set it up again.
+
 ## Security of displayed mail
 Incoming HTML is untrusted. Three independent layers keep it inert:
 1. **Sanitising**: scripts, event handlers (`onclick`, `onerror`…), `javascript:` links, iframes, objects, forms, `<base>`, `<link>` and `<meta>` are stripped with Cloudflare's HTML parser before display.

@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Shield } from "lucide-react";
+import { KeyRound, LogOut, Shield } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +42,11 @@ export function UserMenu({ name, email, isAdmin }: { name: string; email: string
             </a>
           </DropdownMenuItem>
         )}
+        <DropdownMenuItem asChild>
+          <a href="/account/security">
+            <KeyRound /> Security
+          </a>
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={logout}>
           <LogOut /> Log out
         </DropdownMenuItem>

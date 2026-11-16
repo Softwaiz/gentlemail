@@ -4,12 +4,13 @@ import { defineApp, type RequestInfo } from "rwsdk/worker";
 
 import { Document } from "@/app/document";
 import { setCommonHeaders } from "@/app/headers";
-import { checkOrigin, redirect, requireUser } from "@/app/http";
+import { checkOrigin, redirect, requireSignedIn, requireUser } from "@/app/http";
 import { pageNotFound, requireAdmin, requireFolder, requireMailbox, requireRecord, requireThread } from "@/app/access";
 import { AdminMailboxPage, AdminPage } from "@/app/pages/admin";
 import { AdminDomainPage } from "@/app/pages/domains";
 import { Button } from "@/app/components/ui/button";
-import { AuthCard, LoginPage, SetupPage, loginAction, logoutAction, setupAction } from "@/app/pages/auth";
+import { AuthCard, LoginPage, LoginVerifyPage, SetupPage, loginAction, loginVerifyAction, logoutAction, setupAction } from "@/app/pages/auth";
+import { SecurityPage } from "@/app/pages/security";
 import { ComposePage, SettingsPage } from "@/app/pages/compose";
 import { attachmentHandler, bodyHandler, rawHandler } from "@/app/pages/files";
 import { FolderPage, ThreadPage } from "@/app/pages/mailbox";
@@ -60,6 +61,9 @@ const app = defineApp([
   render(Document, [
     route("/setup", { get: SetupPage, post: setupAction }),
     route("/login", { get: LoginPage, post: loginAction }),
+    route("/login/verify", { get: LoginVerifyPage, post: loginVerifyAction }),
+    // Open even when two-step is required and not set up yet: it's where it gets set up.
+    route("/account/security", [requireSignedIn, SecurityPage]),
     route("/", [requireUser, home]),
     route("/no-mailbox", [
       requireUser,

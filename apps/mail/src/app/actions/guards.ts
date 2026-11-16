@@ -7,13 +7,23 @@ import type { AppContext } from "@/worker";
 
 type Ctx = { ctx: Record<string, any> };
 
+const mfaFirst = () => new Response("Set up two-step verification first", { status: 403 });
+
 export const signedIn = ({ ctx }: Ctx) => {
+  const user = (ctx as AppContext).user;
+  if (!user) return new Response("Sign in first", { status: 401 });
+  if (user.mustSetUpMfa) return mfaFirst();
+};
+
+/** Signed in, even if two-step is required and not set up yet: only for the two-step setup itself. */
+export const signedInForMfaSetup = ({ ctx }: Ctx) => {
   if (!(ctx as AppContext).user) return new Response("Sign in first", { status: 401 });
 };
 
 export const adminOnly = ({ ctx }: Ctx) => {
   const user = (ctx as AppContext).user;
   if (!user) return new Response("Sign in first", { status: 401 });
+  if (user.mustSetUpMfa) return mfaFirst();
   if (user.role !== "admin") return new Response("Admins only", { status: 403 });
 };
 

@@ -32,7 +32,15 @@ export function checkOrigin({ request }: RequestInfo) {
   }
 }
 
-export function requireUser({ ctx, request }: RequestInfo) {
+/** Signed in, two-step set up if an admin requires it (otherwise sent to set it up). */
+export function requireUser(ri: RequestInfo) {
+  const denied = requireSignedIn(ri);
+  if (denied) return denied;
+  if (ri.ctx.user!.mustSetUpMfa) return redirect("/account/security");
+}
+
+/** Signed in, nothing more: for the Security page, where required two-step is set up. */
+export function requireSignedIn({ ctx, request }: RequestInfo) {
   if (!ctx.user) {
     const url = new URL(request.url);
     return redirect(`/login?next=${encodeURIComponent(url.pathname + url.search)}`);

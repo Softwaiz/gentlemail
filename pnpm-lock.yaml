@@ -117,9 +117,9 @@ importers:
       '@astrojs/starlight':
         specifier: 0.42.8
         version: 0.42.8(@astrojs/markdown-remark@7.3.5(supports-color@10.2.2))(astro@7.4.4(@astrojs/markdown-remark@7.3.5(supports-color@10.2.2))(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(supports-color@10.2.2)(typescript@7.0.2)
-      '@fontsource-variable/dm-sans':
-        specifier: ^5.3.0
-        version: 5.3.0
+      '@fontsource-variable/google-sans':
+        specifier: ^5.3.2
+        version: 5.3.2
       astro:
         specifier: 7.4.4
         version: 7.4.4(@astrojs/markdown-remark@7.3.5(supports-color@10.2.2))(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)
@@ -801,6 +801,9 @@ packages:
 
   '@fontsource-variable/dm-sans@5.3.0':
     resolution: {integrity: sha512-BpUG5bqePiDFMBM4ZtLSlPdAIOM990uB1dlXzIf4aw21yQR7BmykedLXXXMqGWsR18aMLOsbWccwJNh3ztTQaA==}
+
+  '@fontsource-variable/google-sans@5.3.2':
+    resolution: {integrity: sha512-fN+fO2Ffm+n2G5K+UK4ynP5WrWT+M/dbBs9HZaYcgAT5evhefJJH2MlGj8yMz+8slQmhjWAqPJyJ1sELkUM4Uw==}
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -5056,6 +5059,8 @@ snapshots:
   '@floating-ui/utils@0.2.12': {}
 
   '@fontsource-variable/dm-sans@5.3.0': {}
+
+  '@fontsource-variable/google-sans@5.3.2': {}
 
   '@img/colour@1.1.0': {}
 

@@ -10,9 +10,9 @@
 }
 
 :root {
-  --sl-font: "DM Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --sl-font: "Google Sans Variable", ui-sans-serif, system-ui, sans-serif;
   --sl-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --gm-display: "Bricolage Grotesque", "DM Sans Variable", sans-serif;
+  --gm-display: "Bricolage Grotesque", "Google Sans Variable", sans-serif;
 }
 
 /* Dark (the default, like the website): ink background, paper text, lime accent. */

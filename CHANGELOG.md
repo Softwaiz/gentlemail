@@ -13,6 +13,9 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 ### Added
 - Documentation at [gentlemail.dev/docs](https://gentlemail.dev/docs/), with search: deploying, updating (including database migrations), two-step verification, spam, the API (keys, sending, reading, errors), webhooks and recipes, and this changelog. It lives in the repository (`apps/docs`), so docs change in the same pull request as the code. ([#13](https://github.com/Softwaiz/gentlemail/pull/13))
 
+### Changed
+- The docs use Google Sans, like gentlemail.dev. ([#14](https://github.com/Softwaiz/gentlemail/pull/14))
+
 ## 0.4.0 (2026-11-16)
 
 ### Added

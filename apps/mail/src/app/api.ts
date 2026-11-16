@@ -216,10 +216,16 @@ export const listHandler = withKey("read", async ({ request }, auth) => {
   )
     .bind(...binds, limit)
     .all<MessageRow & { mailbox_address: string }>();
-  const atts = await listAttachments(results.map((m) => m.id));
+  // Group the page's attachments by message once, instead of filtering them all for each message.
+  const attsByMessage = new Map<string, Awaited<ReturnType<typeof listAttachments>>>();
+  for (const a of await listAttachments(results.map((m) => m.id))) {
+    const list = attsByMessage.get(a.message_id);
+    if (list) list.push(a);
+    else attsByMessage.set(a.message_id, [a]);
+  }
   return apiJson({
     data: results.map((m) => {
-      const { text: _t, ...summary } = messageJson(m, m.mailbox_address, atts.filter((a) => a.message_id === m.id));
+      const { text: _t, ...summary } = messageJson(m, m.mailbox_address, attsByMessage.get(m.id) ?? []);
       return summary;
     }),
   });

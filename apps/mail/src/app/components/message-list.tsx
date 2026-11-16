@@ -46,7 +46,13 @@ export function MessageList({ mailboxId, folder, scope, items, showFolder }: Pro
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pending, start] = useTransition();
   // The list re-renders from the server after each action: drop selections that are gone.
-  useEffect(() => setSelected((s) => new Set([...s].filter((k) => items.some((i) => i.key === k)))), [items]);
+  useEffect(() => {
+    const present = new Set(items.map((i) => i.key));
+    setSelected((s) => {
+      const kept = new Set([...s].filter((k) => present.has(k)));
+      return kept.size === s.size ? s : kept; // unchanged: keep the same Set, no extra render
+    });
+  }, [items]);
 
   const run = (action: MailAction, keys: string[]) =>
     start(async () => {

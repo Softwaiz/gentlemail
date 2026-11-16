@@ -56,10 +56,9 @@ export async function ComposePage(ri: RequestInfo) {
         : [{ name: original.from_name, address: original.reply_to || original.from_addr }];
     to = uniq(replyTarget, mailbox.address).map(formatAddr).join(", ");
     if (replyAll) {
+      const already = new Set(replyTarget.map((r) => r.address.toLowerCase()));
       const others = uniq(
-        [...parseAddrs(original.to_json), ...parseAddrs(original.cc_json)].filter(
-          (a) => !replyTarget.some((r) => r.address.toLowerCase() === a.address.toLowerCase()),
-        ),
+        [...parseAddrs(original.to_json), ...parseAddrs(original.cc_json)].filter((a) => !already.has(a.address.toLowerCase())),
         mailbox.address,
       );
       cc = others.map(formatAddr).join(", ");

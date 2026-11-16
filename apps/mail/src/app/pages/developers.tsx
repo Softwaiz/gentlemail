@@ -20,7 +20,7 @@ import { Checkbox } from "@/app/components/ui/checkbox";
 import { Input } from "@/app/components/ui/input";
 import { Switch } from "@/app/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
-import { notFound } from "@/app/http";
+import { missing } from "@/app/pages/errors";
 import { type ApiKeyRow, SCOPES } from "@/lib/apikeys";
 import { type Mailbox } from "@/lib/db";
 import { formatDate } from "@/lib/util";
@@ -249,9 +249,10 @@ const statusStyle: Record<string, string> = {
   failed: "bg-destructive/10 text-destructive",
 };
 
-export async function WebhookPage({ params, ctx, request }: RequestInfo) {
+export async function WebhookPage(ri: RequestInfo) {
+  const { params, ctx, request } = ri;
   const hook = await env.DB.prepare("SELECT * FROM webhooks WHERE id = ?").bind(params.id).first<WebhookRow>();
-  if (!hook) return notFound();
+  if (!hook) return missing(ri, "webhook");
   const mailboxes = await listMailboxes();
   const { results: deliveries } = await env.DB.prepare(
     "SELECT * FROM webhook_deliveries WHERE webhook_id = ? ORDER BY created_at DESC LIMIT 30",

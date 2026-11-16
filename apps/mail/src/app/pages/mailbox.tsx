@@ -8,7 +8,8 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { cn } from "@/lib/utils";
 import { MailFrame } from "@/app/components/mail-frame";
-import { notFound, redirect } from "@/app/http";
+import { redirect } from "@/app/http";
+import { missing } from "@/app/pages/errors";
 import { SPAM_RETENTION_DAYS } from "@/lib/spam";
 import {
   type AttachmentRow,
@@ -27,12 +28,13 @@ type ListRow = MessageRow & { thread_count: number; thread_unread: number; threa
 
 /* ---------- Folder / search list ---------- */
 
-export async function FolderPage({ params, ctx, request }: RequestInfo) {
+export async function FolderPage(ri: RequestInfo) {
+  const { params, ctx, request } = ri;
   const user = ctx.user!;
   const mailbox = await getMailboxForUser(user, params.mailboxId);
-  if (!mailbox) return notFound();
+  if (!mailbox) return missing(ri, "mailbox");
   const folder = params.folder;
-  if (!isFolder(folder)) return notFound();
+  if (!isFolder(folder)) return missing(ri, "page");
 
   const url = new URL(request.url);
   const q = (url.searchParams.get("q") ?? "").trim();
@@ -161,10 +163,11 @@ const pageUrl = (url: URL, p: number) => {
 
 /* ---------- Conversation view ---------- */
 
-export async function ThreadPage({ params, ctx, request }: RequestInfo) {
+export async function ThreadPage(ri: RequestInfo) {
+  const { params, ctx, request } = ri;
   const user = ctx.user!;
   const mailbox = await getMailboxForUser(user, params.mailboxId);
-  if (!mailbox) return notFound();
+  if (!mailbox) return missing(ri, "mailbox");
   const url = new URL(request.url);
   const folder = isFolder(url.searchParams.get("f") ?? "") ? url.searchParams.get("f")! : "inbox";
 

@@ -4,7 +4,8 @@ import { defineApp, type RequestInfo } from "rwsdk/worker";
 
 import { Document } from "@/app/document";
 import { setCommonHeaders } from "@/app/headers";
-import { checkOrigin, redirect, requireAdmin, requireUser } from "@/app/http";
+import { checkOrigin, redirect, requireUser } from "@/app/http";
+import { pageNotFound, requireAdmin, requireFolder, requireMailbox, requireRecord, requireThread } from "@/app/access";
 import { AdminMailboxPage, AdminPage } from "@/app/pages/admin";
 import { AdminDomainPage } from "@/app/pages/domains";
 import { Button } from "@/app/components/ui/button";
@@ -78,15 +79,18 @@ const app = defineApp([
     // posts to the page URL itself; each function checks access on its own too.
     route("/admin", [requireAdmin, AdminPage]),
     route("/admin/api", [requireAdmin, DevelopersPage]),
-    route("/admin/webhooks/:id", [requireAdmin, WebhookPage]),
-    route("/admin/domains/:id", [requireAdmin, AdminDomainPage]),
-    route("/admin/mailboxes/:id", [requireAdmin, AdminMailboxPage]),
+    route("/admin/webhooks/:id", [requireAdmin, requireRecord("webhooks", "webhook"), WebhookPage]),
+    route("/admin/domains/:id", [requireAdmin, requireRecord("domains", "domain"), AdminDomainPage]),
+    route("/admin/mailboxes/:id", [requireAdmin, requireRecord("mailboxes", "mailbox"), AdminMailboxPage]),
     route("/admin/users/:id", [requireAdmin, () => redirect("/admin")]),
 
-    route("/mb/:mailboxId/compose", [requireUser, ComposePage]),
-    route("/mb/:mailboxId/settings", [requireUser, SettingsPage]),
-    route("/mb/:mailboxId/thread/:threadId", [requireUser, ThreadPage]),
-    route("/mb/:mailboxId/:folder", [requireUser, FolderPage]),
+    route("/mb/:mailboxId/compose", [requireUser, requireMailbox, ComposePage]),
+    route("/mb/:mailboxId/settings", [requireUser, requireMailbox, SettingsPage]),
+    route("/mb/:mailboxId/thread/:threadId", [requireUser, requireMailbox, requireThread, ThreadPage]),
+    route("/mb/:mailboxId/:folder", [requireUser, requireMailbox, requireFolder, FolderPage]),
+
+    // Anything else: "Page not found" (signed in or not).
+    route("/*", pageNotFound),
   ]),
 ]);
 

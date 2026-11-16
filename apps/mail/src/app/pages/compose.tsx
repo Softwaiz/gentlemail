@@ -11,7 +11,7 @@ import { Badge } from "@/app/components/ui/badge";
 import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { notFound } from "@/app/http";
+import { missing } from "@/app/pages/errors";
 import type { SenderRule } from "@/lib/spam";
 import { type Mailbox, type MessageRow, getHtmlBody, getMailboxForUser, listAttachments, parseAddrs } from "@/lib/db";
 import { type Addr, formatAddr, formatBytes, formatDate, htmlToText } from "@/lib/util";
@@ -34,10 +34,11 @@ const uniq = (list: Addr[], exclude: string) => {
   });
 };
 
-export async function ComposePage({ params, ctx, request }: RequestInfo) {
+export async function ComposePage(ri: RequestInfo) {
+  const { params, ctx, request } = ri;
   const user = ctx.user!;
   const mailbox = await getMailboxForUser(user, params.mailboxId);
-  if (!mailbox) return notFound();
+  if (!mailbox) return missing(ri, "mailbox");
   const url = new URL(request.url);
   const replyId = url.searchParams.get("reply");
   const forwardId = url.searchParams.get("forward");
@@ -162,10 +163,11 @@ function ComposeRow({ label, children }: { label: string; children: React.ReactN
 
 /* ---------- Mailbox settings (signature, display name) ---------- */
 
-export async function SettingsPage({ params, ctx, request }: RequestInfo) {
+export async function SettingsPage(ri: RequestInfo) {
+  const { params, ctx, request } = ri;
   const user = ctx.user!;
   const mailbox = await getMailboxForUser(user, params.mailboxId);
-  if (!mailbox) return notFound();
+  if (!mailbox) return missing(ri, "mailbox");
   const { results: rules } = await env.DB.prepare("SELECT * FROM sender_rules WHERE mailbox_id = ? ORDER BY created_at DESC")
     .bind(mailbox.id)
     .all<SenderRule>();

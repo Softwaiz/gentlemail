@@ -1,6 +1,6 @@
 # Working on GentleMail
 
-Instructions for anyone changing this repository, human or AI coding agent. The app lives in `apps/mail`; its [README](apps/mail/README.md) has the stack, layout, scripts and database commands.
+Instructions for anyone changing this repository, human or AI coding agent. The app lives in `apps/mail`; its [README](apps/mail/README.md) has the stack, layout, scripts and database commands. The documentation site lives in `apps/docs`.
 
 ## Every change goes in the changelog
 [CHANGELOG.md](CHANGELOG.md) is the record of what was done and when. A pull request isn't finished until it updates it.
@@ -10,6 +10,14 @@ Instructions for anyone changing this repository, human or AI coding agent. The 
 - Write what changed for the people using or running GentleMail, not what the code does. Link the pull request: `([#12](https://github.com/Softwaiz/gentlemail/pull/12))`.
 - Changes nobody would notice (refactors, comments, tests only) can skip it. When in doubt, add a line.
 - A release turns **Unreleased** into `## x.y.z (YYYY-MM-DD)` and leaves an empty **Unreleased** above it (see Releases). While GentleMail is 0.x, a minor version (0.4.0) can hold anything and a patch (0.3.1) only fixes.
+
+## Docs follow the code
+The documentation is `apps/docs` ([Astro Starlight](https://starlight.astro.build)), served at [gentlemail.dev/docs](https://gentlemail.dev/docs/). Pages are Markdown files in `apps/docs/src/content/docs/`.
+
+- A pull request that changes what people see or do (a page, a setting, an API field or error, a webhook, a deploy or upgrade step) updates the docs page about it, in the same pull request.
+- The changelog page is built from `CHANGELOG.md` at build time. Don't copy release notes into the docs.
+- Links between pages start with `/docs/` (`[API keys](/docs/api/keys/)`).
+- From `apps/docs`: `npm run dev` to preview, `npm run build` must pass.
 
 ## Releases
 Merging to `main` deploys, so a release is cut in a pull request and deployed by merging it.
@@ -27,4 +35,4 @@ Merging to `main` deploys, so a release is cut in a pull request and deployed by
 - **No secrets, account IDs or deployment-specific domains in this repository.** `apps/mail/wrangler.jsonc` stays a template, and `.dev.vars` is never committed.
 
 ## Before opening a pull request
-From `apps/mail`: `npx tsc --noEmit` and `npm run build` pass, and the change is tried locally (`npm run db:migrate:local`, `npm run dev`).
+From `apps/mail`: `npx tsc --noEmit` and `npm run build` pass, and the change is tried locally (`npm run db:migrate:local`, `npm run dev`). If you changed `apps/docs`, its `npm run build` passes too.

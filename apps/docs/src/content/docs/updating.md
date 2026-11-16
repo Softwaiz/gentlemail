@@ -1,0 +1,39 @@
+---
+title: Updating
+description: Pick up a new GentleMail release, apply its database migrations and check what changed.
+---
+
+Every release is listed in the [changelog](/docs/changelog/) and on [GitHub releases](https://github.com/Softwaiz/gentlemail/releases). Read its **Upgrading** notes before you deploy it: they say when a release changes the database.
+
+## Pull the release
+
+Your repository is yours to change. Add GentleMail as a remote and pull from it:
+
+```sh
+git remote add upstream https://github.com/Softwaiz/gentlemail
+
+# Repository made by the Deploy button (the app is at its root):
+git pull -X subtree=apps/mail upstream main && git push
+
+# Fork or clone of the whole repository:
+git pull upstream main && git push
+```
+
+A repository made by the Deploy button has no history in common with GentleMail, so the first pull also needs `--allow-unrelated-histories`, and Git reports every file changed since you deployed as a conflict. Keep GentleMail's version (`git checkout --theirs .`), restore your own `wrangler.jsonc` and anything you changed (`git checkout --ours wrangler.jsonc`), then commit. Later pulls merge normally.
+
+## Deploy it, migrations first
+
+Some releases add a database migration (a numbered file in `migrations/`). **The new code needs it**: deploy the code without it and pages fail until it's applied.
+
+- **Workers Builds with the deploy command `npm run deploy`** (what the Deploy button sets up): the push deploys, and the migrations are applied first. Nothing else to do.
+- **Command line:** run `npm run build && npm run deploy` from `apps/mail`. It applies the migrations, then deploys.
+- **Any other deploy command** (for example plain `npx wrangler deploy`): apply the migrations yourself, right before or right after the deploy:
+  ```sh
+  npx wrangler d1 migrations apply DB --remote
+  ```
+
+To see what's pending: `npx wrangler d1 migrations list DB --remote`.
+
+## Check the version
+
+Admins see the running version at the bottom of the sidebar. A build of `main` between two releases shows the last release followed by `+dev` (for example `0.4.0+dev`).

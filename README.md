@@ -24,16 +24,43 @@ One deployment serves any number of domains, mailboxes and people for the $5/mon
 
 You need a Cloudflare account on Workers Paid and a domain whose DNS is on Cloudflare. The full guide (every step, configuration, an end-to-end test, updating and troubleshooting) is in **[apps/mail/README.md](apps/mail/README.md)**.
 
+## No Cloudflare API token
+GentleMail never asks for a Cloudflare API token or account ID. It uses D1, R2 and Email Service through Worker bindings, so nothing sensitive is pasted into the app and there's no token to rotate. The only login involved is your own Cloudflare account, when you deploy.
+
+## Tech stack
+Cloudflare Workers · [RedwoodSDK](https://rwsdk.com) (React 19 server components, Vite) · D1 (SQLite, plain SQL, **no ORM**) · R2 · Email Routing + Email Service · `postal-mime` · Tailwind CSS 4 + shadcn/ui · TypeScript.
+Details, the database and migration commands, and a file-by-file map are in [apps/mail/README.md](apps/mail/README.md#tech-stack).
+
 ## Repository
+A small [pnpm workspace](https://pnpm.io/workspaces) monorepo. Today it holds one app, which is self-contained: it has its own `package.json`, `wrangler.jsonc` and migrations, and builds and deploys on its own with npm or pnpm.
+
+```
+.
+├── apps/
+│   └── mail/                  the app: webmail, REST API and webhooks (one Cloudflare Worker)
+│       ├── migrations/        D1 schema as numbered SQL files
+│       ├── src/worker.tsx     Worker entry and routes
+│       ├── src/app/           pages, server functions, REST API, UI components
+│       ├── src/lib/           mail in/out, auth, spam, API keys, webhooks, queries
+│       └── wrangler.jsonc     Worker config (template: set your own name and hostname)
+├── packages/                  reserved for shared packages (empty for now)
+├── package.json               workspace scripts
+└── pnpm-workspace.yaml
+```
 
 | Path | What |
 |---|---|
-| [`apps/mail`](apps/mail) | The app: webmail, API and webhooks (RedwoodSDK, D1, R2, Email Service). Self-contained, and the folder the Deploy button copies. |
+| [`apps/mail`](apps/mail) | The app. The folder the Deploy button copies, and the **Root directory** for Workers Builds. Full guide in its [README](apps/mail/README.md). |
 
+### Commands
+From the repository root (pnpm):
 ```sh
 pnpm install
-pnpm dev:mail      # local development, see apps/mail/README.md#local-development
+pnpm dev:mail                                    # local dev server, http://localhost:5173
+pnpm --filter @emails/mail db:migrate:local      # apply migrations to the local database
+pnpm --filter @emails/mail types                 # type-check
 ```
+Or work inside `apps/mail` with npm (`npm install`, `npm run dev`, `npm run build`, `npm run deploy`). See [Scripts](apps/mail/README.md#scripts) and [Database and migrations](apps/mail/README.md#database-and-migrations): deploying applies pending migrations to your D1 database first, and `npx wrangler d1 migrations apply DB --remote` does it by hand.
 
 ## Fork it
 

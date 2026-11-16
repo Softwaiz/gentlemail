@@ -10,6 +10,8 @@ Website: https://gentlemail.dev · [Deploy guide](https://gentlemail.dev/deploy)
 - **Store**: messages, mailboxes, users and sessions in **D1**; raw `.eml`, attachments and oversized HTML in **R2**
 - **Send**: Cloudflare Email Service `send_email` binding (no API key; Workers Paid includes 3,000 a month, then $0.35 per 1,000)
 
+**No Cloudflare API token, no account ID.** GentleMail never calls the Cloudflare API. It talks to D1, R2 and Email Service through [bindings](https://developers.cloudflare.com/workers/runtime-apis/bindings/) declared in `wrangler.jsonc`, which the Worker gets automatically when it's deployed. So there's no `CLOUDFLARE_API_TOKEN` or account ID to create, paste or rotate in the app. The only Cloudflare login involved is your own: the Deploy button and Workers Builds use your dashboard session, and the command line uses `wrangler login`.
+
 ## Contents
 1. [What you need](#what-you-need)
 2. [Deploy](#1-deploy)
@@ -19,7 +21,8 @@ Website: https://gentlemail.dev · [Deploy guide](https://gentlemail.dev/deploy)
 6. [Use your own hostname (optional)](#5-use-your-own-hostname-optional)
 7. [Test it end to end](#6-test-it-end-to-end)
 8. [Configuration](#configuration) · [Updating](#updating) · [Troubleshooting](#troubleshooting)
-9. [Features](#features) · [Spam](#spam) · [API & webhooks](#api--webhooks) · [Security](#security-of-displayed-mail) · [Layout](#layout) · [Local development](#local-development)
+9. [Features](#features) · [Spam](#spam) · [API & webhooks](#api--webhooks) · [Security](#security-of-displayed-mail)
+10. [Tech stack](#tech-stack) · [Database and migrations](#database-and-migrations) · [Layout](#layout) · [Scripts](#scripts) · [Local development](#local-development)
 
 ## What you need
 - A **Cloudflare account on the Workers Paid plan** ($5/month). It includes the outbound email.
@@ -155,22 +158,81 @@ Incoming HTML is untrusted. Three independent layers keep it inert:
 
 Session cookies are `HttpOnly` and `SameSite=Lax`, and attachments of risky types (HTML, SVG…) are always downloaded, never displayed.
 
+## Tech stack
+| Layer | What | Notes |
+|---|---|---|
+| Runtime | [Cloudflare Workers](https://developers.cloudflare.com/workers/) | One Worker handles HTTP (`fetch`), inbound mail (`email`) and the cron (`scheduled`). |
+| Framework | [RedwoodSDK](https://rwsdk.com) (`rwsdk`) on React 19 | Server components, server functions (`serverAction` / `serverQuery`), route middleware. Built with Vite and `@cloudflare/vite-plugin`. |
+| Database | [D1](https://developers.cloudflare.com/d1/) (SQLite) | Plain SQL, no ORM. See [Database and migrations](#database-and-migrations). |
+| File storage | [R2](https://developers.cloudflare.com/r2/) | Raw `.eml`, attachments, large HTML bodies. |
+| Inbound mail | [Email Routing](https://developers.cloudflare.com/email-routing/) → Worker, parsed with [`postal-mime`](https://github.com/postalsys/postal-mime) | |
+| Outbound mail | [Email Service](https://developers.cloudflare.com/email-service/) `send_email` binding | No API key. |
+| UI | Tailwind CSS 4, [shadcn/ui](https://ui.shadcn.com) components on Radix, `lucide-react` icons, `sonner` toasts | |
+| Auth | Own code: PBKDF2 password hashes, sessions in D1, `HttpOnly` cookie | No external identity provider. |
+| Language / tooling | TypeScript, Wrangler 4, npm or pnpm | |
+
+## Database and migrations
+**No ORM.** Queries are plain SQL run through the D1 binding with prepared statements and bound parameters (`env.DB.prepare("… WHERE id = ?").bind(id)`). Row shapes are TypeScript types next to the queries (`src/lib/db.ts` and each `src/lib/*.ts`). There's no Drizzle, Kysely or Prisma to learn or generate.
+
+**Schema changes are SQL files** in `migrations/`, numbered in order (`0001_init.sql`, `0002_domains.sql`, …). D1 records which ones it has applied in a `d1_migrations` table, so each runs once.
+
+| When | Command (from `apps/mail`) |
+|---|---|
+| Deploying with the Deploy button, Workers Builds or `npm run deploy` | Nothing to do: the `deploy` script runs `wrangler d1 migrations apply DB --remote` before `wrangler deploy`. |
+| Apply pending migrations to your Cloudflare D1 by hand | `npx wrangler d1 migrations apply DB --remote` |
+| See which migrations are pending | `npx wrangler d1 migrations list DB --remote` |
+| Apply them to your local dev database | `npm run db:migrate:local` |
+| Add a migration (when changing the schema) | `npx wrangler d1 migrations create DB short_description`, then write the SQL in the new file |
+| Run a query against production | `npx wrangler d1 execute DB --remote --command "SELECT COUNT(*) FROM messages"` |
+
+`DB` is the binding name from `wrangler.jsonc`, so these commands work whatever you named the database. After `git pull`ing a new release, pushing deploys it and applies its migrations; if you deploy another way, run the `apply` command first.
+
 ## Layout
 ```
-migrations/                D1 schema (0001 init, 0002 domains, 0003 API keys + webhooks, 0004 sender rules)
-src/worker.tsx             routes + Worker entry (fetch + email)
-src/lib/inbound.ts         receive → D1/R2
-src/lib/outbound.ts        send via EMAIL binding → saved in "sent"
-src/lib/threads.ts         conversation grouping
-src/lib/apikeys.ts         API key creation and checks
-src/lib/webhooks.ts        webhook signing, delivery, retries
-src/app/api.ts             public /api/v1 routes
-src/app/actions/           server functions: serverAction (mutations) and serverQuery (data only);
-                           each checks access itself (guards.ts), whatever page it is posted to
-src/lib/spam.ts            spam rules, sender lists, 30-day purge
-src/lib/auth.ts            PBKDF2 passwords, D1 sessions
-src/app/pages/*            UI (server components + plain HTML forms)
+apps/mail/
+├── wrangler.jsonc           Worker config: name, routes, D1/R2/Email bindings, cron, vars
+├── vite.config.mts          Vite + Cloudflare plugin + RedwoodSDK; injects the Worker name at build time
+├── package.json             scripts (see below) and the descriptions the Deploy button shows
+├── .dev.vars.example        secrets the app expects (SETUP_TOKEN)
+├── migrations/              D1 schema, plain SQL (0001 init, 0002 domains, 0003 API keys + webhooks, 0004 sender rules)
+├── public/                  static files (favicon)
+├── types/                   ambient TypeScript types
+└── src/
+    ├── worker.tsx           Worker entry (fetch, email, scheduled) and every route
+    ├── client.tsx           browser entry (hydrates client components)
+    ├── app/
+    │   ├── document.tsx     HTML shell
+    │   ├── headers.ts       security headers and CSP
+    │   ├── http.ts          redirects, CSRF origin check, sign-in middleware
+    │   ├── access.tsx       route middleware: admin only, mailbox access, 404 / 403
+    │   ├── api.ts           public REST API (/api/v1)
+    │   ├── actions/         server functions: serverAction (mutations), serverQuery (reads);
+    │   │                    each checks access itself (guards.ts), whatever page it is posted to
+    │   ├── pages/           pages (server components): mailbox, compose, admin, domains, developers, auth, errors
+    │   └── components/      shared UI; ui/ holds the shadcn components
+    └── lib/
+        ├── db.ts            row types and shared queries (mailbox access, attachments…)
+        ├── auth.ts          PBKDF2 passwords, D1 sessions
+        ├── inbound.ts       receive: parse → spam rules → D1/R2 → webhooks
+        ├── outbound.ts      send via the EMAIL binding → saved in Sent
+        ├── threads.ts       conversation grouping
+        ├── spam.ts          spam rules, sender lists, 30-day purge
+        ├── apikeys.ts       API key creation and checks
+        └── webhooks.ts      webhook signing, delivery, retries
 ```
+
+## Scripts
+Run from `apps/mail` with `npm run <script>` (or `pnpm <script>`).
+
+| Script | What it does |
+|---|---|
+| `dev` | Local dev server with local D1/R2 (Miniflare) on http://localhost:5173 |
+| `build` | Production build into `dist/` |
+| `deploy` | Applies remote D1 migrations, then `wrangler deploy` (what the Deploy button and Workers Builds run) |
+| `db:migrate:local` / `db:migrate:remote` | Apply migrations to the local or the remote database |
+| `generate` | Regenerate `worker-configuration.d.ts` from `wrangler.jsonc` (after changing bindings or vars) |
+| `types` | Type-check with `tsc` |
+| `preview` | Serve the production build locally |
 
 ## Local development
 ```sh

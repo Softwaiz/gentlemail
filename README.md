@@ -56,6 +56,10 @@ The lockfile is the workspace's `pnpm-lock.yaml`, so pnpm is the tool for this r
 
 Missing something your product needs, like a mailboxes API, forwarding, or delivery to Telegram? Fork it and add it: mail comes in through `apps/mail/src/lib/inbound.ts` and goes out through `apps/mail/src/lib/outbound.ts`. Issues, discussions and pull requests are welcome.
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/chart?repos=softwaiz/gentlemail&type=date&legend=top-left)](https://www.star-history.com/?repos=softwaiz%2Fgentlemail&type=date&legend=top-left)
+
 ## License
 
 [MIT](LICENSE) © Softwaiz

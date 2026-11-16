@@ -1,6 +1,8 @@
 import { env } from "cloudflare:workers";
 import type { User } from "./auth";
-import type { Addr } from "./util";
+import { type Addr, domainOf } from "./util";
+
+export { domainOf };
 
 export type Folder = "inbox" | "sent" | "archive" | "trash" | "spam";
 export const FOLDERS: { id: Folder; label: string }[] = [
@@ -134,8 +136,6 @@ export async function deleteMessageForever(msg: MessageRow) {
 }
 
 export type Domain = { id: string; name: string; active: number; created_at: number };
-
-export const domainOf = (address: string) => address.slice(address.lastIndexOf("@") + 1).toLowerCase();
 
 export async function listDomains(activeOnly = false): Promise<Domain[]> {
   const { results } = await env.DB.prepare(

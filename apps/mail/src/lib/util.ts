@@ -3,6 +3,9 @@ export type Addr = { name: string; address: string };
 export const newId = () => crypto.randomUUID();
 export const now = () => Date.now();
 
+/** "a@Example.com" → "example.com". The one definition, shared by the server and the key editor. */
+export const domainOf = (address: string) => address.slice(address.lastIndexOf("@") + 1).toLowerCase();
+
 export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

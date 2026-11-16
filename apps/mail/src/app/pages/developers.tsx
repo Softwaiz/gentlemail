@@ -12,7 +12,7 @@ import {
 } from "@/app/actions/admin";
 import { ActionButton, ActionForm, ConfirmAction, FormDialog } from "@/app/components/action-form";
 import { FormSelect, type Option } from "@/app/components/form-select";
-import { NewKeyDialog } from "@/app/components/key-dialog";
+import { type AccessTargets, type AccessValue, EditKeyAccessDialog, NewKeyDialog } from "@/app/components/key-dialog";
 import { PageHeader, Shell, flashFrom } from "@/app/components/shell";
 import { Field, Section, StatusBadge } from "@/app/components/section";
 import { Button } from "@/app/components/ui/button";
@@ -21,7 +21,7 @@ import { Input } from "@/app/components/ui/input";
 import { Switch } from "@/app/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
 import { missing } from "@/app/pages/errors";
-import { type ApiKeyRow, SCOPES } from "@/lib/apikeys";
+import { type ApiKeyRow, type Grant, listActiveGrants } from "@/lib/apikeys";
 import { type Mailbox } from "@/lib/db";
 import { formatDate } from "@/lib/util";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,38 @@ import { type DeliveryRow, EVENTS, type WebhookRow, publicUrl } from "@/lib/webh
 
 const listMailboxes = async () =>
   (await env.DB.prepare("SELECT id, address FROM mailboxes ORDER BY address").all<Pick<Mailbox, "id" | "address">>()).results;
+
+const grantKey = (g: Grant) => (g.target_type === "all" ? "all" : `${g.target_type}:${g.target_id}`);
+const grantValue = (grants: Grant[]): AccessValue =>
+  Object.fromEntries(grants.map((g) => [grantKey(g), { read: !!g.can_read, send: !!g.can_send }]));
+
+/** One line per grant, broadest first: "All mailboxes · read, send". */
+function AccessSummary({ grants, targets }: { grants: Grant[]; targets: AccessTargets }) {
+  const order = { all: 0, domain: 1, mailbox: 2 } as const;
+  const name = (g: Grant) =>
+    g.target_type === "all"
+      ? "All mailboxes"
+      : g.target_type === "domain"
+        ? `All of ${targets.domains.find((d) => d.id === g.target_id)?.name ?? "a removed domain"}`
+        : (targets.mailboxes.find((m) => m.id === g.target_id)?.address ?? "a deleted mailbox");
+  const sorted = [...grants].sort((a, b) => order[a.target_type] - order[b.target_type]);
+  if (!sorted.length) return <span className="text-muted-foreground">No access</span>;
+  const shown = sorted.slice(0, 3);
+  return (
+    <ul className="grid gap-0.5">
+      {shown.map((g) => (
+        <li key={grantKey(g)} className="text-[13px]">
+          <span className={cn(g.target_type !== "mailbox" && "font-medium")}>{name(g)}</span>
+          <span className="text-muted-foreground">
+            {" · "}
+            {[g.can_read && "read", g.can_send && "send"].filter(Boolean).join(", ")}
+          </span>
+        </li>
+      ))}
+      {sorted.length > shown.length && <li className="text-xs text-muted-foreground">+{sorted.length - shown.length} more</li>}
+    </ul>
+  );
+}
 
 const mailboxOptions = (list: { id: string; address: string }[]): Option[] => [
   { value: "all", label: "All mailboxes" },
@@ -72,8 +104,12 @@ const Code = ({ children }: { children: string }) => (
 export async function DevelopersPage({ ctx, request }: RequestInfo) {
   const mailboxes = await listMailboxes();
   const label = (id: string | null) => (id ? (mailboxes.find((m) => m.id === id)?.address ?? "deleted mailbox") : "All mailboxes");
+  const { results: domains } = await env.DB.prepare("SELECT id, name FROM domains ORDER BY name").all<{ id: string; name: string }>();
+  const targets: AccessTargets = { domains, mailboxes };
 
   const { results: keys } = await env.DB.prepare("SELECT * FROM api_keys ORDER BY revoked_at IS NOT NULL, created_at DESC").all<ApiKeyRow>();
+  const grants = await listActiveGrants();
+  const grantsOf = (id: string) => grants.filter((g) => g.key_id === id);
   const { results: hooks } = await env.DB.prepare(
     `SELECT w.*,
        (SELECT status FROM webhook_deliveries d WHERE d.webhook_id = w.id ORDER BY created_at DESC LIMIT 1) AS last_status,
@@ -93,16 +129,15 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
       <div className="grid gap-6">
         <Section
           title="API keys"
-          description="Each key can be limited to one mailbox and to sending, reading, or both."
-          action={<NewKeyDialog mailboxes={mailboxes.map((m) => ({ value: m.id, label: m.address }))} scopes={SCOPES} />}
+          description="Give each key Read and/or Send on all mailboxes, whole domains or the mailboxes you pick."
+          action={<NewKeyDialog targets={targets} />}
         >
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Key</TableHead>
-                <TableHead>Mailbox</TableHead>
-                <TableHead>Can</TableHead>
+                <TableHead>Access</TableHead>
                 <TableHead>Last used</TableHead>
                 <TableHead />
               </TableRow>
@@ -112,40 +147,42 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
                 <TableRow key={k.id} className={cn(k.revoked_at && "opacity-50")}>
                   <TableCell className="font-medium">{k.name}</TableCell>
                   <TableCell className="font-mono text-xs">{k.prefix}…</TableCell>
-                  <TableCell>{label(k.mailbox_id)}</TableCell>
-                  <TableCell>{k.scopes.split(",").join(", ")}</TableCell>
+                  <TableCell>
+                    {k.revoked_at ? <span className="text-muted-foreground">None</span> : <AccessSummary grants={grantsOf(k.id)} targets={targets} />}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">{k.last_used_at ? formatDate(k.last_used_at, true) : "Never"}</TableCell>
                   <TableCell className="text-right">
                     {k.revoked_at ? (
                       <span className="text-xs text-muted-foreground">Revoked</span>
                     ) : (
-                      <ConfirmAction
-                        trigger={
-                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                            Revoke
-                          </Button>
-                        }
-                        title={`Revoke “${k.name}”?`}
-                        description="Programs using this key are refused from the next request. This can't be undone."
-                        confirmLabel="Revoke key"
-                        action={revokeKeyAction}
-                        args={[k.id]}
-                      />
+                      <div className="flex justify-end gap-1">
+                        <EditKeyAccessDialog keyId={k.id} name={k.name} targets={targets} initial={grantValue(grantsOf(k.id))} />
+                        <ConfirmAction
+                          trigger={
+                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                              Revoke
+                            </Button>
+                          }
+                          title={`Revoke “${k.name}”?`}
+                          description="Programs using this key are refused from the next request. This can't be undone."
+                          confirmLabel="Revoke key"
+                          action={revokeKeyAction}
+                          args={[k.id]}
+                        />
+                      </div>
                     )}
                   </TableCell>
                 </TableRow>
               ))}
               {keys.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">
                     No keys yet. Create one for each program that sends or reads mail.
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
-
-
         </Section>
 
         <Section
@@ -186,8 +223,6 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
               ))}
             </ul>
           )}
-
-
         </Section>
 
         <Section title="Quick reference" description={`Base URL ${base}/api/v1. Send the key as a Bearer token.`}>

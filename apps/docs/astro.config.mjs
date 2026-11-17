@@ -14,7 +14,8 @@ export default defineConfig({
     starlight({
       title: "GentleMail docs",
       description: "Run GentleMail, the open-source multi-domain webmail, API and webhooks on your own Cloudflare account.",
-      logo: { src: "./public/favicon.svg", alt: "GentleMail" },
+      // The gentlemail.dev wordmark (lime dot on dark, olive on light) with a "docs" label (theme.css).
+      logo: { dark: "./src/assets/wordmark.svg", light: "./src/assets/wordmark-ink.svg", alt: "GentleMail docs", replacesTitle: true },
       favicon: "/favicon.svg",
       // The social card for every docs page (source: social/og.html). Starlight sets the title and description.
       head: [

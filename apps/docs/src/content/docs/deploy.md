@@ -3,6 +3,14 @@ title: Deploy
 description: Deploy GentleMail to your Cloudflare account, create the admin account, connect a domain and test it end to end.
 ---
 
+## Before you start
+
+- **A domain on Cloudflare.** Its DNS must be managed by Cloudflare. Connect as many domains as you like, all in the same account.
+- **The Workers Paid plan.** $5 a month per Cloudflare account. It lets the Worker send to any address and covers everything GentleMail uses: incoming mail is unlimited, 3,000 sent emails a month are included, and every mailbox, person and domain is free. See [pricing](https://gentlemail.dev/#pricing) for the rest.
+- **A GitHub account,** for the Deploy button: it puts your copy of GentleMail in a repository of yours, and every push to it deploys again.
+
+Then count about ten minutes from the first click to a working inbox on your own domain.
+
 ## 1. Deploy the Worker
 
 Pick one of three ways. They all end with the same Worker.

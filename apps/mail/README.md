@@ -4,7 +4,7 @@ Multi-domain webmail, email API and webhooks that run entirely on your own Cloud
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Softwaiz/gentlemail/tree/main/apps/mail)
 
-Website: https://gentlemail.dev · [Deploy guide](https://gentlemail.dev/deploy) · [API and webhook docs](https://gentlemail.dev/docs) · Source: https://github.com/Softwaiz/gentlemail
+Website: https://gentlemail.dev · [Deploy guide](https://gentlemail.dev/docs/deploy/) · [API and webhook docs](https://gentlemail.dev/docs) · Source: https://github.com/Softwaiz/gentlemail
 
 - **Receive**: Email Routing catch-all on your domain → this Worker's `email()` handler → parsed with `postal-mime`
 - **Store**: messages, mailboxes, users and sessions in **D1**; raw `.eml`, attachments and oversized HTML in **R2**

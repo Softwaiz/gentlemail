@@ -1,0 +1,27 @@
+# Runs the webmail's tests on every pull request and on main: the built Worker under
+# `wrangler dev --local`, with a throwaway D1 and R2 (no Cloudflare account needed).
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  mail:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+        working-directory: apps/mail
+        env:
+          WRANGLER_SEND_METRICS: "false"

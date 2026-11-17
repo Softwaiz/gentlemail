@@ -24,7 +24,7 @@ export function MailFrame({ src, title, adaptive }: { src: string; title: string
       title={title}
       className={
         adaptive
-          ? "block min-h-10 w-full bg-transparent [color-scheme:light_dark]"
+          ? "block min-h-10 w-full bg-transparent" /* inherits the theme's color-scheme */
           : "block min-h-16 w-full rounded-md border bg-white px-3 py-2 [color-scheme:light]"
       }
       // Scripts never run. same-origin is only so we can measure the height.

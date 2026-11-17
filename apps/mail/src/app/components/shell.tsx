@@ -1,9 +1,10 @@
-import { Archive, Inbox, Menu, OctagonAlert, PenLine, Send, Settings, Shield, Trash2, Webhook } from "lucide-react";
+import { Archive, Inbox, OctagonAlert, PenLine, Send, Settings, Shield, Trash2, Webhook } from "lucide-react";
 import type { User } from "@/lib/auth";
 import { FOLDERS, type Folder, switcherGroups, unreadByFolder } from "@/lib/db";
 import { cn } from "@/lib/utils";
-import { LogoMark, Wordmark } from "./brand";
+import { LogoMark, Wordmark, hasLogo } from "./brand";
 import { MailboxSwitcher } from "./mailbox-switcher";
+import { SidebarNav } from "./mobile-nav";
 import { Toaster } from "./ui/sonner";
 import { UserMenu } from "./user-menu";
 
@@ -34,6 +35,7 @@ function NavItem({
   children,
   count,
   strong,
+  i,
 }: {
   href: string;
   active?: boolean;
@@ -42,12 +44,16 @@ function NavItem({
   count?: number;
   /** Inbox count stands out; other folders get a quiet number. */
   strong?: boolean;
+  /** Its place in the phone menu's staggered entrance. */
+  i?: number;
 }) {
   return (
     <a
       href={href}
       aria-current={active ? "page" : undefined}
+      style={i === undefined ? undefined : ({ "--i": i } as React.CSSProperties)}
       className={cn(
+        i !== undefined && "nav-item",
         "group relative flex h-9 items-center gap-3 rounded-md px-3 text-[13.5px] text-sidebar-foreground/80 transition-colors",
         "hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-2 focus-visible:outline-violet",
         active && "bg-sidebar-accent font-semibold text-sidebar-foreground",
@@ -81,34 +87,36 @@ export async function Shell({ user, mailboxId, folder, flash, bleed, children }:
 
   return (
     <div className="min-h-screen md:grid md:grid-cols-[256px_minmax(0,1fr)]">
-      <aside className="scrollbar-thin flex flex-col gap-1 overflow-y-auto bg-sidebar p-3 text-sidebar-foreground md:sticky md:top-0 md:h-screen">
-        <div className="flex items-center gap-2 px-2 pt-1 md:pb-3">
-          <a href="/" className="flex flex-1 items-center gap-2.5 text-[17px] text-sidebar-foreground">
-            <LogoMark />
-            <Wordmark />
-          </a>
-          {current && (
-            <a
-              href={`/mb/${current.id}/compose`}
-              aria-label="New message"
-              className="grid size-9 place-items-center rounded-md bg-lime text-lime-ink md:hidden"
-            >
-              <PenLine className="size-4" />
+      {/* Always ink, like the Softwaiz site header; on phones a bar pinned to the top. */}
+      <aside className="scrollbar-thin sticky top-0 z-30 flex flex-col gap-1 bg-sidebar p-3 text-sidebar-foreground [color-scheme:dark] md:h-screen md:overflow-y-auto">
+        <SidebarNav
+          brand={
+            <a href="/" className="flex h-9 items-center gap-2.5 text-[17px] text-sidebar-foreground">
+              {/* The GentleMail wordmark carries the name by itself, as on gentlemail.dev; a renamed instance gets its mark and name. */}
+              {hasLogo() ? (
+                <Wordmark className="h-[21px]" />
+              ) : (
+                <>
+                  <LogoMark />
+                  <Wordmark />
+                </>
+              )}
             </a>
-          )}
-          <label
-            htmlFor="nav-toggle"
-            className="grid size-9 cursor-pointer place-items-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent md:hidden"
-          >
-            <Menu className="size-5" />
-            <span className="sr-only">Menu</span>
-          </label>
-        </div>
-        {/* Phones: the rest of the sidebar folds behind the menu button (no JS needed). */}
-        <input type="checkbox" id="nav-toggle" className="peer sr-only" />
-        <div className="hidden flex-1 flex-col gap-1 pt-3 peer-checked:flex md:flex md:pt-0">
+          }
+          action={
+            current && (
+              <a
+                href={`/mb/${current.id}/compose`}
+                aria-label="New message"
+                className="grid size-9 place-items-center rounded-md bg-lime text-lime-ink md:hidden"
+              >
+                <PenLine className="size-4" />
+              </a>
+            )
+          }
+        >
           {all.length > 0 && (
-            <div className="mb-3">
+            <div className="nav-item mb-3" style={{ "--i": 1 } as React.CSSProperties}>
               <MailboxSwitcher
                 current={current && { id: current.id, address: current.address, name: current.name }}
                 groups={groups}
@@ -120,12 +128,13 @@ export async function Shell({ user, mailboxId, folder, flash, bleed, children }:
             <>
               <a
                 href={`/mb/${current.id}/compose`}
-                className="mb-3 flex h-10 items-center justify-center gap-2 rounded-md bg-lime font-semibold text-lime-ink transition hover:bg-[#f0ff5b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet"
+                style={{ "--i": 2 } as React.CSSProperties}
+                className="nav-item mb-3 flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-lime font-semibold text-lime-ink transition hover:bg-[#f0ff5b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet max-md:h-12"
               >
                 <PenLine className="size-4" /> New message
               </a>
               <nav aria-label="Folders" className="flex flex-col gap-0.5">
-                {FOLDERS.map((f) => (
+                {FOLDERS.map((f, n) => (
                   <NavItem
                     key={f.id}
                     href={`/mb/${current.id}/${f.id}`}
@@ -133,11 +142,12 @@ export async function Shell({ user, mailboxId, folder, flash, bleed, children }:
                     icon={folderIcon[f.id]}
                     count={badge(f.id)}
                     strong={f.id === "inbox"}
+                    i={3 + n}
                   >
                     {f.label}
                   </NavItem>
                 ))}
-                <NavItem href={`/mb/${current.id}/settings`} active={folder === "settings"} icon={Settings}>
+                <NavItem href={`/mb/${current.id}/settings`} active={folder === "settings"} icon={Settings} i={3 + FOLDERS.length}>
                   Mailbox settings
                 </NavItem>
               </nav>
@@ -145,7 +155,10 @@ export async function Shell({ user, mailboxId, folder, flash, bleed, children }:
           )}
           {all.length === 0 && <p className="px-3 text-xs text-sidebar-muted">No mailboxes yet.</p>}
 
-          <div className="mt-auto flex flex-col gap-1 border-t border-sidebar-border pt-3">
+          <div
+            className="nav-item mt-auto flex flex-col gap-1 border-t border-sidebar-border pt-3"
+            style={{ "--i": 4 + FOLDERS.length } as React.CSSProperties}
+          >
             {user.role === "admin" && (
               <>
                 <NavItem href="/admin" active={folder === "admin"} icon={Shield}>
@@ -168,7 +181,7 @@ export async function Shell({ user, mailboxId, folder, flash, bleed, children }:
               </a>
             )}
           </div>
-        </div>
+        </SidebarNav>
       </aside>
 
       <main className={cn("flex min-w-0 flex-col", !bleed && "px-4 pt-6 pb-20 md:px-8 md:pt-7")}>

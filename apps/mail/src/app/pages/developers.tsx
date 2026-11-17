@@ -11,10 +11,11 @@ import {
   updateWebhookAction,
 } from "@/app/actions/admin";
 import { ActionButton, ActionForm, ConfirmAction, FormDialog } from "@/app/components/action-form";
+import { Code, CodeSamples, type Sample } from "@/app/components/code-samples";
 import { FormSelect, type Option } from "@/app/components/form-select";
 import { type AccessTargets, type AccessValue, EditKeyAccessDialog, NewKeyDialog } from "@/app/components/key-dialog";
 import { PageHeader, Shell, flashFrom } from "@/app/components/shell";
-import { Field, Section, StatusBadge } from "@/app/components/section";
+import { Field, Section, StatusBadge, cardRow, cardTable, cardTableHeader } from "@/app/components/section";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { Input } from "@/app/components/ui/input";
@@ -100,9 +101,111 @@ function HookFields({ mailboxes, hook }: { mailboxes: { id: string; address: str
   );
 }
 
-const Code = ({ children }: { children: string }) => (
-  <pre className="overflow-x-auto rounded-md bg-sidebar px-4 py-3 font-mono text-[12.5px] leading-relaxed text-sidebar-foreground">{children}</pre>
-);
+/* ---------- Quick reference ---------- */
+
+/** The GentleMail docs. They follow the latest release, so a much older instance may lack some of what they describe. */
+const DOCS = {
+  sdk: "https://gentlemail.dev/docs/sdk/",
+  api: "https://gentlemail.dev/docs/api/",
+  webhooks: "https://gentlemail.dev/docs/webhooks/",
+  npm: "https://www.npmjs.com/package/gentlemail",
+};
+
+const link = "font-medium text-foreground underline underline-offset-4 hover:no-underline";
+const mono = (s: string) => <code className="font-mono">{s}</code>;
+
+/** Send, read and webhooks, each with the SDK and over HTTP. `base` is this instance's URL. */
+const samples = (base: string, example: string): Sample[] => [
+  {
+    title: "Send an email",
+    sdk: `import { GentleMail } from "gentlemail";
+
+const mail = new GentleMail({ url: "${base}", apiKey: process.env.GENTLEMAIL_KEY });
+
+await mail.send({
+  from: "${example}",
+  to: "someone@example.com",
+  subject: "Your invoice",
+  text: "Hello, the invoice is attached.",
+  attachments: [{ filename: "invoice.pdf", content: pdfBytes }], // bytes or base64
+});`,
+    http: `curl ${base}/api/v1/send \\
+  -H "Authorization: Bearer $GENTLEMAIL_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "from": "${example}",
+    "to": ["someone@example.com"],
+    "subject": "Your invoice",
+    "text": "Hello, the invoice is attached.",
+    "attachments": [{ "filename": "invoice.pdf", "content": "<base64>", "content_type": "application/pdf" }]
+  }'`,
+    sdkNote: (
+      <>
+        Optional: {mono("html")}, {mono("cc")}, {mono("bcc")}, {mono("signature: true")}. To answer in the same thread, use{" "}
+        {mono("mail.messages.reply(message, { text })")}.
+      </>
+    ),
+    httpNote: (
+      <>
+        Optional: {mono("html")}, {mono("cc")}, {mono("bcc")}, {mono("signature: true")}, and {mono("reply_to_message_id")} to
+        answer in the same thread.
+      </>
+    ),
+  },
+  {
+    title: "Read mail",
+    sdk: `const mailboxes = await mail.mailboxes.list();       // the ones this key can use
+const unread = await mail.messages.list({ mailbox: "${example}", unread: true });
+const message = await mail.messages.get(unread[0].id);  // full text and HTML
+await mail.messages.update(message.id, "archive");       // read, unread, star, archive, trash, inbox
+await mail.messages.reply(message, { text: "Thanks, we're on it." });
+const file = await mail.attachments.download(message.attachments[0].url);`,
+    http: `GET  /api/v1/mailboxes
+GET  /api/v1/messages?mailbox=${example}&folder=inbox&unread=true&since=2026-11-01
+GET  /api/v1/messages/{id}             full text, raw HTML, attachment links
+GET  /api/v1/attachments/{id}          file bytes
+POST /api/v1/messages/{id}  {"action":"archive"}   read, unread, star, archive, trash, inbox`,
+    sdkNote: <>Reading needs a key with the Read permission on that mailbox; sending needs Send.</>,
+    httpNote: <>Reading needs a key with the Read permission on that mailbox; sending needs Send.</>,
+  },
+  {
+    title: "Receive webhooks",
+    sdk: `import { verifyWebhook } from "gentlemail";
+
+export default {
+  async fetch(request, env) {
+    const event = await verifyWebhook(request, env.WEBHOOK_SECRET).catch(() => null);
+    if (!event) return new Response("Bad signature", { status: 401 });
+
+    if (event.event === "message.received") {
+      console.log(event.data.from.address, event.data.subject);
+    }
+    return new Response("OK");
+  },
+};`,
+    http: `POST <your url>
+X-GentleMail-Event: message.received
+X-GentleMail-Delivery: <id, use it to ignore duplicates>
+X-GentleMail-Timestamp: <unix seconds>
+X-GentleMail-Signature: v1=<hex HMAC-SHA256(secret, timestamp + "." + body)>
+
+{ "id": "...", "event": "message.received", "created_at": "...",
+  "data": { "id", "thread_id", "mailbox", "from", "to", "subject", "text", "attachments": [{ "url", ... }], ... } }`,
+    sdkNote: (
+      <>
+        {mono("verifyWebhook")} checks the signature and refuses events older than five minutes. Answer with any 2xx within 10
+        seconds; anything else is retried after 1 min, 5 min, 30 min, 2 h, 6 h and 12 h.
+      </>
+    ),
+    httpNote: (
+      <>
+        Check the signature and reject timestamps older than five minutes. Answer with any 2xx status within 10 seconds;
+        anything else is retried after 1 min, 5 min, 30 min, 2 h, 6 h and 12 h. Attachment URLs need a key with the Read
+        permission.
+      </>
+    ),
+  },
+];
 
 /* ---------- /admin/api ---------- */
 
@@ -144,11 +247,11 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
           description="Give each key Read and/or Send on all mailboxes, whole domains or the mailboxes you pick."
           action={<NewKeyDialog targets={targets} />}
         >
-          <Table>
-            <TableHeader>
+          {/* Phones and tablets: each key is a small card (name, key and buttons; access; last use). */}
+          <Table className={cardTable}>
+            <TableHeader className={cardTableHeader}>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Key</TableHead>
                 <TableHead>Access</TableHead>
                 <TableHead>Last used</TableHead>
                 <TableHead />
@@ -156,14 +259,30 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
             </TableHeader>
             <TableBody>
               {keys.map((k) => (
-                <TableRow key={k.id} className={cn(k.revoked_at && "opacity-50")}>
-                  <TableCell className="font-medium">{k.name}</TableCell>
-                  <TableCell className="font-mono text-xs">{k.prefix}…</TableCell>
-                  <TableCell>
+                <TableRow
+                  key={k.id}
+                  className={cn(cardRow, "max-lg:grid-cols-[1fr_auto]", k.revoked_at && "opacity-50")}
+                >
+                  <TableCell className="min-w-32 whitespace-normal max-lg:min-w-0">
+                    <div className="font-medium">{k.name}</div>
+                    <div className="font-mono text-xs text-muted-foreground">{k.prefix}…</div>
+                  </TableCell>
+                  <TableCell className="whitespace-normal max-lg:col-span-2 max-lg:row-start-2">
                     {k.revoked_at ? <span className="text-muted-foreground">None</span> : <AccessSummary grants={grantsOf(k.id)} names={names} />}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{k.last_used_at ? formatDate(k.last_used_at, true) : "Never"}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-muted-foreground lg:min-w-28 lg:whitespace-normal max-lg:col-span-2 max-lg:row-start-3 max-lg:text-xs">
+                    {k.last_used_at ? (
+                      <>
+                        <span className="lg:hidden">Last used </span>
+                        {formatDate(k.last_used_at, true)}
+                      </>
+                    ) : (
+                      <>
+                        Never<span className="lg:hidden"> used</span>
+                      </>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right max-lg:col-start-2 max-lg:row-start-1 max-lg:self-start">
                     {k.revoked_at ? (
                       <span className="text-xs text-muted-foreground">Revoked</span>
                     ) : (
@@ -188,7 +307,7 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
               ))}
               {keys.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">
+                  <TableCell colSpan={4} className="py-6 text-center whitespace-normal text-muted-foreground max-lg:block">
                     No keys yet. Create one for each program that sends or reads mail.
                   </TableCell>
                 </TableRow>
@@ -225,11 +344,14 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
               {hooks.map((h) => (
                 <li key={h.id}>
                   <a href={`/admin/webhooks/${h.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-accent/40">
-                    <span className="min-w-40 font-medium">{h.name}</span>
-                    <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">{h.url}</span>
-                    <span className="text-xs text-muted-foreground">{label(h.mailbox_id)}</span>
-                    {h.failed > 0 && <span className="text-xs font-medium text-destructive">{h.failed} failed</span>}
-                    <StatusBadge on={!!h.active} onLabel="On" offLabel="Off" />
+                    {/* Phones: name and status, then the URL on its own line, then mailbox and failures. */}
+                    <span className="min-w-0 font-medium max-sm:flex-auto sm:min-w-40">{h.name}</span>
+                    <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground max-sm:order-2 max-sm:basis-full">{h.url}</span>
+                    <span className="text-xs text-muted-foreground max-sm:order-3">{label(h.mailbox_id)}</span>
+                    {h.failed > 0 && <span className="text-xs font-medium text-destructive max-sm:order-4">{h.failed} failed</span>}
+                    <span className="max-sm:order-1">
+                      <StatusBadge on={!!h.active} onLabel="On" offLabel="Off" />
+                    </span>
                   </a>
                 </li>
               ))}
@@ -237,51 +359,45 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
           )}
         </Section>
 
-        <Section title="Quick reference" description={`Base URL ${base}/api/v1. Send the key as a Bearer token.`}>
-          <div className="grid gap-5 text-sm">
-            <div>
-              <div className="mb-2 font-medium">Send an email</div>
-              <Code>{`curl ${base}/api/v1/send \\
-  -H "Authorization: Bearer $GENTLEMAIL_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "from": "${example}",
-    "to": ["someone@example.com"],
-    "subject": "Your invoice",
-    "text": "Hello, the invoice is attached.",
-    "attachments": [{ "filename": "invoice.pdf", "content": "<base64>", "content_type": "application/pdf" }]
-  }'`}</Code>
-              <p className="mt-2 text-muted-foreground">
-                Optional: <code className="font-mono">html</code>, <code className="font-mono">cc</code>,{" "}
-                <code className="font-mono">bcc</code>, <code className="font-mono">signature: true</code>, and{" "}
-                <code className="font-mono">reply_to_message_id</code> to answer in the same thread.
-              </p>
-            </div>
-            <div>
-              <div className="mb-2 font-medium">Read mail</div>
-              <Code>{`GET  /api/v1/mailboxes
-GET  /api/v1/messages?mailbox=${example}&folder=inbox&unread=true&since=2026-11-01
-GET  /api/v1/messages/{id}             full text, raw HTML, attachment links
-GET  /api/v1/attachments/{id}          file bytes
-POST /api/v1/messages/{id}  {"action":"archive"}   read, unread, star, archive, trash, inbox`}</Code>
-            </div>
-            <div>
-              <div className="mb-2 font-medium">Webhook deliveries</div>
-              <Code>{`POST <your url>
-X-GentleMail-Event: message.received
-X-GentleMail-Delivery: <id, use it to ignore duplicates>
-X-GentleMail-Timestamp: <unix seconds>
-X-GentleMail-Signature: v1=<hex HMAC-SHA256(secret, timestamp + "." + body)>
-
-{ "id": "...", "event": "message.received", "created_at": "...",
-  "data": { "id", "thread_id", "mailbox", "from", "to", "subject", "text", "attachments": [{ "url", ... }], ... } }`}</Code>
-              <p className="mt-2 text-muted-foreground">
-                Check the signature and reject timestamps older than five minutes. Answer with any 2xx status within 10
-                seconds; anything else is retried after 1 min, 5 min, 30 min, 2 h, 6 h and 12 h. Attachment URLs need a key
-                with the Read permission.
-              </p>
-            </div>
-          </div>
+        <Section
+          title="Quick reference"
+          description="Use the JavaScript SDK, or call the HTTP API from any language. Each example runs as is with a key from above."
+        >
+          <CodeSamples
+            intro={{
+              sdk: (
+                <>
+                  Install{" "}
+                  <a href={DOCS.npm} className={link}>
+                    gentlemail
+                  </a>{" "}
+                  from npm: typed, no dependencies, runs on Workers, Node 20+, Deno and Bun. It also checks webhook
+                  signatures for you.
+                  <Code>npm install gentlemail</Code>
+                </>
+              ),
+              http: (
+                <>
+                  Base URL <code className="font-mono text-foreground">{base}/api/v1</code>. Send the key as a Bearer token.
+                </>
+              ),
+            }}
+            samples={samples(base, example)}
+          />
+          <p className="mt-6 border-t pt-4 text-sm text-muted-foreground">
+            Go further in the docs:{" "}
+            <a href={DOCS.sdk} className={link}>
+              SDK guide
+            </a>
+            {" · "}
+            <a href={DOCS.api} className={link}>
+              API reference
+            </a>
+            {" · "}
+            <a href={DOCS.webhooks} className={link}>
+              Webhooks
+            </a>
+          </p>
         </Section>
       </div>
     </Shell>
@@ -309,7 +425,7 @@ export async function WebhookPage(ri: RequestInfo) {
 
   return (
     <Shell user={ctx.user!} folder="api" flash={flashFrom(request)}>
-      <PageHeader title={hook.name} back={{ href: "/admin/api", label: "API & webhooks" }} sub={hook.url}>
+      <PageHeader title={hook.name} back={{ href: "/admin/api", label: "API & webhooks" }} sub={<span className="[overflow-wrap:anywhere]">{hook.url}</span>}>
         <ActionButton variant="outline" action={testWebhookAction} args={[hook.id]}>
           Send test event
         </ActionButton>
@@ -356,14 +472,19 @@ export async function WebhookPage(ri: RequestInfo) {
                 <li key={d.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 text-sm">
                   <span className={cn("rounded-sm px-2 py-0.5 text-xs font-semibold", statusStyle[d.status])}>{d.status}</span>
                   <span className="font-mono text-xs">{d.event}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">
+                  {/* Phones: status, event and date; then the response and Retry; then the error, in full. */}
+                  <span className="text-xs text-muted-foreground tabular-nums max-sm:order-2 max-sm:grow max-sm:basis-1/2">
                     {d.last_status ? `HTTP ${d.last_status}` : d.attempts ? "no response" : "queued"}, {d.attempts}{" "}
                     {d.attempts === 1 ? "attempt" : "attempts"}
                   </span>
-                  {d.last_error && <span className="min-w-0 flex-1 truncate text-xs text-destructive" title={d.last_error}>{d.last_error}</span>}
-                  <span className="ml-auto text-xs text-muted-foreground tabular-nums">{formatDate(d.created_at, true)}</span>
+                  {d.last_error && (
+                    <span className="min-w-0 flex-1 truncate text-xs text-destructive max-sm:order-4 max-sm:line-clamp-2 max-sm:basis-full max-sm:whitespace-normal max-sm:[overflow-wrap:anywhere]" title={d.last_error}>
+                      {d.last_error}
+                    </span>
+                  )}
+                  <span className="ml-auto text-xs text-muted-foreground tabular-nums max-sm:order-1">{formatDate(d.created_at, true)}</span>
                   {d.status !== "success" && d.event !== "ping" && (
-                    <ActionButton variant="ghost" size="sm" className="h-7" action={retryDeliveryAction} args={[hook.id, d.id]}>
+                    <ActionButton variant="ghost" size="sm" className="h-7 max-sm:order-3 max-sm:-my-1" action={retryDeliveryAction} args={[hook.id, d.id]}>
                       Retry now
                     </ActionButton>
                   )}

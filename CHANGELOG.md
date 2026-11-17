@@ -16,6 +16,14 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 - The docs header shows the "gentlemail." wordmark with a "docs" label, as on the social card, instead of the "g." icon and typed title. ([#24](https://github.com/Softwaiz/gentlemail/pull/24))
 - The docs have a social card (shown when a docs link is shared), a footer like the website's with links back to it, and on phones a menu that unrolls from the header with its groups arriving one after another, like the website's. ([#23](https://github.com/Softwaiz/gentlemail/pull/23))
 - An [SDK changelog](https://gentlemail.dev/docs/sdk/changelog/) page in the docs, and every section of the SDK page says which SDK version added it. ([#20](https://github.com/Softwaiz/gentlemail/pull/20))
+- The Quick reference on API & webhooks shows each example with the JavaScript SDK or over HTTP (one switch, remembered in the browser), with links to the SDK guide, API reference and webhook docs. ([#21](https://github.com/Softwaiz/gentlemail/pull/21))
+- A theme choice in the user menu: Dark, Light or Same as device. It applies at once and is remembered in that browser. ([#21](https://github.com/Softwaiz/gentlemail/pull/21))
+
+### Changed
+- The webmail is dark by default; it used to follow the device, so phones in light mode showed it in cream. ([#21](https://github.com/Softwaiz/gentlemail/pull/21))
+- On phones, the menu opens as a full-screen layer over the page, with the mailbox switcher, folders and your account, instead of unfolding above the inbox. The top bar stays at the top while you scroll. ([#21](https://github.com/Softwaiz/gentlemail/pull/21))
+- The webmail uses Google Sans, like the website and the docs, and the GentleMail logo: the "gentlemail." wordmark in the sidebar and on the sign-in screens, and the "g." icon as its favicon. An instance renamed with `APP_NAME` keeps showing its own name. ([#21](https://github.com/Softwaiz/gentlemail/pull/21))
+- API & webhooks and Admin fit on phones and tablets: their tables become cards, code samples scroll inside their box, and long webhook URLs and errors no longer push the page sideways. ([#21](https://github.com/Softwaiz/gentlemail/pull/21))
 
 ## 0.5.0 (2026-11-16)
 

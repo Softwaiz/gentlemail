@@ -17,6 +17,7 @@
     "generate": "rw-scripts ensure-env && wrangler types --include-runtime false",
     "check": "pnpm generate && pnpm types",
     "types": "tsc",
+    "test": "vite build && node --test test/*.test.mjs",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
   },
@@ -45,6 +46,7 @@
     "@types/node": "~26.1.2",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
+    "miniflare": "5.20260730.0-alpha",
     "typescript": "7.0.2",
     "vite": "~8.2.0",
     "wrangler": "4.118.0"

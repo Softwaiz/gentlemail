@@ -84,3 +84,68 @@ h1 {
   font-size: var(--sl-text-xs);
   color: var(--sl-color-gray-3);
 }
+
+/* ---------- Phone menu ----------
+ * As on gentlemail.dev: Starlight's sidebar popover unrolls from the header down (clip-path),
+ * its groups arrive one after another, and closing plays it back. @starting-style gives the
+ * "from" state on open; allow-discrete keeps it on screen while it closes. Without motion
+ * it simply appears. The button is src/components/MobileMenuToggle.astro. */
+@media (max-width: 49.999rem) {
+  .sidebar-pane {
+    background-color: var(--sl-color-black);
+  }
+  .sidebar-pane .top-level > li > a.large,
+  .sidebar-pane .top-level > li > details > summary .large {
+    font-size: 1.125rem;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .sidebar-pane {
+      clip-path: inset(0 0 100% 0);
+      transition:
+        clip-path 420ms cubic-bezier(0.7, 0, 0.2, 1),
+        display 420ms allow-discrete,
+        overlay 420ms allow-discrete;
+    }
+    .sidebar-pane:popover-open {
+      clip-path: inset(0 0 0 0);
+    }
+    @starting-style {
+      .sidebar-pane:popover-open {
+        clip-path: inset(0 0 100% 0);
+      }
+    }
+
+    /* Groups: rise and fade in one after another; leave together, quickly. */
+    .sidebar-pane .top-level > li,
+    .sidebar-pane .mobile-preferences {
+      opacity: 0;
+      translate: 0 18px;
+      transition:
+        opacity 160ms ease,
+        translate 160ms ease;
+    }
+    .sidebar-pane:popover-open .top-level > li,
+    .sidebar-pane:popover-open .mobile-preferences {
+      opacity: 1;
+      translate: 0 0;
+      transition:
+        opacity 380ms ease calc(160ms + var(--i, 0) * 45ms),
+        translate 520ms cubic-bezier(0.2, 0.8, 0.2, 1) calc(160ms + var(--i, 0) * 45ms);
+    }
+    @starting-style {
+      .sidebar-pane:popover-open .top-level > li,
+      .sidebar-pane:popover-open .mobile-preferences {
+        opacity: 0;
+        translate: 0 18px;
+      }
+    }
+    .sidebar-pane .top-level > li:nth-child(2) { --i: 1; }
+    .sidebar-pane .top-level > li:nth-child(3) { --i: 2; }
+    .sidebar-pane .top-level > li:nth-child(4) { --i: 3; }
+    .sidebar-pane .top-level > li:nth-child(5) { --i: 4; }
+    .sidebar-pane .top-level > li:nth-child(6) { --i: 5; }
+    .sidebar-pane .top-level > li:nth-child(n + 7) { --i: 6; }
+    .sidebar-pane .mobile-preferences { --i: 7; }
+  }
+}

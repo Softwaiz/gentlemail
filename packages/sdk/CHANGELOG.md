@@ -4,7 +4,7 @@ The SDK's own versions, released independently of the GentleMail app. Released w
 
 ## Unreleased
 
-## 0.1.0 (2026-11-16)
+## 0.1.0 (2026-11-17)
 
 ### Added
 - `GentleMail` client: `send()`, `mailboxes.list()`, `messages.list()`, `messages.get()`, `messages.update()`, `messages.reply()` and `attachments.download()`. Attachments can be passed as bytes or base64.

@@ -21,7 +21,7 @@
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
   },
   "dependencies": {
-    "@fontsource-variable/dm-sans": "^5.3.0",
+    "@fontsource-variable/google-sans": "^5.3.2",
     "@tailwindcss/vite": "^4.3.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

@@ -1,77 +1,70 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "@fontsource-variable/dm-sans/index.css";
+@import "@fontsource-variable/google-sans/index.css";
 
-/* Dark mode follows the operating system. */
-@custom-variant dark (@media (prefers-color-scheme: dark));
+/*
+ * Theme: dark by default; each person can pick Light or System in their user menu.
+ * The choice is a cookie the server reads to set <html data-theme> and color-scheme
+ * (see document.tsx), so the first paint is already right. Every colour below is one
+ * light-dark(light, dark) pair: the theme only changes color-scheme.
+ */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where([data-theme="system"], [data-theme="system"] *) {
+      @slot;
+    }
+  }
+}
 
 /* ── Softwaiz palette ───────────────────────────────────────────────────────
    ink #080b10, paper #f5f5f0, lime #ebff01, violet #8155f6 (focus).
    The sidebar is always ink, like the Softwaiz site header.            */
 :root {
+  color-scheme: dark;
   --radius: 0.25rem;
 
-  --background: #f5f5f0;
-  --foreground: #080b10;
-  --card: #ffffff;
-  --card-foreground: #080b10;
-  --popover: #ffffff;
-  --popover-foreground: #080b10;
-  --primary: #080b10;
-  --primary-foreground: #f5f5f0;
-  --secondary: #e8e9e2;
-  --secondary-foreground: #080b10;
-  --muted: #ecece6;
-  --muted-foreground: #63686d;
-  --accent: #ebebe4;
-  --accent-foreground: #080b10;
-  --destructive: #d92d20;
-  --border: #dcdfd9;
-  --input: #cdd2cc;
-  --ring: #8155f6;
+  --background: light-dark(#f5f5f0, #0b0f15);
+  --foreground: light-dark(#080b10, #f1f2ec);
+  --card: light-dark(#ffffff, #10151c);
+  --card-foreground: light-dark(#080b10, #f1f2ec);
+  --popover: light-dark(#ffffff, #10151c);
+  --popover-foreground: light-dark(#080b10, #f1f2ec);
+  --primary: light-dark(#080b10, #ebff01);
+  --primary-foreground: light-dark(#f5f5f0, #080b10);
+  --secondary: light-dark(#e8e9e2, #18202a);
+  --secondary-foreground: light-dark(#080b10, #f1f2ec);
+  --muted: light-dark(#ecece6, #161d26);
+  --muted-foreground: light-dark(#63686d, #8f98a2);
+  --accent: light-dark(#ebebe4, #18202a);
+  --accent-foreground: light-dark(#080b10, #f1f2ec);
+  --destructive: light-dark(#d92d20, #ff6b5e);
+  --border: light-dark(#dcdfd9, #222a33);
+  --input: light-dark(#cdd2cc, #2c3540);
+  --ring: light-dark(#8155f6, #a88bfa);
 
   --lime: #ebff01;
   --lime-ink: #080b10;
   --violet: #8155f6;
-  --unread: #5b6b00; /* lime is unreadable on paper, so use its deep olive */
+  --unread: light-dark(#5b6b00, #ebff01); /* lime is unreadable on paper, so use its deep olive */
 
-  --sidebar: #080b10;
+  --sidebar: light-dark(#080b10, #06080c);
   --sidebar-foreground: #e9eae4;
   --sidebar-muted: #858d96;
-  --sidebar-accent: #141a21;
-  --sidebar-border: #1d242b;
+  --sidebar-accent: light-dark(#141a21, #121820);
+  --sidebar-border: light-dark(#1d242b, #171d24);
 }
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0b0f15;
-    --foreground: #f1f2ec;
-    --card: #10151c;
-    --card-foreground: #f1f2ec;
-    --popover: #10151c;
-    --popover-foreground: #f1f2ec;
-    --primary: #ebff01;
-    --primary-foreground: #080b10;
-    --secondary: #18202a;
-    --secondary-foreground: #f1f2ec;
-    --muted: #161d26;
-    --muted-foreground: #8f98a2;
-    --accent: #18202a;
-    --accent-foreground: #f1f2ec;
-    --destructive: #ff6b5e;
-    --border: #222a33;
-    --input: #2c3540;
-    --ring: #a88bfa;
-    --unread: #ebff01;
-
-    --sidebar: #06080c;
-    --sidebar-accent: #121820;
-    --sidebar-border: #171d24;
-  }
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="system"] {
+  color-scheme: light dark;
 }
 
 @theme inline {
-  --font-sans: "DM Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Google Sans Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   --radius-sm: calc(var(--radius) - 1px);
@@ -113,14 +106,6 @@
   * {
     @apply border-border outline-ring/50;
   }
-  html {
-    color-scheme: light;
-  }
-  @media (prefers-color-scheme: dark) {
-    html {
-      color-scheme: dark;
-    }
-  }
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-size: 14px;
@@ -142,5 +127,66 @@
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: var(--sidebar-border) transparent;
+  }
+}
+
+/* ── Phone menu (components/mobile-nav.tsx) ─────────────────────────────────
+   Below md the sidebar's panel is a full-screen layer in ink, hidden until the
+   menu button opens it: it unrolls from the top (clip-path) and its items rise in
+   one after another (--i). From md up it is just the sidebar. */
+@media (max-width: 47.999rem) {
+  .nav-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 40; /* under menus and dialogs (z-50), which open from inside it */
+    height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: calc(env(safe-area-inset-top, 0px) + 0.75rem) 0.75rem calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+    background: var(--sidebar);
+    visibility: hidden;
+    clip-path: inset(0 0 100% 0);
+  }
+  .nav-panel.is-open {
+    visibility: visible;
+    clip-path: inset(0);
+  }
+  /* Bigger targets for thumbs. */
+  .nav-panel nav a,
+  .nav-panel > div:last-child > a[href^="/admin"] {
+    height: 2.75rem;
+    font-size: 15px;
+  }
+  html.nav-open {
+    overflow: hidden;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .nav-panel {
+      transition:
+        clip-path 420ms cubic-bezier(0.7, 0, 0.2, 1),
+        visibility 0s linear 420ms;
+    }
+    .nav-panel.is-open {
+      transition:
+        clip-path 420ms cubic-bezier(0.7, 0, 0.2, 1),
+        visibility 0s;
+    }
+    .nav-panel .nav-item {
+      opacity: 0;
+      translate: 0 14px;
+      transition:
+        opacity 140ms ease,
+        translate 140ms ease;
+    }
+    .nav-panel.is-open .nav-item {
+      opacity: 1;
+      translate: 0 0;
+      transition:
+        opacity 360ms ease calc(150ms + var(--i, 0) * 35ms),
+        translate 500ms cubic-bezier(0.2, 0.8, 0.2, 1) calc(150ms + var(--i, 0) * 35ms),
+        background-color 150ms ease,
+        color 150ms ease;
+    }
   }
 }

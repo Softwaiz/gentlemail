@@ -1,16 +1,36 @@
 "use client";
 
-import { KeyRound, LogOut, Shield } from "lucide-react";
+import { KeyRound, LogOut, Monitor, Moon, Shield, Sun } from "lucide-react";
+import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
+import { THEME_COOKIE, THEMES, type Theme } from "@/lib/theme";
+
+const themeLabel: Record<Theme, { label: string; Icon: typeof Moon }> = {
+  dark: { label: "Dark", Icon: Moon },
+  light: { label: "Light", Icon: Sun },
+  system: { label: "Same as device", Icon: Monitor },
+};
+
+/** Applies at once and is remembered for a year in this browser; the server reads it on the next page load. */
+function applyTheme(theme: Theme) {
+  document.documentElement.dataset.theme = theme;
+  const secure = location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${THEME_COOKIE}=${theme}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
+}
 
 export function UserMenu({ name, email, isAdmin }: { name: string; email: string; isAdmin: boolean }) {
+  const [theme, setTheme] = useState<Theme>(() =>
+    typeof document === "undefined" ? "dark" : ((document.documentElement.dataset.theme as Theme) ?? "dark"),
+  );
   const logout = () => {
     const f = document.createElement("form");
     f.method = "post";
@@ -47,6 +67,25 @@ export function UserMenu({ name, email, isAdmin }: { name: string; email: string
             <KeyRound /> Security
           </a>
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Theme</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={theme}
+          onValueChange={(v) => {
+            setTheme(v as Theme);
+            applyTheme(v as Theme);
+          }}
+        >
+          {THEMES.map((t) => {
+            const { label, Icon } = themeLabel[t];
+            return (
+              <DropdownMenuRadioItem key={t} value={t} onSelect={(e) => e.preventDefault()}>
+                <Icon /> {label}
+              </DropdownMenuRadioItem>
+            );
+          })}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={logout}>
           <LogOut /> Log out
         </DropdownMenuItem>

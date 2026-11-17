@@ -18,6 +18,7 @@ The documentation is `apps/docs` ([Astro Starlight](https://starlight.astro.buil
 - The changelog page is built from `CHANGELOG.md` at build time. Don't copy release notes into the docs.
 - Links between pages start with `/docs/` (`[API keys](/docs/api/keys/)`).
 - From `apps/docs`: `npm run dev` to preview, `npm run build` must pass.
+- **The SDK's docs follow its versions.** A pull request that changes `packages/sdk` updates `apps/docs/src/content/docs/sdk.md` in the same pull request: a new function or option goes in its section with `<p class="since">Since X.Y.Z</p>` (the version it will ship in), a change says what changed and from which version. Its line goes in `packages/sdk/CHANGELOG.md`, which is the [SDK changelog](https://gentlemail.dev/docs/sdk/changelog/) page. If it's something new the SDK can do, add it with its version to `sdk.features` on the website (`gentlemail-site`, `src/app/content.ts`).
 
 ## Releases
 Merging to `main` deploys, so a release is cut in a pull request and deployed by merging it.

@@ -1,40 +1,22 @@
 ---
-/*
- * The changelog page is the repository's CHANGELOG.md, read at build time, so it
- * is never a copy that drifts. The maintainers' "How it's kept" notes are left
- * out, and an empty "Unreleased" section is hidden.
- */
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { createMarkdownProcessor } from "@astrojs/markdown-remark";
 import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import { renderChangelog, repo } from "../lib/changelog";
 
-const repo = "https://github.com/Softwaiz/gentlemail";
-// Builds run from apps/docs (npm run build there, or Workers Builds with that root directory).
-const raw = readFileSync(resolve(process.cwd(), "../../CHANGELOG.md"), "utf8");
-
-let md = raw.slice(raw.indexOf("\n## ") + 1); // drop the title and the maintainers' notes
-md = md.replace(/^## Unreleased\s*\n(?=## )/m, ""); // nothing unreleased: no heading
-md = md.replace(/^## Unreleased\s*$/m, "## Unreleased (on main, not yet in a release)");
-// Links relative to the repository root (AGENTS.md…) point to GitHub.
-md = md.replace(/\]\((?!https?:|#|\/)([^)]+)\)/g, `](${repo}/blob/main/$1)`);
-
-const processor = await createMarkdownProcessor();
-const { code, metadata } = await processor.render(md);
-const headings = metadata.headings.filter((h) => h.depth === 2);
+const { code, headings, editUrl } = await renderChangelog("CHANGELOG.md");
 ---
 
 <StarlightPage
   frontmatter={{
     title: "Changelog",
     description: "Every GentleMail release, newest first: what was added, changed and fixed, and what to do when upgrading.",
-    editUrl: `${repo}/edit/main/CHANGELOG.md`,
+    editUrl,
   }}
   headings={headings}
 >
   <p>
     Every release, newest first. Each one is also a <a href={`${repo}/releases`}>GitHub release</a>, and
-    the <strong>Upgrading</strong> notes say what to do when you deploy it.
+    the <strong>Upgrading</strong> notes say what to do when you deploy it. The JavaScript SDK has
+    <a href="/docs/sdk/changelog/">its own changelog</a>.
   </p>
   <Fragment set:html={code} />
 </StarlightPage>

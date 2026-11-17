@@ -9,9 +9,13 @@ description: The gentlemail npm package sends, reads and replies to mail through
 npm install gentlemail
 ```
 
-It works with GentleMail 0.3.0 and later. Its versions are its own: see its [changelog](https://github.com/Softwaiz/gentlemail/blob/main/packages/sdk/CHANGELOG.md).
+It works with GentleMail 0.3.0 and later.
+
+The SDK has its own versions, apart from the app's. This page describes the latest one, and each section says which version added it, so you can tell what the version you installed can do (`npm ls gentlemail` prints it). What each version changed is in the [SDK changelog](/docs/sdk/changelog/), and the docs of an older version are its README [on npm](https://www.npmjs.com/package/gentlemail?activeTab=versions).
 
 ## Connect
+
+<p class="since">Since 0.1.0</p>
 
 Create a key in **Admin → API & webhooks** with the access the program needs (see [API keys](/docs/api/keys/)), and keep it in your secrets.
 
@@ -25,6 +29,8 @@ const mail = new GentleMail({
 ```
 
 ## Send
+
+<p class="since">Since 0.1.0</p>
 
 ```ts
 const sent = await mail.send({
@@ -42,6 +48,8 @@ const sent = await mail.send({
 Every [send field](/docs/api/send/#fields) is supported. Attachment `content` can be bytes (`Uint8Array`, `ArrayBuffer`) or a base64 string; the SDK encodes bytes for you.
 
 ## Read and file
+
+<p class="since">Since 0.1.0</p>
 
 ```ts
 const mailboxes = await mail.mailboxes.list(); // with this key's permissions on each
@@ -62,6 +70,8 @@ await mail.messages.update(message.id, "read");        // read, unread, star, un
 
 ## Reply
 
+<p class="since">Since 0.1.0</p>
+
 `messages.reply()` answers from the message's own mailbox, in its thread, to its sender. Pass any message: from `get()`, `list()` or a webhook event's `data`. The key needs **Read** and **Send** on the mailbox.
 
 ```ts
@@ -69,6 +79,8 @@ await mail.messages.reply(message, { text: "Thanks, we're on it.", quote: true }
 ```
 
 ## Attachments
+
+<p class="since">Since 0.1.0</p>
 
 `attachments.download()` takes an attachment's `id` or `url` and returns the `Response`, so you can stream it or read it:
 
@@ -78,6 +90,8 @@ await env.FILES.put(message.attachments[0].filename, file.body); // stream to R2
 ```
 
 ## Webhooks
+
+<p class="since">Since 0.1.0</p>
 
 `verifyWebhook()` checks the signature and refuses deliveries older than five minutes, then returns the typed event. Give it the incoming `Request`:
 
@@ -116,6 +130,8 @@ app.post("/mail", express.raw({ type: "application/json" }), async (req, res) =>
 The same event can arrive twice: skip `event.id`s you've already handled. Change the age limit with `{ tolerance: seconds }`.
 
 ## Errors
+
+<p class="since">Since 0.1.0</p>
 
 | Thrown | When | Fields |
 |---|---|---|

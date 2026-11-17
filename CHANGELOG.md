@@ -13,6 +13,7 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 ### Added
 - The JavaScript SDK, [`gentlemail` on npm](https://www.npmjs.com/package/gentlemail): send, read, reply and verify webhooks, typed, on Workers, Node, Deno and Bun. It has its own versions ([packages/sdk/CHANGELOG.md](packages/sdk/CHANGELOG.md)) and a [docs page](https://gentlemail.dev/docs/sdk/). The webhook docs now describe the `ping` test event. ([#17](https://github.com/Softwaiz/gentlemail/pull/17))
 - An [SDK changelog](https://gentlemail.dev/docs/sdk/changelog/) page in the docs, and every section of the SDK page says which SDK version added it. ([#20](https://github.com/Softwaiz/gentlemail/pull/20))
+- The Quick reference on API & webhooks shows each example with the JavaScript SDK or over HTTP (one switch, remembered in the browser), with links to the SDK guide, API reference and webhook docs. ([#21](https://github.com/Softwaiz/gentlemail/pull/21))
 - A theme choice in the user menu: Dark, Light or Same as device. It applies at once and is remembered in that browser. ([#21](https://github.com/Softwaiz/gentlemail/pull/21))
 
 ### Changed

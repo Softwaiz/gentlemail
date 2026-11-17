@@ -11,6 +11,7 @@ import {
   updateWebhookAction,
 } from "@/app/actions/admin";
 import { ActionButton, ActionForm, ConfirmAction, FormDialog } from "@/app/components/action-form";
+import { Code, CodeSamples, type Sample } from "@/app/components/code-samples";
 import { FormSelect, type Option } from "@/app/components/form-select";
 import { type AccessTargets, type AccessValue, EditKeyAccessDialog, NewKeyDialog } from "@/app/components/key-dialog";
 import { PageHeader, Shell, flashFrom } from "@/app/components/shell";
@@ -100,9 +101,111 @@ function HookFields({ mailboxes, hook }: { mailboxes: { id: string; address: str
   );
 }
 
-const Code = ({ children }: { children: string }) => (
-  <pre className="overflow-x-auto rounded-md bg-sidebar px-4 py-3 font-mono text-[12.5px] leading-relaxed text-sidebar-foreground">{children}</pre>
-);
+/* ---------- Quick reference ---------- */
+
+/** The GentleMail docs. They follow the latest release, so a much older instance may lack some of what they describe. */
+const DOCS = {
+  sdk: "https://gentlemail.dev/docs/sdk/",
+  api: "https://gentlemail.dev/docs/api/",
+  webhooks: "https://gentlemail.dev/docs/webhooks/",
+  npm: "https://www.npmjs.com/package/gentlemail",
+};
+
+const link = "font-medium text-foreground underline underline-offset-4 hover:no-underline";
+const mono = (s: string) => <code className="font-mono">{s}</code>;
+
+/** Send, read and webhooks, each with the SDK and over HTTP. `base` is this instance's URL. */
+const samples = (base: string, example: string): Sample[] => [
+  {
+    title: "Send an email",
+    sdk: `import { GentleMail } from "gentlemail";
+
+const mail = new GentleMail({ url: "${base}", apiKey: process.env.GENTLEMAIL_KEY });
+
+await mail.send({
+  from: "${example}",
+  to: "someone@example.com",
+  subject: "Your invoice",
+  text: "Hello, the invoice is attached.",
+  attachments: [{ filename: "invoice.pdf", content: pdfBytes }], // bytes or base64
+});`,
+    http: `curl ${base}/api/v1/send \\
+  -H "Authorization: Bearer $GENTLEMAIL_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "from": "${example}",
+    "to": ["someone@example.com"],
+    "subject": "Your invoice",
+    "text": "Hello, the invoice is attached.",
+    "attachments": [{ "filename": "invoice.pdf", "content": "<base64>", "content_type": "application/pdf" }]
+  }'`,
+    sdkNote: (
+      <>
+        Optional: {mono("html")}, {mono("cc")}, {mono("bcc")}, {mono("signature: true")}. To answer in the same thread, use{" "}
+        {mono("mail.messages.reply(message, { text })")}.
+      </>
+    ),
+    httpNote: (
+      <>
+        Optional: {mono("html")}, {mono("cc")}, {mono("bcc")}, {mono("signature: true")}, and {mono("reply_to_message_id")} to
+        answer in the same thread.
+      </>
+    ),
+  },
+  {
+    title: "Read mail",
+    sdk: `const mailboxes = await mail.mailboxes.list();       // the ones this key can use
+const unread = await mail.messages.list({ mailbox: "${example}", unread: true });
+const message = await mail.messages.get(unread[0].id);  // full text and HTML
+await mail.messages.update(message.id, "archive");       // read, unread, star, archive, trash, inbox
+await mail.messages.reply(message, { text: "Thanks, we're on it." });
+const file = await mail.attachments.download(message.attachments[0].url);`,
+    http: `GET  /api/v1/mailboxes
+GET  /api/v1/messages?mailbox=${example}&folder=inbox&unread=true&since=2026-11-01
+GET  /api/v1/messages/{id}             full text, raw HTML, attachment links
+GET  /api/v1/attachments/{id}          file bytes
+POST /api/v1/messages/{id}  {"action":"archive"}   read, unread, star, archive, trash, inbox`,
+    sdkNote: <>Reading needs a key with the Read permission on that mailbox; sending needs Send.</>,
+    httpNote: <>Reading needs a key with the Read permission on that mailbox; sending needs Send.</>,
+  },
+  {
+    title: "Receive webhooks",
+    sdk: `import { verifyWebhook } from "gentlemail";
+
+export default {
+  async fetch(request, env) {
+    const event = await verifyWebhook(request, env.WEBHOOK_SECRET).catch(() => null);
+    if (!event) return new Response("Bad signature", { status: 401 });
+
+    if (event.event === "message.received") {
+      console.log(event.data.from.address, event.data.subject);
+    }
+    return new Response("OK");
+  },
+};`,
+    http: `POST <your url>
+X-GentleMail-Event: message.received
+X-GentleMail-Delivery: <id, use it to ignore duplicates>
+X-GentleMail-Timestamp: <unix seconds>
+X-GentleMail-Signature: v1=<hex HMAC-SHA256(secret, timestamp + "." + body)>
+
+{ "id": "...", "event": "message.received", "created_at": "...",
+  "data": { "id", "thread_id", "mailbox", "from", "to", "subject", "text", "attachments": [{ "url", ... }], ... } }`,
+    sdkNote: (
+      <>
+        {mono("verifyWebhook")} checks the signature and refuses events older than five minutes. Answer with any 2xx within 10
+        seconds; anything else is retried after 1 min, 5 min, 30 min, 2 h, 6 h and 12 h.
+      </>
+    ),
+    httpNote: (
+      <>
+        Check the signature and reject timestamps older than five minutes. Answer with any 2xx status within 10 seconds;
+        anything else is retried after 1 min, 5 min, 30 min, 2 h, 6 h and 12 h. Attachment URLs need a key with the Read
+        permission.
+      </>
+    ),
+  },
+];
 
 /* ---------- /admin/api ---------- */
 
@@ -256,51 +359,45 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
           )}
         </Section>
 
-        <Section title="Quick reference" description={`Base URL ${base}/api/v1. Send the key as a Bearer token.`}>
-          <div className="grid gap-5 text-sm *:min-w-0">
-            <div>
-              <div className="mb-2 font-medium">Send an email</div>
-              <Code>{`curl ${base}/api/v1/send \\
-  -H "Authorization: Bearer $GENTLEMAIL_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "from": "${example}",
-    "to": ["someone@example.com"],
-    "subject": "Your invoice",
-    "text": "Hello, the invoice is attached.",
-    "attachments": [{ "filename": "invoice.pdf", "content": "<base64>", "content_type": "application/pdf" }]
-  }'`}</Code>
-              <p className="mt-2 text-muted-foreground">
-                Optional: <code className="font-mono">html</code>, <code className="font-mono">cc</code>,{" "}
-                <code className="font-mono">bcc</code>, <code className="font-mono">signature: true</code>, and{" "}
-                <code className="font-mono">reply_to_message_id</code> to answer in the same thread.
-              </p>
-            </div>
-            <div>
-              <div className="mb-2 font-medium">Read mail</div>
-              <Code>{`GET  /api/v1/mailboxes
-GET  /api/v1/messages?mailbox=${example}&folder=inbox&unread=true&since=2026-11-01
-GET  /api/v1/messages/{id}             full text, raw HTML, attachment links
-GET  /api/v1/attachments/{id}          file bytes
-POST /api/v1/messages/{id}  {"action":"archive"}   read, unread, star, archive, trash, inbox`}</Code>
-            </div>
-            <div>
-              <div className="mb-2 font-medium">Webhook deliveries</div>
-              <Code>{`POST <your url>
-X-GentleMail-Event: message.received
-X-GentleMail-Delivery: <id, use it to ignore duplicates>
-X-GentleMail-Timestamp: <unix seconds>
-X-GentleMail-Signature: v1=<hex HMAC-SHA256(secret, timestamp + "." + body)>
-
-{ "id": "...", "event": "message.received", "created_at": "...",
-  "data": { "id", "thread_id", "mailbox", "from", "to", "subject", "text", "attachments": [{ "url", ... }], ... } }`}</Code>
-              <p className="mt-2 text-muted-foreground">
-                Check the signature and reject timestamps older than five minutes. Answer with any 2xx status within 10
-                seconds; anything else is retried after 1 min, 5 min, 30 min, 2 h, 6 h and 12 h. Attachment URLs need a key
-                with the Read permission.
-              </p>
-            </div>
-          </div>
+        <Section
+          title="Quick reference"
+          description="Use the JavaScript SDK, or call the HTTP API from any language. Each example runs as is with a key from above."
+        >
+          <CodeSamples
+            intro={{
+              sdk: (
+                <>
+                  Install{" "}
+                  <a href={DOCS.npm} className={link}>
+                    gentlemail
+                  </a>{" "}
+                  from npm: typed, no dependencies, runs on Workers, Node 20+, Deno and Bun. It also checks webhook
+                  signatures for you.
+                  <Code>npm install gentlemail</Code>
+                </>
+              ),
+              http: (
+                <>
+                  Base URL <code className="font-mono text-foreground">{base}/api/v1</code>. Send the key as a Bearer token.
+                </>
+              ),
+            }}
+            samples={samples(base, example)}
+          />
+          <p className="mt-6 border-t pt-4 text-sm text-muted-foreground">
+            Go further in the docs:{" "}
+            <a href={DOCS.sdk} className={link}>
+              SDK guide
+            </a>
+            {" · "}
+            <a href={DOCS.api} className={link}>
+              API reference
+            </a>
+            {" · "}
+            <a href={DOCS.webhooks} className={link}>
+              Webhooks
+            </a>
+          </p>
         </Section>
       </div>
     </Shell>

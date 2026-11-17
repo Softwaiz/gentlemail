@@ -16,6 +16,19 @@ export default defineConfig({
       description: "Run GentleMail, the open-source multi-domain webmail, API and webhooks on your own Cloudflare account.",
       logo: { src: "./public/favicon.svg", alt: "GentleMail" },
       favicon: "/favicon.svg",
+      // The social card for every docs page (source: social/og.html). Starlight sets the title and description.
+      head: [
+        { tag: "meta", attrs: { property: "og:image", content: "https://gentlemail.dev/docs/og.png" } },
+        { tag: "meta", attrs: { property: "og:image:width", content: "1200" } },
+        { tag: "meta", attrs: { property: "og:image:height", content: "630" } },
+        { tag: "meta", attrs: { property: "og:image:alt", content: "GentleMail docs: deploy it, then send, read and catch mail in code." } },
+        { tag: "meta", attrs: { name: "twitter:image", content: "https://gentlemail.dev/docs/og.png" } },
+      ],
+      // The phone menu and the footer, in the website's style (src/components).
+      components: {
+        Footer: "./src/components/Footer.astro",
+        MobileMenuToggle: "./src/components/MobileMenuToggle.astro",
+      },
       social: [{ icon: "github", label: "GitHub", href: repo }],
       editLink: { baseUrl: `${repo}/edit/main/apps/docs/` },
       customCss: ["@fontsource-variable/google-sans", "./src/styles/theme.css"],

@@ -72,3 +72,15 @@ h1 {
   background: #ebff01;
   color: #080b10;
 }
+
+/* "Since 0.1.0" under a section of the SDK page: the SDK version that added it. */
+.sl-markdown-content .since {
+  display: inline-block;
+  margin-top: 0.25rem;
+  padding: 0.05rem 0.55rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 999px;
+  font-family: var(--sl-font-mono);
+  font-size: var(--sl-text-xs);
+  color: var(--sl-color-gray-3);
+}

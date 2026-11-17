@@ -1,0 +1,26 @@
+---
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import { renderChangelog } from "../../lib/changelog";
+
+const { code, headings, editUrl } = await renderChangelog("packages/sdk/CHANGELOG.md");
+const { version } = JSON.parse(readFileSync(resolve(process.cwd(), "../../packages/sdk/package.json"), "utf8"));
+---
+
+<StarlightPage
+  frontmatter={{
+    title: "SDK changelog",
+    description: "Every version of the gentlemail npm package, newest first: what each one added, changed and fixed.",
+    editUrl,
+  }}
+  headings={headings}
+>
+  <p>
+    Every version of the <a href="/docs/sdk/">JavaScript SDK</a>, newest first. The SDK is versioned on its own,
+    apart from the GentleMail app: the latest is <strong>{version}</strong>
+    (<a href="https://www.npmjs.com/package/gentlemail?activeTab=versions">all versions on npm</a>). Each section of
+    the SDK page says which version added it; to read the docs of an older version, open that version on npm.
+  </p>
+  <Fragment set:html={code} />
+</StarlightPage>

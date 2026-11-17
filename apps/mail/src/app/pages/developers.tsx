@@ -14,7 +14,7 @@ import { ActionButton, ActionForm, ConfirmAction, FormDialog } from "@/app/compo
 import { FormSelect, type Option } from "@/app/components/form-select";
 import { type AccessTargets, type AccessValue, EditKeyAccessDialog, NewKeyDialog } from "@/app/components/key-dialog";
 import { PageHeader, Shell, flashFrom } from "@/app/components/shell";
-import { Field, Section, StatusBadge } from "@/app/components/section";
+import { Field, Section, StatusBadge, cardRow, cardTable, cardTableHeader } from "@/app/components/section";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { Input } from "@/app/components/ui/input";
@@ -144,11 +144,11 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
           description="Give each key Read and/or Send on all mailboxes, whole domains or the mailboxes you pick."
           action={<NewKeyDialog targets={targets} />}
         >
-          <Table>
-            <TableHeader>
+          {/* Phones and tablets: each key is a small card (name, key and buttons; access; last use). */}
+          <Table className={cardTable}>
+            <TableHeader className={cardTableHeader}>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Key</TableHead>
                 <TableHead>Access</TableHead>
                 <TableHead>Last used</TableHead>
                 <TableHead />
@@ -156,14 +156,30 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
             </TableHeader>
             <TableBody>
               {keys.map((k) => (
-                <TableRow key={k.id} className={cn(k.revoked_at && "opacity-50")}>
-                  <TableCell className="font-medium">{k.name}</TableCell>
-                  <TableCell className="font-mono text-xs">{k.prefix}…</TableCell>
-                  <TableCell>
+                <TableRow
+                  key={k.id}
+                  className={cn(cardRow, "max-lg:grid-cols-[1fr_auto]", k.revoked_at && "opacity-50")}
+                >
+                  <TableCell className="min-w-32 whitespace-normal max-lg:min-w-0">
+                    <div className="font-medium">{k.name}</div>
+                    <div className="font-mono text-xs text-muted-foreground">{k.prefix}…</div>
+                  </TableCell>
+                  <TableCell className="whitespace-normal max-lg:col-span-2 max-lg:row-start-2">
                     {k.revoked_at ? <span className="text-muted-foreground">None</span> : <AccessSummary grants={grantsOf(k.id)} names={names} />}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{k.last_used_at ? formatDate(k.last_used_at, true) : "Never"}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-muted-foreground lg:min-w-28 lg:whitespace-normal max-lg:col-span-2 max-lg:row-start-3 max-lg:text-xs">
+                    {k.last_used_at ? (
+                      <>
+                        <span className="lg:hidden">Last used </span>
+                        {formatDate(k.last_used_at, true)}
+                      </>
+                    ) : (
+                      <>
+                        Never<span className="lg:hidden"> used</span>
+                      </>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right max-lg:col-start-2 max-lg:row-start-1 max-lg:self-start">
                     {k.revoked_at ? (
                       <span className="text-xs text-muted-foreground">Revoked</span>
                     ) : (
@@ -188,7 +204,7 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
               ))}
               {keys.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">
+                  <TableCell colSpan={4} className="py-6 text-center whitespace-normal text-muted-foreground max-lg:block">
                     No keys yet. Create one for each program that sends or reads mail.
                   </TableCell>
                 </TableRow>
@@ -225,11 +241,14 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
               {hooks.map((h) => (
                 <li key={h.id}>
                   <a href={`/admin/webhooks/${h.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-accent/40">
-                    <span className="min-w-40 font-medium">{h.name}</span>
-                    <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">{h.url}</span>
-                    <span className="text-xs text-muted-foreground">{label(h.mailbox_id)}</span>
-                    {h.failed > 0 && <span className="text-xs font-medium text-destructive">{h.failed} failed</span>}
-                    <StatusBadge on={!!h.active} onLabel="On" offLabel="Off" />
+                    {/* Phones: name and status, then the URL on its own line, then mailbox and failures. */}
+                    <span className="min-w-0 font-medium max-sm:flex-auto sm:min-w-40">{h.name}</span>
+                    <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground max-sm:order-2 max-sm:basis-full">{h.url}</span>
+                    <span className="text-xs text-muted-foreground max-sm:order-3">{label(h.mailbox_id)}</span>
+                    {h.failed > 0 && <span className="text-xs font-medium text-destructive max-sm:order-4">{h.failed} failed</span>}
+                    <span className="max-sm:order-1">
+                      <StatusBadge on={!!h.active} onLabel="On" offLabel="Off" />
+                    </span>
                   </a>
                 </li>
               ))}
@@ -238,7 +257,7 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
         </Section>
 
         <Section title="Quick reference" description={`Base URL ${base}/api/v1. Send the key as a Bearer token.`}>
-          <div className="grid gap-5 text-sm">
+          <div className="grid gap-5 text-sm *:min-w-0">
             <div>
               <div className="mb-2 font-medium">Send an email</div>
               <Code>{`curl ${base}/api/v1/send \\
@@ -309,7 +328,7 @@ export async function WebhookPage(ri: RequestInfo) {
 
   return (
     <Shell user={ctx.user!} folder="api" flash={flashFrom(request)}>
-      <PageHeader title={hook.name} back={{ href: "/admin/api", label: "API & webhooks" }} sub={hook.url}>
+      <PageHeader title={hook.name} back={{ href: "/admin/api", label: "API & webhooks" }} sub={<span className="[overflow-wrap:anywhere]">{hook.url}</span>}>
         <ActionButton variant="outline" action={testWebhookAction} args={[hook.id]}>
           Send test event
         </ActionButton>
@@ -356,14 +375,19 @@ export async function WebhookPage(ri: RequestInfo) {
                 <li key={d.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 text-sm">
                   <span className={cn("rounded-sm px-2 py-0.5 text-xs font-semibold", statusStyle[d.status])}>{d.status}</span>
                   <span className="font-mono text-xs">{d.event}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">
+                  {/* Phones: status, event and date; then the response and Retry; then the error, in full. */}
+                  <span className="text-xs text-muted-foreground tabular-nums max-sm:order-2 max-sm:grow max-sm:basis-1/2">
                     {d.last_status ? `HTTP ${d.last_status}` : d.attempts ? "no response" : "queued"}, {d.attempts}{" "}
                     {d.attempts === 1 ? "attempt" : "attempts"}
                   </span>
-                  {d.last_error && <span className="min-w-0 flex-1 truncate text-xs text-destructive" title={d.last_error}>{d.last_error}</span>}
-                  <span className="ml-auto text-xs text-muted-foreground tabular-nums">{formatDate(d.created_at, true)}</span>
+                  {d.last_error && (
+                    <span className="min-w-0 flex-1 truncate text-xs text-destructive max-sm:order-4 max-sm:line-clamp-2 max-sm:basis-full max-sm:whitespace-normal max-sm:[overflow-wrap:anywhere]" title={d.last_error}>
+                      {d.last_error}
+                    </span>
+                  )}
+                  <span className="ml-auto text-xs text-muted-foreground tabular-nums max-sm:order-1">{formatDate(d.created_at, true)}</span>
                   {d.status !== "success" && d.event !== "ping" && (
-                    <ActionButton variant="ghost" size="sm" className="h-7" action={retryDeliveryAction} args={[hook.id, d.id]}>
+                    <ActionButton variant="ghost" size="sm" className="h-7 max-sm:order-3 max-sm:-my-1" action={retryDeliveryAction} args={[hook.id, d.id]}>
                       Retry now
                     </ActionButton>
                   )}

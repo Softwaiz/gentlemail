@@ -15,7 +15,8 @@ import { ActionForm, ActionSwitch, ConfirmAction, FormDialog } from "@/app/compo
 import { resetUserMfaAction, setRequireMfaAction } from "@/app/actions/security";
 import { isMfaRequired } from "@/lib/mfa";
 import { FormSelect } from "@/app/components/form-select";
-import { Field, Section, StatusBadge } from "@/app/components/section";
+import { cn } from "@/lib/utils";
+import { Field, Section, StatusBadge, cardRow, cardTable, cardTableHeader } from "@/app/components/section";
 import { PageHeader, Shell, flashFrom } from "@/app/components/shell";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
@@ -186,8 +187,9 @@ export async function AdminPage({ ctx, request }: RequestInfo) {
           }
         >
           {!usable.length && <p className="mb-4 text-sm text-muted-foreground">Add an active domain before creating mailboxes.</p>}
-          <Table>
-            <TableHeader>
+          {/* Phones: address and Manage; sender name and status; who has access and the message count. */}
+          <Table className={cardTable}>
+            <TableHeader className={cardTableHeader}>
               <TableRow>
                 <TableHead>Address</TableHead>
                 <TableHead>Sender name</TableHead>
@@ -199,19 +201,22 @@ export async function AdminPage({ ctx, request }: RequestInfo) {
             </TableHeader>
             <TableBody>
               {mailboxes.map((m) => (
-                <TableRow key={m.id}>
-                  <TableCell>
+                <TableRow key={m.id} className={cn(cardRow, "max-lg:grid-cols-[1fr_auto]")}>
+                  <TableCell className="max-lg:truncate">
                     <a href={`/mb/${m.id}/inbox`} className="font-medium hover:underline">
                       {m.address}
                     </a>
                   </TableCell>
-                  <TableCell>{m.display_name}</TableCell>
-                  <TableCell className="max-w-64 truncate text-muted-foreground">{m.member_names || "Admins only"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{m.total}</TableCell>
-                  <TableCell>
+                  <TableCell className="max-lg:row-start-2 max-lg:truncate max-lg:text-xs max-lg:text-muted-foreground">{m.display_name}</TableCell>
+                  <TableCell className="max-w-64 truncate text-muted-foreground max-lg:row-start-3 max-lg:max-w-none max-lg:text-xs">{m.member_names || "Admins only"}</TableCell>
+                  <TableCell className="text-right tabular-nums max-lg:row-start-3 max-lg:text-xs max-lg:text-muted-foreground">
+                    {m.total}
+                    <span className="lg:hidden"> {m.total === 1 ? "message" : "messages"}</span>
+                  </TableCell>
+                  <TableCell className="max-lg:col-start-2 max-lg:row-start-2 max-lg:text-right">
                     <StatusBadge on={!!m.active} />
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right max-lg:col-start-2 max-lg:row-start-1 max-lg:-my-1">
                     <Button variant="ghost" size="sm" asChild>
                       <a href={`/admin/mailboxes/${m.id}`}>Manage</a>
                     </Button>
@@ -220,7 +225,7 @@ export async function AdminPage({ ctx, request }: RequestInfo) {
               ))}
               {mailboxes.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-6 text-center text-muted-foreground max-lg:block">
                     No mailboxes yet.
                   </TableCell>
                 </TableRow>
@@ -260,8 +265,9 @@ export async function AdminPage({ ctx, request }: RequestInfo) {
               </span>
             </span>
           </label>
-          <Table>
-            <TableHeader>
+          {/* Phones: name; login email; role, two-step and mailboxes; then the buttons. */}
+          <Table className={cardTable}>
+            <TableHeader className={cardTableHeader}>
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Login email</TableHead>
@@ -275,20 +281,23 @@ export async function AdminPage({ ctx, request }: RequestInfo) {
               {users.map((u) => {
                 const access = accessOf(u.id);
                 return (
-                  <TableRow key={u.id}>
-                    <TableCell className="font-medium">
+                  <TableRow key={u.id} className={cn(cardRow, "max-lg:grid-cols-[auto_auto_1fr]")}>
+                    <TableCell className="font-medium max-lg:col-span-3 max-lg:whitespace-normal">
                       {u.name}
                       {u.id === user.id && <span className="ml-1.5 text-xs font-normal text-muted-foreground">(you)</span>}
                     </TableCell>
-                    <TableCell>{u.email}</TableCell>
+                    <TableCell className="max-lg:col-span-3 max-lg:text-xs max-lg:text-muted-foreground max-lg:[overflow-wrap:anywhere] max-lg:whitespace-normal">{u.email}</TableCell>
                     <TableCell>
                       <StatusBadge on={u.role === "admin"} onLabel="Admin" offLabel="Member" />
                     </TableCell>
                     <TableCell>
-                      <StatusBadge on={!!u.mfa_enabled_at} onLabel="On" offLabel="Off" />
+                      <StatusBadge on={!!u.mfa_enabled_at} onLabel="On" offLabel="Off" label="Two-step" />
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{u.role === "admin" ? "All" : access.size}</TableCell>
-                    <TableCell className="text-right whitespace-nowrap">
+                    <TableCell className="text-muted-foreground max-lg:text-xs">
+                      {u.role === "admin" ? "All" : access.size}
+                      <span className="lg:hidden"> {u.role !== "admin" && access.size === 1 ? "mailbox" : "mailboxes"}</span>
+                    </TableCell>
+                    <TableCell className="text-right whitespace-nowrap max-lg:col-span-3 max-lg:-mb-1 max-lg:-ml-3 max-lg:text-left">
                       <FormDialog
                         trigger={
                           <Button variant="ghost" size="sm">

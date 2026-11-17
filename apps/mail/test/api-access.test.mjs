@@ -1,8 +1,9 @@
 /*
  * API keys reach exactly the mailboxes they are allowed to, on every endpoint.
  *
- * Runs the built Worker (dist/, from `vite build`) under `wrangler dev` with a throwaway
- * D1 database and R2 bucket, seeds domains, mailboxes, messages, attachments and keys,
+ * Runs the built Worker (dist/, from `vite build`) in Miniflare (workerd, the Workers
+ * runtime) with an in-memory D1 database and R2 bucket, applies the migrations, seeds
+ * domains, mailboxes, messages, attachments and keys,
  * then calls the HTTP API with each key. What each key may do on each mailbox is written
  * out by hand in KEYS below: the test states the rules, it doesn't reuse the app's code
  * to work them out.
@@ -11,12 +12,10 @@
  */
 import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { spawn, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { createServer } from "node:net";
+import { Miniflare } from "miniflare";
 
 /* ---------- The world ---------- */
 
@@ -111,18 +110,23 @@ const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 /* ---------- Server ---------- */
 
 const APP = new URL("..", import.meta.url).pathname;
-const wrangler = (args, opts = {}) => execFileSync("npx", ["wrangler", ...args], { cwd: APP, stdio: "pipe", ...opts });
+const BASE = "http://gentlemail.test";
+let mf;
 
-let dir, server, base;
-let serverLog = "";
-
-const freePort = () =>
-  new Promise((resolve) => {
-    const s = createServer().listen(0, () => {
-      const { port } = s.address();
-      s.close(() => resolve(port));
-    });
-  });
+/** The migrations, one statement at a time (they hold no triggers, so ";" at a line end ends a statement). */
+function migrationStatements() {
+  const dir = join(APP, "migrations");
+  return readdirSync(dir)
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .flatMap((f) =>
+      readFileSync(join(dir, f), "utf8")
+        .replace(/--.*$/gm, "")
+        .split(/;\s*$/m)
+        .map((st) => st.trim())
+        .filter(Boolean),
+    );
+}
 
 const q = (v) => (v === null ? "NULL" : typeof v === "number" ? String(v) : `'${String(v).replaceAll("'", "''")}'`);
 
@@ -154,52 +158,35 @@ function seedSql() {
 }
 
 before(async () => {
-  dir = mkdtempSync(join(tmpdir(), "gentlemail-api-test-"));
-  const state = join(dir, "state");
-  wrangler(["d1", "migrations", "apply", "DB", "--local", "--persist-to", state]);
-  writeFileSync(join(dir, "seed.sql"), seedSql());
-  wrangler(["d1", "execute", "DB", "--local", "--persist-to", state, "--file", join(dir, "seed.sql")]);
-  for (const m of MAILBOXES) {
-    writeFileSync(join(dir, m.id), attBytes(m.id));
-    wrangler(["r2", "object", "put", `gentlemail/att/${m.id}`, "--local", "--persist-to", state, "--file", join(dir, m.id)]);
-  }
-
-  const port = await freePort();
-  base = `http://127.0.0.1:${port}`;
-  server = spawn("npx", ["wrangler", "dev", "--config", "dist/worker/wrangler.json", "--local", "--persist-to", state, "--port", String(port), "--ip", "127.0.0.1", "--show-interactive-dev-session=false", "--live-reload=false"], {
-    cwd: APP,
-    stdio: ["ignore", "pipe", "pipe"],
-    detached: true,
+  // The Worker as built for production, in workerd (the Workers runtime), with in-memory D1 and R2.
+  const config = JSON.parse(readFileSync(join(APP, "dist/worker/wrangler.json"), "utf8"));
+  mf = new Miniflare({
+    scriptPath: join(APP, "dist/worker", config.main),
+    modules: true,
+    modulesRules: [{ type: "ESModule", include: ["**/*.js", "**/*.mjs"] }],
+    compatibilityDate: config.compatibility_date,
+    compatibilityFlags: config.compatibility_flags,
+    bindings: { ...config.vars, PUBLIC_URL: BASE },
+    d1Databases: { DB: "test" },
+    r2Buckets: { MAIL_BUCKET: "test" },
+    email: { send_email: [{ name: "EMAIL" }] },
   });
-  server.stdout.on("data", (d) => (serverLog += d));
-  server.stderr.on("data", (d) => (serverLog += d));
-  for (let i = 0; ; i++) {
-    try {
-      if ((await fetch(`${base}/api/v1/mailboxes`)).status === 401) break;
-    } catch {}
-    if (i > 120) throw new Error(`wrangler dev didn't start:\n${serverLog}`);
-    await new Promise((r) => setTimeout(r, 500));
-  }
+  const db = await mf.getD1Database("DB");
+  await db.batch([...migrationStatements(), ...seedSql().split(/;\n/)].filter((st) => st.trim()).map((st) => db.prepare(st)));
+  const bucket = await mf.getR2Bucket("MAIL_BUCKET");
+  for (const m of MAILBOXES) await bucket.put(`att/${m.id}`, attBytes(m.id));
 });
 
-after(() => {
-  // GENTLEMAIL_TEST_LOG=<file> keeps the server's output, to see why a request failed.
-  if (process.env.GENTLEMAIL_TEST_LOG) writeFileSync(process.env.GENTLEMAIL_TEST_LOG, serverLog);
-  // wrangler starts workerd as a child; stop the whole group.
-  if (server?.pid) {
-    try {
-      process.kill(-server.pid, "SIGTERM");
-    } catch {}
-  }
-  if (dir) rmSync(dir, { recursive: true, force: true });
-});
+after(() => mf?.dispose());
+
+const request = (path, init) => mf.dispatchFetch(BASE + path, init);
 
 /* ---------- Calls ---------- */
 
 async function call(keyName, method, path, body) {
   const headers = { "Content-Type": "application/json" };
   if (keyName) headers.Authorization = `Bearer ${secretOf(keyName)}`;
-  const res = await fetch(base + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  const res = await request(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   const type = res.headers.get("content-type") ?? "";
   const data = type.includes("application/json") ? await res.json() : await res.text();
   return { status: res.status, data };
@@ -227,7 +214,7 @@ describe("API key access", () => {
     for (const [method, path, body] of paths) {
       assert.equal((await call(null, method, path, body)).status, 401, `no key: ${method} ${path}`);
       assert.equal((await call("revoked", method, path, body)).status, 401, `revoked key: ${method} ${path}`);
-      const res = await fetch(base + path, { method, headers: { Authorization: "Bearer gm_not_a_real_key" }, body: body && JSON.stringify(body) });
+      const res = await request(path, { method, headers: { Authorization: "Bearer gm_not_a_real_key" }, body: body && JSON.stringify(body) });
       assert.equal(res.status, 401, `unknown key: ${method} ${path}`);
     }
   });

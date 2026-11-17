@@ -46,6 +46,7 @@
     "@types/node": "~26.1.2",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
+    "miniflare": "5.20260730.0-alpha",
     "typescript": "7.0.2",
     "vite": "~8.2.0",
     "wrangler": "4.118.0"

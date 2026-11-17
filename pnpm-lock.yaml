@@ -197,6 +197,9 @@ importers:
       '@types/react-dom':
         specifier: 19.2.4
         version: 19.2.4(@types/react@19.2.18)
+      miniflare:
+        specifier: 5.20260730.0-alpha
+        version: 5.20260730.0-alpha
       typescript:
         specifier: 7.0.2
         version: 7.0.2

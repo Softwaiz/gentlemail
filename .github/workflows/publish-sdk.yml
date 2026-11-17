@@ -24,6 +24,8 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
+          # The repository root says pnpm (packageManager); this job uses plain npm, uncached.
+          package-manager-cache: false
       - name: Tag matches package version
         run: |
           version="$(node -p "require('./package.json').version")"

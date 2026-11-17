@@ -1,4 +1,4 @@
-<p align="center"><img src="https://gentlemail.dev/brand/gentlemail-mark.svg" width="96" height="96" alt="GentleMail"></p>
+<p align="center"><img src=".github/assets/gentlemail.png" alt="GentleMail: send and receive email on unlimited domains for $5/month. Open source, one-click deploy to Cloudflare."></p>
 
 # GentleMail
 
@@ -13,6 +13,20 @@ One deployment serves any number of domains, mailboxes and people for the $5/mon
 - **Many domains, one deployment**: add domains and mailboxes in Admin, and choose which people can open which mailboxes.
 - **Webhooks**: signed `message.received` and `message.sent` events with retries, to automate invoices, support alerts and more.
 - **Your infrastructure**: mail is stored in your own D1 database and R2 bucket, and sent with Cloudflare Email Service.
+
+<p align="center"><img src=".github/assets/inbox.png" alt="The GentleMail inbox: a mailbox switcher, folders and a list of conversations"></p>
+
+<table>
+  <tr>
+    <td width="60%"><img src=".github/assets/api.png" alt="API &amp; webhooks: API keys with per-mailbox access, and webhooks with their delivery status"></td>
+    <td width="20%"><img src=".github/assets/phone-inbox.png" alt="The inbox on a phone"></td>
+    <td width="20%"><img src=".github/assets/phone-menu.png" alt="The menu on a phone"></td>
+  </tr>
+  <tr>
+    <td align="center">API keys and webhooks</td>
+    <td align="center" colspan="2">On a phone</td>
+  </tr>
+</table>
 
 ## Deploy your own
 

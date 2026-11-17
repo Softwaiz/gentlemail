@@ -12,7 +12,7 @@ import {
 } from "@/lib/auth";
 import { recoveryCodesLeft, verifySecondFactor } from "@/lib/mfa";
 import { field, redirect, withFlash } from "@/app/http";
-import { LogoMark, appName } from "@/app/components/brand";
+import { LogoMark, Wordmark, appName, hasLogo } from "@/app/components/brand";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 
@@ -31,10 +31,14 @@ export function AuthCard({ title, children, err }: { title: string; children: Re
             <LogoMark className="size-9 ring-1 ring-sidebar-border rounded-[10px]" />
             <span className="text-sidebar-muted">Mail for every domain you run</span>
           </div>
-          <div aria-hidden="true" className="text-[clamp(48px,8vw,104px)] leading-[0.95] font-bold tracking-[-0.045em] break-words">
-            {appName()}
-            <span className="text-lime">.</span>
-          </div>
+          {hasLogo() ? (
+            <Wordmark className="h-[clamp(44px,7vw,92px)] max-w-full" />
+          ) : (
+            <div aria-hidden="true" className="text-[clamp(48px,8vw,104px)] leading-[0.95] font-bold tracking-[-0.045em] break-words">
+              {appName()}
+              <span className="text-lime">.</span>
+            </div>
+          )}
           <p className="mt-6 max-w-md text-[15px] leading-relaxed text-sidebar-muted">
             Receive, read and answer mail for all your domains in one place. Your messages stay on your own Cloudflare
             account.

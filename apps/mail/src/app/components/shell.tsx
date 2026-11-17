@@ -2,7 +2,7 @@ import { Archive, Inbox, OctagonAlert, PenLine, Send, Settings, Shield, Trash2, 
 import type { User } from "@/lib/auth";
 import { FOLDERS, type Folder, switcherGroups, unreadByFolder } from "@/lib/db";
 import { cn } from "@/lib/utils";
-import { LogoMark, Wordmark } from "./brand";
+import { LogoMark, Wordmark, hasLogo } from "./brand";
 import { MailboxSwitcher } from "./mailbox-switcher";
 import { SidebarNav } from "./mobile-nav";
 import { Toaster } from "./ui/sonner";
@@ -91,9 +91,16 @@ export async function Shell({ user, mailboxId, folder, flash, bleed, children }:
       <aside className="scrollbar-thin sticky top-0 z-30 flex flex-col gap-1 bg-sidebar p-3 text-sidebar-foreground [color-scheme:dark] md:h-screen md:overflow-y-auto">
         <SidebarNav
           brand={
-            <a href="/" className="flex items-center gap-2.5 text-[17px] text-sidebar-foreground">
-              <LogoMark />
-              <Wordmark />
+            <a href="/" className="flex h-9 items-center gap-2.5 text-[17px] text-sidebar-foreground">
+              {/* The GentleMail wordmark carries the name by itself, as on gentlemail.dev; a renamed instance gets its mark and name. */}
+              {hasLogo() ? (
+                <Wordmark className="h-[21px]" />
+              ) : (
+                <>
+                  <LogoMark />
+                  <Wordmark />
+                </>
+              )}
             </a>
           }
           action={

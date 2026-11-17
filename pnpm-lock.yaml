@@ -207,6 +207,12 @@ importers:
         specifier: 4.118.0
         version: 4.118.0(@cloudflare/workers-types@5.20260801.1)
 
+  packages/sdk:
+    devDependencies:
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
 packages:
 
   '@ast-grep/napi-darwin-arm64@0.45.3':

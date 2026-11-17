@@ -15,6 +15,8 @@ In **Admin → API & webhooks → New webhook**, enter:
 
 You get a signing secret starting with `whsec_`. [Check the signature](/docs/webhooks/verify/) on every delivery.
 
+**Send test** on the webhook's page sends a `ping` event, `{ "data": { "webhook": "<its name>" } }`, signed like the others. It's tried once and not retried. Answer it with a `2xx` like any other event.
+
 ## What your endpoint receives
 
 ```http

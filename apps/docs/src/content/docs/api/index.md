@@ -3,7 +3,7 @@ title: API overview
 description: The GentleMail HTTP API, its base URL, authentication and conventions.
 ---
 
-Programs send and read mail through the HTTP API, on the same mailboxes people use in the web app.
+Programs send and read mail through the HTTP API, on the same mailboxes people use in the web app. From JavaScript or TypeScript, the [SDK](/docs/sdk/) wraps all of it.
 
 - **Base URL:** `https://<your-gentlemail>/api/v1`
 - **Authentication:** an [API key](/docs/api/keys/) on every request, as `Authorization: Bearer gm_…`

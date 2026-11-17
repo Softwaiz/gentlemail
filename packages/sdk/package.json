@@ -1,0 +1,51 @@
+{
+  "name": "gentlemail",
+  "version": "0.1.0",
+  "description": "Send and read mail through your GentleMail instance, and verify its webhooks. No dependencies; runs on Cloudflare Workers, Node 20+, Deno and Bun.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Softwaiz/gentlemail.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://gentlemail.dev/docs/sdk/",
+  "bugs": "https://github.com/Softwaiz/gentlemail/issues",
+  "keywords": [
+    "email",
+    "webmail",
+    "cloudflare",
+    "workers",
+    "webhooks",
+    "gentlemail"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "src"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.json",
+    "types": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test test/*.test.js",
+    "prepublishOnly": "npm test"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}

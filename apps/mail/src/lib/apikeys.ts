@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { sha256 } from "./auth";
+import { ACCESS_PREFIX } from "./oauth";
 import { domainOf, newId, now } from "./util";
 
 /*
@@ -7,6 +8,10 @@ import { domainOf, newId, now } from "./util";
  * mailbox, on a whole domain (mailboxes added later included) or on one
  * mailbox. A key may do something on a mailbox when any grant covering that
  * mailbox allows it.
+ *
+ * An assistant connected by signing in (OAuth, see oauth.ts) is a row here
+ * too, with user_id set: same grants, but only on mailboxes that person can
+ * open, and only with the short-lived tokens it got, on /mcp.
  */
 
 export type Scope = "send" | "read";
@@ -23,6 +28,9 @@ export type ApiKeyRow = {
   created_at: number;
   last_used_at: number | null;
   revoked_at: number | null;
+  /** Set for an assistant connected by signing in: it acts for this person. */
+  user_id: string | null;
+  client_id: string | null;
 };
 
 const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -32,16 +40,20 @@ const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replac
 /**
  * Reads the access matrix posted by the key dialog: checkboxes named "read"
  * and "send" whose values are "all", "domain:<id>" or "mailbox:<id>".
- * Unknown domains and mailboxes are dropped.
+ * Unknown domains and mailboxes are dropped, and so is anything outside
+ * `allowed` when given (the lines a person may grant an assistant).
  */
-export async function grantsFromForm(form: FormData): Promise<Grant[]> {
+export async function grantsFromForm(form: FormData, allowed?: Set<string>): Promise<Grant[]> {
   const read = new Set(form.getAll("read").map(String));
   const send = new Set(form.getAll("send").map(String));
-  const [{ results: domains }, { results: mailboxes }] = await Promise.all([
-    env.DB.prepare("SELECT id FROM domains").all<{ id: string }>(),
-    env.DB.prepare("SELECT id FROM mailboxes").all<{ id: string }>(),
-  ]);
-  const known = new Set(["all", ...domains.map((d) => `domain:${d.id}`), ...mailboxes.map((m) => `mailbox:${m.id}`)]);
+  let known = allowed;
+  if (!known) {
+    const [{ results: domains }, { results: mailboxes }] = await Promise.all([
+      env.DB.prepare("SELECT id FROM domains").all<{ id: string }>(),
+      env.DB.prepare("SELECT id FROM mailboxes").all<{ id: string }>(),
+    ]);
+    known = new Set(["all", ...domains.map((d) => `domain:${d.id}`), ...mailboxes.map((m) => `mailbox:${m.id}`)]);
+  }
   const grants: Grant[] = [];
   for (const target of new Set([...read, ...send])) {
     if (!known.has(target)) continue;
@@ -90,11 +102,25 @@ export async function setApiKeyGrants(keyId: string, grants: Grant[]) {
   ]);
 }
 
-/** Grants of every key that isn't revoked (one query, however many keys). */
-export async function listActiveGrants(): Promise<(Grant & { key_id: string })[]> {
+/** Grants of every live key, or of every live assistant connection (one query, however many). */
+export async function listActiveGrants(kind: "keys" | "connections" = "keys"): Promise<(Grant & { key_id: string })[]> {
   const { results } = await env.DB.prepare(
-    "SELECT g.* FROM api_key_grants g JOIN api_keys k ON k.id = g.key_id WHERE k.revoked_at IS NULL",
+    `SELECT g.* FROM api_key_grants g JOIN api_keys k ON k.id = g.key_id
+     WHERE k.revoked_at IS NULL AND k.user_id IS ${kind === "keys" ? "NULL" : "NOT NULL"}`,
   ).all<Grant & { key_id: string }>();
+  return results;
+}
+
+export type Connection = ApiKeyRow & { user_email: string };
+
+/** Assistants connected by signing in: one person's, or everyone's (admin). */
+export async function listConnections(userId?: string) {
+  const { results } = await env.DB.prepare(
+    `SELECT k.*, u.email AS user_email FROM api_keys k JOIN users u ON u.id = k.user_id
+     WHERE k.revoked_at IS NULL ${userId ? "AND k.user_id = ?" : ""} ORDER BY k.created_at DESC`,
+  )
+    .bind(...(userId ? [userId] : []))
+    .all<Connection>();
   return results;
 }
 
@@ -119,17 +145,53 @@ export const apiError = (status: number, code: string, message: string) => json(
 export const apiJson = (body: unknown, status = 200) => json(status, body);
 
 /**
+ * An assistant's token: its connection, cut down to what the person can still
+ * open. Grants on mailboxes they lost access to are deleted (all and domain
+ * grants need an admin), so the SQL checks elsewhere see the same thing.
+ */
+async function connectionFor(token: string): Promise<ApiKeyRow | Response> {
+  const row = await env.DB.prepare(
+    `SELECT k.*, u.mfa_enabled_at IS NULL AND EXISTS (SELECT 1 FROM settings WHERE key = 'require_mfa' AND value = '1') AS needs_mfa
+     FROM oauth_tokens t JOIN api_keys k ON k.id = t.key_id JOIN users u ON u.id = k.user_id
+     WHERE t.id = ? AND t.kind = 'access' AND t.expires_at > ? AND k.revoked_at IS NULL`,
+  )
+    .bind(await sha256(token), now())
+    .first<ApiKeyRow & { needs_mfa: number }>();
+  if (!row) return apiError(401, "invalid_token", "This token is unknown, expired or disconnected. Sign in again.");
+  if (row.needs_mfa)
+    return apiError(403, "mfa_required", "Your admin requires two-step verification. Set it up in the webmail, then try again.");
+  await env.DB.prepare(
+    `DELETE FROM api_key_grants WHERE key_id = ?1 AND NOT EXISTS (
+       SELECT 1 FROM users u WHERE u.id = ?2 AND (u.role = 'admin' OR (api_key_grants.target_type = 'mailbox' AND EXISTS (
+         SELECT 1 FROM mailbox_members mm WHERE mm.user_id = u.id AND mm.mailbox_id = api_key_grants.target_id))))`,
+  )
+    .bind(row.id, row.user_id)
+    .run();
+  const { needs_mfa: _, ...key } = row;
+  return key;
+}
+
+/**
  * Checks the Bearer key. With a scope, the key must hold it on at least one
  * grant; with `null`, any permission will do. Which mailbox it may use is
- * checked per request with `can()`.
+ * checked per request with `can()`. Tokens from signing in (OAuth) are
+ * accepted only where `oauth` is set: they are for /mcp.
  */
-export async function authenticate(request: Request, scope: Scope | null): Promise<ApiAuth | Response> {
+export async function authenticate(request: Request, scope: Scope | null, opts: { oauth?: boolean } = {}): Promise<ApiAuth | Response> {
   const header = request.headers.get("Authorization") ?? "";
   const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
   if (!token) return apiError(401, "unauthorized", "Send your API key as: Authorization: Bearer <key>");
-  const key = await env.DB.prepare("SELECT * FROM api_keys WHERE key_hash = ? AND revoked_at IS NULL")
-    .bind(await sha256(token))
-    .first<ApiKeyRow>();
+  let key: ApiKeyRow | null;
+  if (token.startsWith(ACCESS_PREFIX)) {
+    if (!opts.oauth) return apiError(401, "unauthorized", "Tokens from signing in work on /mcp only. Use an API key here.");
+    const found = await connectionFor(token);
+    if (found instanceof Response) return found;
+    key = found;
+  } else {
+    key = await env.DB.prepare("SELECT * FROM api_keys WHERE key_hash = ? AND revoked_at IS NULL AND user_id IS NULL")
+      .bind(await sha256(token))
+      .first<ApiKeyRow>();
+  }
   if (!key) return apiError(401, "unauthorized", "Unknown or revoked API key.");
   const { results: grants } = await env.DB.prepare(
     `SELECT g.*, d.name AS domain FROM api_key_grants g

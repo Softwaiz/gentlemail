@@ -38,7 +38,16 @@ type Perm = "read" | "send";
  * in the form: the filter only hides rows, and a locked line still posts its
  * own grant, so removing the broader line later leaves it in place.
  */
-function AccessEditor({ targets, initial }: { targets: AccessTargets; initial: AccessValue }) {
+export function AccessEditor({
+  targets,
+  initial,
+  allowAll = true,
+}: {
+  targets: AccessTargets;
+  initial: AccessValue;
+  /** Offer the "All mailboxes" line (not to someone who can open only some mailboxes). */
+  allowAll?: boolean;
+}) {
   const [value, setValue] = useState<AccessValue>(initial);
   const [filter, setFilter] = useState("");
 
@@ -119,7 +128,8 @@ function AccessEditor({ targets, initial }: { targets: AccessTargets; initial: A
           <span className="text-center">Send</span>
         </div>
         <div className="max-h-[45vh] divide-y overflow-y-auto">
-          {row({ target: "all", title: "All mailboxes", hint: "Every mailbox, now and later", inherited: { read: false, send: false }, level: 0 })}
+          {allowAll &&
+            row({ target: "all", title: "All mailboxes", hint: "Every mailbox, now and later", inherited: { read: false, send: false }, level: 0 })}
           {groups.map((g) => {
             const dKey = g.domain ? `domain:${g.domain.id}` : "";
             const dInherited = allOn;
@@ -141,7 +151,7 @@ function AccessEditor({ targets, initial }: { targets: AccessTargets; initial: A
                     level: 0,
                   })
                 ) : (
-                  <div className="bg-muted/40 px-3 py-2 text-sm font-medium">Other mailboxes</div>
+                  <div className="bg-muted/40 px-3 py-2 text-sm font-medium">{targets.domains.length ? "Other mailboxes" : "Your mailboxes"}</div>
                 )}
                 {g.mailboxes.map((m) =>
                   row({ target: `mailbox:${m.id}`, title: m.address, inherited: mInherited, level: 1, hidden: !matches(m) }),

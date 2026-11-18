@@ -230,7 +230,7 @@ export const createKeyAction = serverAction([
 export const updateKeyAccessAction = serverAction([
   adminOnly,
   async (id: string, form: FormData): Promise<ActionResult> => {
-    const key = await env.DB.prepare("SELECT id FROM api_keys WHERE id = ? AND revoked_at IS NULL").bind(id).first();
+    const key = await env.DB.prepare("SELECT id FROM api_keys WHERE id = ? AND revoked_at IS NULL AND user_id IS NULL").bind(id).first();
     if (!key) return fail("This key no longer exists or was revoked.");
     const grants = await grantsFromForm(form);
     if (!grants.length) return fail("Tick Read or Send on at least one line, or revoke the key instead.");
@@ -242,7 +242,7 @@ export const updateKeyAccessAction = serverAction([
 export const revokeKeyAction = serverAction([
   adminOnly,
   async (id: string): Promise<ActionResult> => {
-    await env.DB.prepare("UPDATE api_keys SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL").bind(now(), id).run();
+    await env.DB.prepare("UPDATE api_keys SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL AND user_id IS NULL").bind(now(), id).run();
     return ok("Key revoked. Programs using it are refused from now on.");
   },
 ]);

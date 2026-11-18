@@ -10,13 +10,17 @@ import { messageJson } from "@/lib/webhooks";
  * Public HTTP API, authenticated with API keys created in Admin → API & webhooks.
  *   POST /api/v1/send                 send (scope: send)
  *   GET  /api/v1/mailboxes            mailboxes this key can use, with its permissions on each
- *   GET  /api/v1/messages             list (scope: read)
+ *   GET  /api/v1/messages             list and search (scope: read)
  *   GET  /api/v1/messages/:id         one message with text and HTML (scope: read)
  *   POST /api/v1/messages/:id         mark read/unread, archive, trash, star… (scope: read)
  *   GET  /api/v1/attachments/:id      attachment bytes (scope: read)
  *
  * A key's access is a set of grants (all mailboxes, a domain, a mailbox), each
  * with read and/or send; every request is checked against the mailbox it touches.
+ *
+ * The work itself is in the functions below the handlers (sendMessage,
+ * listMessages…), which take an authenticated key and return the response;
+ * the MCP endpoint (src/app/mcp.ts) calls the same ones.
  */
 
 type Handler = (info: RequestInfo, auth: ApiAuth) => Promise<Response>;
@@ -58,13 +62,13 @@ function toAddrs(v: unknown): Addr[] | null {
   return out.every((a) => isEmail(a.address)) ? out : null;
 }
 
-async function mailboxFor(auth: ApiAuth, address: string, scope: Scope) {
+export async function mailboxFor(auth: ApiAuth, address: string, scope: Scope) {
   const mb = await env.DB.prepare("SELECT * FROM mailboxes WHERE address = ? COLLATE NOCASE").bind(address.trim()).first<Mailbox>();
   if (!mb || !can(auth, mb, scope)) return null;
   return mb;
 }
 
-async function messageFor(auth: ApiAuth, id: string, scope: Scope) {
+export async function messageFor(auth: ApiAuth, id: string, scope: Scope) {
   const msg = await env.DB.prepare(
     "SELECT m.*, b.address AS mailbox_address FROM messages m JOIN mailboxes b ON b.id = m.mailbox_id WHERE m.id = ?",
   )
@@ -89,8 +93,9 @@ async function usableMailboxes(auth: ApiAuth) {
 
 /* ---------- POST /api/v1/send ---------- */
 
-export const sendHandler = withKey("send", async ({ request }, auth) => {
-  const b = await readJson(request);
+export const sendHandler = withKey("send", async ({ request }, auth) => sendMessage(auth, await readJson(request)));
+
+export async function sendMessage(auth: ApiAuth, b: Record<string, unknown> | null) {
   if (!b) return apiError(400, "invalid_json", "Send a JSON object body.");
 
   if (typeof b.from !== "string") return apiError(422, "invalid_from", '"from" must be the address of one of your mailboxes.');
@@ -161,11 +166,13 @@ export const sendHandler = withKey("send", async ({ request }, auth) => {
     if (e instanceof SendError) return apiError(422, e.code || "send_failed", e.message);
     throw e;
   }
-});
+}
 
 /* ---------- GET /api/v1/mailboxes ---------- */
 
-export const mailboxesHandler = withKey(null, async (_info, auth) => {
+export const mailboxesHandler = withKey(null, async (_info, auth) => listMailboxes(auth));
+
+export async function listMailboxes(auth: ApiAuth) {
   const mailboxes = await usableMailboxes(auth);
   return apiJson({
     data: mailboxes.map(({ can_read, can_send, ...m }) => ({
@@ -174,12 +181,16 @@ export const mailboxesHandler = withKey(null, async (_info, auth) => {
       permissions: [...(can_read ? ["read"] : []), ...(can_send ? ["send"] : [])],
     })),
   });
-});
+}
 
 /* ---------- GET /api/v1/messages ---------- */
 
-export const listHandler = withKey("read", async ({ request }, auth) => {
-  const q = new URL(request.url).searchParams;
+export const listHandler = withKey("read", async ({ request }, auth) => listMessages(auth, new URL(request.url).searchParams));
+
+/** Escapes % and _ so a search matches them literally (with ESCAPE '\\'). */
+const likeTerm = (s: string) => `%${s.replace(/[\\%_]/g, (c) => "\\" + c)}%`;
+
+export async function listMessages(auth: ApiAuth, q: URLSearchParams) {
   const where: string[] = [];
   const binds: unknown[] = [];
 
@@ -201,6 +212,14 @@ export const listHandler = withKey("read", async ({ request }, auth) => {
     binds.push(folder);
   }
   if (q.get("unread") === "true") where.push("m.is_read = 0");
+  // Words anywhere in the subject, sender, recipients or text, as in the webmail's search.
+  const search = (q.get("q") ?? "").trim().slice(0, 200);
+  if (search) {
+    where.push(
+      `(${["m.subject", "m.from_addr", "m.from_name", "m.to_json", "m.text_body"].map((c) => `${c} LIKE ? ESCAPE '\\'`).join(" OR ")})`,
+    );
+    binds.push(...Array(5).fill(likeTerm(search)));
+  }
   const since = q.get("since");
   if (since) {
     const t = /^\d+$/.test(since) ? Number(since) : Date.parse(since);
@@ -229,12 +248,14 @@ export const listHandler = withKey("read", async ({ request }, auth) => {
       return summary;
     }),
   });
-});
+}
 
 /* ---------- GET / POST /api/v1/messages/:id ---------- */
 
-export const messageHandler = withKey("read", async ({ params }, auth) => {
-  const msg = await messageFor(auth, params.id, "read");
+export const messageHandler = withKey("read", async ({ params }, auth) => getMessage(auth, params.id));
+
+export async function getMessage(auth: ApiAuth, id: string) {
+  const msg = await messageFor(auth, id, "read");
   if (!msg) return apiError(404, "not_found", "No such message.");
   return apiJson({
     data: {
@@ -243,7 +264,7 @@ export const messageHandler = withKey("read", async ({ params }, auth) => {
       html: await getHtmlBody(msg),
     },
   });
-});
+}
 
 const ACTIONS: Record<string, string> = {
   read: "is_read = 1",
@@ -256,15 +277,20 @@ const ACTIONS: Record<string, string> = {
   inbox: "folder = CASE direction WHEN 'out' THEN 'sent' ELSE 'inbox' END",
 };
 
+export const MESSAGE_ACTIONS = Object.keys(ACTIONS);
+
 export const messageActionHandler = withKey("read", async ({ params, request }, auth) => {
-  const msg = await messageFor(auth, params.id, "read");
-  if (!msg) return apiError(404, "not_found", "No such message.");
   const b = await readJson(request);
-  const action = typeof b?.action === "string" ? b.action : "";
+  return actOnMessage(auth, params.id, typeof b?.action === "string" ? b.action : "");
+});
+
+export async function actOnMessage(auth: ApiAuth, id: string, action: string) {
+  const msg = await messageFor(auth, id, "read");
+  if (!msg) return apiError(404, "not_found", "No such message.");
   if (!ACTIONS[action]) return apiError(422, "invalid_action", `action must be one of: ${Object.keys(ACTIONS).join(", ")}.`);
   await env.DB.prepare(`UPDATE messages SET ${ACTIONS[action]} WHERE id = ?`).bind(msg.id).run();
   return apiJson({ id: msg.id, action, status: "ok" });
-});
+}
 
 /* ---------- GET /api/v1/attachments/:id ---------- */
 

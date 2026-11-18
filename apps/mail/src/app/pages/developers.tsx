@@ -22,7 +22,9 @@ import { Input } from "@/app/components/ui/input";
 import { Switch } from "@/app/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
 import { missing } from "@/app/pages/errors";
-import { type ApiKeyRow, type Grant, listActiveGrants } from "@/lib/apikeys";
+import { AccessSummary, grantValue, targetNames } from "@/app/components/access-summary";
+import { Connections } from "@/app/components/connections";
+import { type ApiKeyRow, type Grant, listActiveGrants, listConnections } from "@/lib/apikeys";
 import { type Mailbox } from "@/lib/db";
 import { formatDate } from "@/lib/util";
 import { cn } from "@/lib/utils";
@@ -30,43 +32,6 @@ import { type DeliveryRow, EVENTS, type WebhookRow, publicUrl } from "@/lib/webh
 
 const listMailboxes = async () =>
   (await env.DB.prepare("SELECT id, address FROM mailboxes ORDER BY address").all<Pick<Mailbox, "id" | "address">>()).results;
-
-const grantKey = (g: Grant) => (g.target_type === "all" ? "all" : `${g.target_type}:${g.target_id}`);
-const grantValue = (grants: Grant[]): AccessValue =>
-  Object.fromEntries(grants.map((g) => [grantKey(g), { read: !!g.can_read, send: !!g.can_send }]));
-
-/** What each grant target is called, by grantKey(): "domain:<id>" → "All of example.com", "mailbox:<id>" → its address. */
-const targetNames = (targets: AccessTargets) =>
-  new Map<string, string>([
-    ...targets.domains.map((d) => [`domain:${d.id}`, `All of ${d.name}`] as const),
-    ...targets.mailboxes.map((m) => [`mailbox:${m.id}`, m.address] as const),
-  ]);
-
-/** One line per grant, broadest first: "All mailboxes · read, send". */
-function AccessSummary({ grants, names }: { grants: Grant[]; names: Map<string, string> }) {
-  const order = { all: 0, domain: 1, mailbox: 2 } as const;
-  const name = (g: Grant) =>
-    g.target_type === "all"
-      ? "All mailboxes"
-      : (names.get(grantKey(g)) ?? (g.target_type === "domain" ? "a removed domain" : "a deleted mailbox"));
-  const sorted = [...grants].sort((a, b) => order[a.target_type] - order[b.target_type]);
-  if (!sorted.length) return <span className="text-muted-foreground">No access</span>;
-  const shown = sorted.slice(0, 3);
-  return (
-    <ul className="grid gap-0.5">
-      {shown.map((g) => (
-        <li key={grantKey(g)} className="text-[13px]">
-          <span className={cn(g.target_type !== "mailbox" && "font-medium")}>{name(g)}</span>
-          <span className="text-muted-foreground">
-            {" · "}
-            {[g.can_read && "read", g.can_send && "send"].filter(Boolean).join(", ")}
-          </span>
-        </li>
-      ))}
-      {sorted.length > shown.length && <li className="text-xs text-muted-foreground">+{sorted.length - shown.length} more</li>}
-    </ul>
-  );
-}
 
 const mailboxOptions = (list: { id: string; address: string }[]): Option[] => [
   { value: "all", label: "All mailboxes" },
@@ -216,8 +181,10 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
   const names = targetNames(targets);
   const label = (id: string | null) => (id ? (names.get(`mailbox:${id}`) ?? "deleted mailbox") : "All mailboxes");
 
-  const { results: keys } = await env.DB.prepare("SELECT * FROM api_keys ORDER BY revoked_at IS NOT NULL, created_at DESC").all<ApiKeyRow>();
-  const grants = await listActiveGrants();
+  const { results: keys } = await env.DB.prepare(
+    "SELECT * FROM api_keys WHERE user_id IS NULL ORDER BY revoked_at IS NOT NULL, created_at DESC",
+  ).all<ApiKeyRow>();
+  const [grants, connections, connectionGrants] = await Promise.all([listActiveGrants(), listConnections(), listActiveGrants("connections")]);
   const grantsByKey = new Map<string, Grant[]>();
   for (const g of grants) {
     const list = grantsByKey.get(g.key_id);
@@ -315,6 +282,14 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
             </TableBody>
           </Table>
         </Section>
+
+        <Connections
+          connections={connections}
+          grants={connectionGrants}
+          names={names}
+          mcpUrl={`${base}/mcp`}
+          showOwner
+        />
 
         <Section
           title="Webhooks"

@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { sha256 } from "./auth";
-import type { Grant } from "./apikeys";
+import { type Grant, grantStatements } from "./apikeys";
 import { b64url, newId, now } from "./util";
 
 /*
@@ -157,7 +157,8 @@ export async function authenticateClient(request: Request, form: FormData): Prom
 /* ---------- Codes and tokens ---------- */
 
 /** The person allowed it: a single-use code for the app to trade for tokens. */
-export async function createCode(input: { clientId: string; userId: string; redirectUri: string; challenge: string; grants: Grant[] }) {
+/** `redirectUri`: as the app sent it to /oauth/authorize, or null if it left it out (it then needn't repeat it). */
+export async function createCode(input: { clientId: string; userId: string; redirectUri: string | null; challenge: string; grants: Grant[] }) {
   const code = randomToken(CODE_PREFIX);
   await env.DB.prepare(
     "INSERT INTO oauth_codes (id, client_id, user_id, redirect_uri, code_challenge, grants, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -171,14 +172,15 @@ async function s256(verifier: string) {
   return b64url(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))));
 }
 
-async function issueTokens(keyId: string): Promise<TokenSet> {
+/** A new pair in sign-in `family`. */
+async function issueTokens(keyId: string, family: string): Promise<TokenSet> {
   const access = randomToken(ACCESS_PREFIX);
   const refresh = randomToken(REFRESH_PREFIX);
   const t = now();
-  const insert = "INSERT INTO oauth_tokens (id, key_id, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?)";
+  const insert = "INSERT INTO oauth_tokens (id, key_id, family, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)";
   await env.DB.batch([
-    env.DB.prepare(insert).bind(await sha256(access), keyId, "access", t + ACCESS_TTL, t),
-    env.DB.prepare(insert).bind(await sha256(refresh), keyId, "refresh", t + REFRESH_TTL, t),
+    env.DB.prepare(insert).bind(await sha256(access), keyId, family, "access", t + ACCESS_TTL, t),
+    env.DB.prepare(insert).bind(await sha256(refresh), keyId, family, "refresh", t + REFRESH_TTL, t),
   ]);
   return { access_token: access, token_type: "Bearer", expires_in: ACCESS_TTL / 1000, refresh_token: refresh, scope: SCOPE };
 }
@@ -191,10 +193,12 @@ export async function exchangeCode(client: OAuthClient, form: FormData): Promise
   // Deleted as it is read, so a code works once even if two requests race.
   const row = await env.DB.prepare("DELETE FROM oauth_codes WHERE id = ? RETURNING *")
     .bind(await sha256(code))
-    .first<{ client_id: string; user_id: string; redirect_uri: string; code_challenge: string; grants: string; expires_at: number }>();
+    .first<{ client_id: string; user_id: string; redirect_uri: string | null; code_challenge: string; grants: string; expires_at: number }>();
   if (!row || row.expires_at < now() || row.client_id !== client.id) return oauthError("invalid_grant", "This code is unknown, used or expired. Sign in again.");
+  // RFC 6749 §4.1.3: sent to /oauth/authorize, so it must be sent here too, the same.
   const redirectUri = form.get("redirect_uri");
-  if (redirectUri != null && String(redirectUri) !== row.redirect_uri) return oauthError("invalid_grant", "redirect_uri doesn't match the one used to sign in.");
+  if (row.redirect_uri != null ? String(redirectUri ?? "") !== row.redirect_uri : redirectUri != null)
+    return oauthError("invalid_grant", "redirect_uri doesn't match the one used to sign in.");
   if ((await s256(verifier)) !== row.code_challenge) return oauthError("invalid_grant", "code_verifier doesn't match the code_challenge.");
 
   const grants: Grant[] = JSON.parse(row.grants);
@@ -210,45 +214,66 @@ export async function exchangeCode(client: OAuthClient, form: FormData): Promise
   const key = await env.DB.prepare("SELECT id FROM api_keys WHERE user_id = ? AND client_id = ?").bind(row.user_id, client.id).first<{ id: string }>();
   if (!key) return oauthError("server_error", "Couldn't save the connection. Try again.", 500);
   const keyId = key.id;
-  await env.DB.batch([
-    env.DB.prepare("DELETE FROM api_key_grants WHERE key_id = ?").bind(keyId),
-    ...grants.map((g) =>
-      env.DB.prepare("INSERT INTO api_key_grants (key_id, target_type, target_id, can_read, can_send) VALUES (?, ?, ?, ?, ?)").bind(
-        keyId,
-        g.target_type,
-        g.target_id,
-        g.can_read,
-        g.can_send,
-      ),
-    ),
-    env.DB.prepare("UPDATE oauth_clients SET used_at = ? WHERE id = ?").bind(t, client.id),
-  ]);
-  return issueTokens(keyId);
+  await env.DB.batch([...grantStatements(keyId, grants), env.DB.prepare("UPDATE oauth_clients SET used_at = ? WHERE id = ?").bind(t, client.id)]);
+  return issueTokens(keyId, newId());
 }
 
-/** grant_type=refresh_token: a new pair; the refresh token used is gone. */
+/** A refresh token traded in again within this long is a client retrying (two tabs, a dropped answer), not a copy. */
+const REUSE_GRACE = 30 * 1000;
+
+/**
+ * grant_type=refresh_token: a new pair in the same family; the token used is
+ * marked used, not deleted. If it comes back, someone has a copy: the whole
+ * family is signed out (OAuth 2.1 §4.3.1), and its owner signs in again.
+ */
 export async function refreshTokens(client: OAuthClient, form: FormData): Promise<TokenSet | OAuthError> {
   const token = String(form.get("refresh_token") ?? "");
-  if (!token.startsWith(REFRESH_PREFIX)) return oauthError("invalid_grant", "Unknown refresh token.");
+  const unknown = oauthError("invalid_grant", "This refresh token is unknown, used or expired. Sign in again.");
+  if (!token.startsWith(REFRESH_PREFIX)) return unknown;
+  const id = await sha256(token);
+  const t = now();
   const row = await env.DB.prepare(
-    `DELETE FROM oauth_tokens WHERE id = ? AND kind = 'refresh'
-     AND key_id IN (SELECT id FROM api_keys WHERE client_id = ? AND revoked_at IS NULL) RETURNING key_id, expires_at`,
+    `UPDATE oauth_tokens SET used_at = ?1 WHERE id = ?2 AND kind = 'refresh' AND used_at IS NULL AND expires_at > ?1
+     AND key_id IN (SELECT id FROM api_keys WHERE client_id = ?3 AND revoked_at IS NULL) RETURNING key_id, family`,
   )
-    .bind(await sha256(token), client.id)
-    .first<{ key_id: string; expires_at: number }>();
-  if (!row || row.expires_at < now()) return oauthError("invalid_grant", "This refresh token is unknown, used or expired. Sign in again.");
-  return issueTokens(row.key_id);
+    .bind(t, id, client.id)
+    .first<{ key_id: string; family: string }>();
+  if (row) {
+    // The family's older access tokens go: this device has a new one.
+    await env.DB.prepare("DELETE FROM oauth_tokens WHERE family = ? AND kind = 'access'").bind(row.family).run();
+    return issueTokens(row.key_id, row.family);
+  }
+  await env.DB.prepare(
+    `DELETE FROM oauth_tokens WHERE family IN (
+       SELECT family FROM oauth_tokens WHERE id = ? AND kind = 'refresh' AND used_at < ?
+       AND key_id IN (SELECT id FROM api_keys WHERE client_id = ?))`,
+  )
+    .bind(id, t - REUSE_GRACE, client.id)
+    .run();
+  return unknown;
 }
 
-/** POST /oauth/revoke (RFC 7009): any of a connection's tokens ends the whole connection. */
+/**
+ * POST /oauth/revoke (RFC 7009): signs out the device the token belongs to
+ * (its family). Other devices stay connected; the connection goes with the last
+ * one. Disconnect under Security removes the whole connection.
+ */
 export async function revokeToken(client: OAuthClient, token: string) {
   if (!token) return;
-  await env.DB.prepare(
-    `DELETE FROM api_keys WHERE client_id = ? AND user_id IS NOT NULL
-     AND id IN (SELECT key_id FROM oauth_tokens WHERE id = ?)`,
+  const row = await env.DB.prepare(
+    `SELECT t.key_id, t.family FROM oauth_tokens t JOIN api_keys k ON k.id = t.key_id
+     WHERE t.id = ? AND k.client_id = ? AND k.user_id IS NOT NULL`,
   )
-    .bind(client.id, await sha256(token))
-    .run();
+    .bind(await sha256(token), client.id)
+    .first<{ key_id: string; family: string }>();
+  if (!row) return;
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM oauth_tokens WHERE family = ?").bind(row.family),
+    env.DB.prepare(
+      `DELETE FROM api_keys WHERE id = ?1 AND NOT EXISTS (
+         SELECT 1 FROM oauth_tokens WHERE key_id = ?1 AND kind = 'refresh' AND used_at IS NULL AND expires_at > ?2)`,
+    ).bind(row.key_id, now()),
+  ]);
 }
 
 /**

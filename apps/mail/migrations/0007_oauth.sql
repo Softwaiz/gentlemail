@@ -26,19 +26,24 @@ CREATE TABLE oauth_codes (
   id             TEXT PRIMARY KEY,          -- SHA-256 of the code
   client_id      TEXT NOT NULL REFERENCES oauth_clients(id) ON DELETE CASCADE,
   user_id        TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  redirect_uri   TEXT NOT NULL,
+  redirect_uri   TEXT,                      -- as sent to /oauth/authorize, which the token request must repeat; NULL if left out
   code_challenge TEXT NOT NULL,             -- PKCE, S256
   grants         TEXT NOT NULL,             -- JSON: what the person allowed
   expires_at     INTEGER NOT NULL
 );
 
--- Access tokens (an hour) and refresh tokens (rotated on each use).
+-- Access tokens (an hour) and refresh tokens (rotated on each use). Each sign-in
+-- (a device) is a family: refreshing stays in it, signing out ends only it, and
+-- a used refresh token coming back ends it (someone copied it).
 CREATE TABLE oauth_tokens (
   id         TEXT PRIMARY KEY,              -- SHA-256 of the token
   key_id     TEXT NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
+  family     TEXT NOT NULL,
   kind       TEXT NOT NULL CHECK (kind IN ('access', 'refresh')),
   expires_at INTEGER NOT NULL,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  used_at    INTEGER                        -- refresh tokens: when it was traded in; kept to catch a reuse
 );
 CREATE INDEX oauth_tokens_key ON oauth_tokens(key_id);
+CREATE INDEX oauth_tokens_family ON oauth_tokens(family);
 CREATE INDEX oauth_tokens_expiry ON oauth_tokens(expires_at);

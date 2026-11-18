@@ -73,6 +73,39 @@ export const parseAddrs = (json: string): Addr[] => {
   }
 };
 
+/** `list` without `exclude` (the mailbox's own address), empty addresses or repeats. */
+const uniqAddrs = (list: Addr[], exclude: string) => {
+  const seen = new Set([exclude.toLowerCase()]);
+  return list.filter((a) => {
+    const k = a.address?.toLowerCase();
+    if (!k || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+};
+
+/**
+ * Who a reply goes to, as the webmail answers: the sender of a message received,
+ * the recipients of one sent from this mailbox. Reply-all adds everyone else in
+ * To and Cc as cc. The mailbox itself is never a recipient.
+ */
+export function replyRecipients(
+  original: Pick<MessageRow, "direction" | "from_name" | "from_addr" | "reply_to" | "to_json" | "cc_json">,
+  mailboxAddress: string,
+  all = false,
+): { to: Addr[]; cc: Addr[] } {
+  const target =
+    original.direction === "out" ? parseAddrs(original.to_json) : [{ name: original.from_name, address: original.reply_to || original.from_addr }];
+  const to = uniqAddrs(target, mailboxAddress);
+  if (!all) return { to, cc: [] };
+  const already = new Set(to.map((a) => a.address.toLowerCase()));
+  const cc = uniqAddrs(
+    [...parseAddrs(original.to_json), ...parseAddrs(original.cc_json)].filter((a) => !already.has(a.address?.toLowerCase())),
+    mailboxAddress,
+  );
+  return { to, cc };
+}
+
 export async function listMailboxesForUser(user: User): Promise<(Mailbox & { unread: number })[]> {
   const base = `SELECT m.*, (SELECT COUNT(*) FROM messages x WHERE x.mailbox_id = m.id AND x.folder = 'inbox' AND x.is_read = 0) AS unread FROM mailboxes m`;
   const q =

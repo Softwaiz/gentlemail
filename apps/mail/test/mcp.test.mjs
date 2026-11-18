@@ -191,7 +191,7 @@ describe("registration", () => {
     assert.ok(client.client_secret);
     const { verifier, challenge } = pkce();
     const code = await allow(client, "uMember", { read: ["mailbox:mA1"] }, challenge);
-    const base = { grant_type: "authorization_code", code, code_verifier: verifier, client_id: client.client_id };
+    const base = { grant_type: "authorization_code", code, code_verifier: verifier, client_id: client.client_id, redirect_uri: "http://127.0.0.1:6666/callback" };
     assert.equal((await token({ ...base, client_secret: "wrong" })).status, 401);
     assert.equal((await token({ ...base, client_secret: client.client_secret })).status, 200);
   });
@@ -293,7 +293,7 @@ describe("tokens", () => {
     const { body: client } = await register();
     const { verifier, challenge } = pkce();
     const code = await allow(client, "uMember", { read: ["mailbox:mA1"] }, challenge);
-    const base = { grant_type: "authorization_code", code, client_id: client.client_id };
+    const base = { grant_type: "authorization_code", code, client_id: client.client_id, redirect_uri: "http://127.0.0.1:6666/callback" };
     assert.equal((await token({ ...base, code_verifier: pkce().verifier })).body.error, "invalid_grant");
     // The failed try used the code up.
     assert.equal((await token({ ...base, code_verifier: verifier })).body.error, "invalid_grant");
@@ -324,13 +324,47 @@ describe("tokens", () => {
     const first = await connect("uMember", { read: ["mailbox:mA1"] });
     const { verifier, challenge } = pkce();
     const code = await allow(first.client, "uMember", { read: ["mailbox:mA1"], send: ["mailbox:mA1"] }, challenge);
-    const second = await token({ grant_type: "authorization_code", code, code_verifier: verifier, client_id: first.client.client_id });
+    const second = await token({ grant_type: "authorization_code", code, code_verifier: verifier, client_id: first.client.client_id, redirect_uri: "http://127.0.0.1:6666/callback" });
     assert.equal(second.status, 200);
     const rows = await db.prepare("SELECT COUNT(*) AS n FROM api_keys WHERE client_id = ?").bind(first.client.client_id).first();
     assert.equal(rows.n, 1);
     // The new access applies to both; the first device keeps working.
     assert.deepEqual((await tool(first.access_token, "list_mailboxes"))[0].permissions, ["read", "send"]);
     assert.equal((await token({ grant_type: "refresh_token", refresh_token: first.refresh_token, client_id: first.client.client_id })).status, 200);
+  });
+
+  test("the token request repeats the redirect_uri sent to sign in, and only then", async () => {
+    const { body: client } = await register();
+    const { verifier, challenge } = pkce();
+    const code = await allow(client, "uMember", { read: ["mailbox:mA1"] }, challenge);
+    const base = { grant_type: "authorization_code", code, code_verifier: verifier, client_id: client.client_id };
+    assert.equal((await token(base)).body.error, "invalid_grant");
+    // One registered redirect URI: the app may leave it out of both.
+    const { body: single } = await register(["https://app.test/cb"]);
+    const p = pkce();
+    const params = authorizeParams(single, p.challenge);
+    params.delete("redirect_uri");
+    const res = await request("/oauth/authorize", {
+      method: "POST",
+      headers: { Cookie: cookie("uMember"), "Content-Type": "application/x-www-form-urlencoded" },
+      body: form({ ...Object.fromEntries(params), decision: "allow", read: "mailbox:mA1" }),
+    });
+    const code2 = new URL(res.headers.get("location")).searchParams.get("code");
+    assert.equal((await token({ grant_type: "authorization_code", code: code2, code_verifier: p.verifier, client_id: single.client_id })).status, 200);
+  });
+
+  test("a used refresh token coming back signs that device out", async () => {
+    const c = await connect("uMember", { read: ["mailbox:mA1"] });
+    const next = await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id });
+    assert.equal(next.status, 200);
+    // Right away, it's a retry: refused, nothing else happens.
+    assert.equal((await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
+    assert.equal((await rpc(next.body.access_token, "tools/list")).status, 200);
+    // Later, it's a copy: the device's new tokens stop working too.
+    await db.prepare("UPDATE oauth_tokens SET used_at = used_at - 60000 WHERE used_at IS NOT NULL").run();
+    assert.equal((await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
+    assert.equal((await rpc(next.body.access_token, "tools/list")).status, 401);
+    assert.equal((await token({ grant_type: "refresh_token", refresh_token: next.body.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
   });
 
   test("tokens from signing in don't work on the HTTP API", async () => {
@@ -419,6 +453,23 @@ describe("a member's assistant", () => {
     assert.match((await tool(c.access_token, "reply", { message_id: "m5", text: "x" })).error, /No such message/);
   });
 
+  test("a reply to a message sent from here goes to its recipients, as in the webmail", async () => {
+    const out = await tool(c.access_token, "send_email", { from: "one@alpha.test", to: ["client@elsewhere.test"], cc: ["boss@elsewhere.test"], subject: "Quote", text: "Here it is" });
+    const r = await tool(c.access_token, "reply", { message_id: out.id, text: "Any news?", reply_all: true });
+    const sent = await db.prepare("SELECT to_json, cc_json FROM messages WHERE id = ?").bind(r.id).first();
+    assert.deepEqual(JSON.parse(sent.to_json).map((a) => a.address), ["client@elsewhere.test"]);
+    assert.deepEqual(JSON.parse(sent.cc_json).map((a) => a.address), ["boss@elsewhere.test"]);
+  });
+
+  test("batches are capped and answered in order", async () => {
+    const call = (id) => ({ jsonrpc: "2.0", id, method: "tools/list" });
+    const post = (body) =>
+      request("/mcp", { method: "POST", headers: { Authorization: `Bearer ${c.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const ok = await post([call(1), call(2)]);
+    assert.deepEqual((await ok.json()).map((r) => r.id), [1, 2]);
+    assert.equal((await post(Array.from({ length: 11 }, (_, i) => call(i)))).status, 400);
+  });
+
   test("marks and moves messages", async () => {
     assert.equal((await tool(c.access_token, "update_message", { id: "m1", action: "star" })).status, "ok");
     assert.equal((await db.prepare("SELECT is_starred FROM messages WHERE id = 'm1'").first()).is_starred, 1);
@@ -439,11 +490,10 @@ describe("a member's assistant", () => {
   test("loses a mailbox as soon as the person does, and gets it back with them", async () => {
     await db.prepare("DELETE FROM mailbox_members WHERE user_id = 'uMember' AND mailbox_id = 'mA1'").run();
     try {
-      assert.deepEqual(await tool(c.access_token, "list_mailboxes"), []);
-      assert.match((await tool(c.access_token, "get_message", { id: "m1" })).error, /No such message/);
-      assert.deepEqual((await tool(c.access_token, "search_messages", { folder: "all" })).messages, []);
-      assert.match((await tool(c.access_token, "get_thread", { thread_id: "tA" })).error, /No such conversation/);
-      assert.match((await tool(c.access_token, "send_email", { from: "one@alpha.test", to: ["x@elsewhere.test"], subject: "s", text: "t" })).error, /can't send/);
+      // Nothing left it may use: told to sign in again, as with an unknown token.
+      const res = await rpc(c.access_token, "tools/list");
+      assert.equal(res.status, 401);
+      assert.match(res.headers.get("www-authenticate"), /resource_metadata=/);
     } finally {
       await db.prepare("INSERT INTO mailbox_members (mailbox_id, user_id) VALUES ('mA1', 'uMember')").run();
     }
@@ -477,6 +527,21 @@ describe("disconnecting", () => {
     assert.equal((await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
   });
 
+  test("signing out on one device leaves the others connected", async () => {
+    const laptop = await connect("uMember", { read: ["mailbox:mA1"] });
+    const { verifier, challenge } = pkce();
+    const code = await allow(laptop.client, "uMember", { read: ["mailbox:mA1"] }, challenge);
+    const phone = (await token({ grant_type: "authorization_code", code, code_verifier: verifier, client_id: laptop.client.client_id, redirect_uri: "http://127.0.0.1:6666/callback" })).body;
+    const revoke = (t) =>
+      request("/oauth/revoke", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form({ token: t, client_id: laptop.client.client_id }) });
+    await revoke(laptop.refresh_token);
+    assert.equal((await rpc(laptop.access_token, "tools/list")).status, 401);
+    assert.equal((await rpc(phone.access_token, "tools/list")).status, 200);
+    // The last device out ends the connection.
+    await revoke(phone.access_token);
+    assert.equal(await db.prepare("SELECT id FROM api_keys WHERE client_id = ?").bind(laptop.client.client_id).first(), null);
+  });
+
   test("a disconnected app can sign in again with its registration, after the hourly clean-up", async () => {
     const c = await connect("uMember", { read: ["mailbox:mA1"] });
     await db.prepare("DELETE FROM api_keys WHERE client_id = ?").bind(c.client.client_id).run(); // Disconnect
@@ -487,7 +552,7 @@ describe("disconnecting", () => {
     assert.equal(await db.prepare("SELECT id FROM oauth_clients WHERE id = ?").bind(unused.client_id).first(), null);
     const { verifier, challenge } = pkce();
     const code = await allow(c.client, "uMember", { read: ["mailbox:mA1"] }, challenge);
-    assert.equal((await token({ grant_type: "authorization_code", code, code_verifier: verifier, client_id: c.client.client_id })).status, 200);
+    assert.equal((await token({ grant_type: "authorization_code", code, code_verifier: verifier, client_id: c.client.client_id, redirect_uri: "http://127.0.0.1:6666/callback" })).status, 200);
   });
 
   test("deleting the person ends their connections", async () => {
@@ -546,7 +611,7 @@ describe("assistants in a browser", () => {
     const res = await request("/oauth/token", {
       method: "POST",
       headers: { ...crossSite, "Content-Type": "application/x-www-form-urlencoded" },
-      body: form({ grant_type: "authorization_code", code, code_verifier: verifier, client_id: client.client_id }),
+      body: form({ grant_type: "authorization_code", code, code_verifier: verifier, client_id: client.client_id, redirect_uri: "http://127.0.0.1:6666/callback" }),
     });
     assert.equal(res.status, 200);
     assert.equal(res.headers.get("access-control-allow-origin"), "*");

@@ -129,7 +129,15 @@ export async function revokeHandler({ request }: RequestInfo) {
 
 const PARAMS = ["response_type", "client_id", "redirect_uri", "state", "code_challenge", "code_challenge_method", "scope", "resource"];
 
-type Authorization = { client: OAuthClient; redirectUri: string; state: string | null; challenge: string; params: URLSearchParams };
+/** `redirectUri`: where the answer goes; `requested`: the redirect_uri the app sent, if any, which its token request must repeat. */
+type Authorization = {
+  client: OAuthClient;
+  redirectUri: string;
+  requested: string | null;
+  state: string | null;
+  challenge: string;
+  params: URLSearchParams;
+};
 
 /**
  * Checks an authorization request. A bad client or redirect URI is shown here
@@ -155,8 +163,7 @@ async function readAuthorization(p: URLSearchParams, origin: string): Promise<Au
 
   const params = new URLSearchParams();
   for (const k of PARAMS) if (p.get(k) != null) params.set(k, p.get(k)!);
-  params.set("redirect_uri", redirectUri);
-  return { client, redirectUri, state, challenge, params };
+  return { client, redirectUri, requested: p.get("redirect_uri"), state, challenge, params };
 }
 
 function redirectWith(uri: string, origin: string, state: string | null, values: Record<string, string>) {
@@ -276,6 +283,6 @@ export async function authorizeAction(ri: RequestInfo) {
   if (!grants.some((g) => g.can_read || g.can_send))
     return redirect(withFlash(`/oauth/authorize?${req.params}`, "err", "Tick Read or Send on at least one line, or choose Cancel."));
 
-  const code = await createCode({ clientId: req.client.id, userId: user.id, redirectUri: req.redirectUri, challenge: req.challenge, grants });
+  const code = await createCode({ clientId: req.client.id, userId: user.id, redirectUri: req.requested, challenge: req.challenge, grants });
   return redirect(redirectWith(req.redirectUri, origin, req.state, { code }));
 }

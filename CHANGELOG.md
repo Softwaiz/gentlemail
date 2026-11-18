@@ -23,6 +23,13 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 - The Quick reference on API & webhooks shows each example with the JavaScript SDK or over HTTP (one switch, remembered in the browser), with links to the SDK guide, API reference and webhook docs. ([#21](https://github.com/Softwaiz/gentlemail/pull/21))
 - A theme choice in the user menu: Dark, Light or Same as device. It applies at once and is remembered in that browser. ([#21](https://github.com/Softwaiz/gentlemail/pull/21))
 
+### Fixed
+- A reply through the API to a message sent from your own mailbox, without `to`, went back to that mailbox. It now goes to the original recipients, as in the webmail. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
+
+### Security
+- Resetting someone's password or two-step verification also disconnects their AI assistants. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
+- The page you return to after signing in can no longer be another site written as `/\example.com`. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
+
 ### Changed
 - The README shows the product: the GentleMail banner, and screenshots of the inbox, API & webhooks and the phone layout. ([#25](https://github.com/Softwaiz/gentlemail/pull/25))
 - The webmail is dark by default; it used to follow the device, so phones in light mode showed it in cream. ([#21](https://github.com/Softwaiz/gentlemail/pull/21))

@@ -61,7 +61,8 @@ export async function grantsFromForm(form: FormData, allowed?: Set<string>): Pro
   return grants;
 }
 
-const grantStatements = (keyId: string, grants: Grant[]) => [
+/** Replaces a key's grants (statements for a batch). */
+export const grantStatements = (keyId: string, grants: Grant[]) => [
   env.DB.prepare("DELETE FROM api_key_grants WHERE key_id = ?").bind(keyId),
   ...grants.map((g) =>
     env.DB.prepare("INSERT INTO api_key_grants (key_id, target_type, target_id, can_read, can_send) VALUES (?, ?, ?, ?, ?)").bind(
@@ -141,7 +142,13 @@ export const GRANT_COVERS_SQL = `(g.target_type = 'all'
  * the mailboxes that person can open now. Its grants count only there. Null for
  * API keys and admins' assistants.
  */
-export type ApiAuth = { key: ApiKeyRow; grants: ResolvedGrant[]; limit: Set<string> | null };
+export type ApiAuth = {
+  key: ApiKeyRow;
+  grants: ResolvedGrant[];
+  limit: Set<string> | null;
+  /** Whether it may read and send on at least one mailbox it can reach now (decides which MCP tools it sees). */
+  can: Perm;
+};
 export type Perm = { read: boolean; send: boolean };
 
 const json = (status: number, body: unknown) =>
@@ -178,10 +185,13 @@ async function connectionFor(token: string): Promise<{ key: ApiKeyRow; limit: Se
  * SQL to add after GRANT_COVERS_SQL (mailbox `b`): keeps an assistant to the
  * mailboxes its person can open, as `limit` does in permFor().
  */
-export function limitSql(auth: ApiAuth): { sql: string; binds: unknown[] } {
+export function limitSql(auth: Pick<ApiAuth, "limit">): { sql: string; binds: unknown[] } {
   if (!auth.limit) return { sql: "", binds: [] };
-  return { sql: " AND b.id IN (SELECT mailbox_id FROM mailbox_members WHERE user_id = ?)", binds: [auth.key.user_id] };
+  return { sql: " AND b.id IN (SELECT value FROM json_each(?))", binds: [JSON.stringify([...auth.limit])] };
 }
+
+/** Ends every assistant connection of this person (statement for a batch): their password or two-step was reset. */
+export const endConnections = (userId: string) => env.DB.prepare("DELETE FROM api_keys WHERE user_id = ?").bind(userId);
 
 /**
  * Checks the Bearer key. With a scope, the key must hold it on at least one
@@ -213,9 +223,22 @@ export async function authenticate(request: Request, scope: Scope | null, opts: 
   )
     .bind(key.id)
     .all<ResolvedGrant>();
-  const auth: ApiAuth = { key, grants, limit };
-  const holds = (g: Grant) => (scope === "read" ? g.can_read : scope === "send" ? g.can_send : g.can_read || g.can_send);
-  if (!grants.some(holds))
+  let can: Perm = { read: grants.some((g) => !!g.can_read), send: grants.some((g) => !!g.can_send) };
+  if (limit) {
+    // An assistant: what its grants allow on the mailboxes its person can still open.
+    const l = limitSql({ limit });
+    const row = await env.DB.prepare(
+      `SELECT MAX(g.can_read) AS r, MAX(g.can_send) AS s FROM mailboxes b JOIN api_key_grants g ON g.key_id = ? AND ${GRANT_COVERS_SQL}${l.sql}`,
+    )
+      .bind(key.id, ...l.binds)
+      .first<{ r: number | null; s: number | null }>();
+    can = { read: !!row?.r, send: !!row?.s };
+    // Signing in again lets the person pick from the mailboxes they have now.
+    if (!can.read && !can.send)
+      return apiError(401, "invalid_token", "None of the mailboxes this assistant was given can be opened by you any more. Sign in again to choose others.");
+  }
+  const auth: ApiAuth = { key, grants, limit, can };
+  if (!(scope ? can[scope] : can.read || can.send))
     return apiError(403, "forbidden", scope ? `This key has no "${scope}" permission on any mailbox.` : "This key has no permission on any mailbox.");
   // Cheap enough to do on every call; keeps "last used" honest in the admin UI.
   await env.DB.prepare("UPDATE api_keys SET last_used_at = ? WHERE id = ?").bind(now(), key.id).run();

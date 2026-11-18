@@ -3,7 +3,7 @@
 import { env } from "cloudflare:workers";
 import { requestInfo, serverAction } from "rwsdk/worker";
 import { type ActionResult, adminOnly, fail, ok, text } from "@/app/actions/guards";
-import { createApiKey, grantsFromForm, setApiKeyGrants } from "@/lib/apikeys";
+import { createApiKey, endConnections, grantsFromForm, setApiKeyGrants } from "@/lib/apikeys";
 import { createUser, hashPassword } from "@/lib/auth";
 import { type Domain, type Mailbox, isDomainActive } from "@/lib/db";
 import { isEmail, newId, now } from "@/lib/util";
@@ -190,7 +190,8 @@ export const updateUserAction = serverAction([
     const stmts = [env.DB.prepare("UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?").bind(text(form, "name"), email, role, id)];
     if (password) {
       stmts.push(env.DB.prepare("UPDATE users SET password_hash = ? WHERE id = ?").bind(await hashPassword(password), id));
-      if (!isSelf) stmts.push(env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id)); // sign them out elsewhere
+      // Sign them out elsewhere, assistants included: whoever knew the old password may have connected one.
+      if (!isSelf) stmts.push(env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id), endConnections(id));
     }
     if (role === "member") stmts.push(...accessStatements(id, form.getAll("mailboxes").map(String)));
     try {

@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
 import { type ApiAuth, GRANT_COVERS_SQL, type Scope, apiError, apiJson, authenticate, can, limitSql } from "@/lib/apikeys";
-import { type Mailbox, type MessageRow, getHtmlBody, isFolder, listAttachments } from "@/lib/db";
+import { type Mailbox, type MessageRow, getHtmlBody, isFolder, listAttachments, replyRecipients } from "@/lib/db";
 import { SendError, type OutgoingFile, sendMail } from "@/lib/outbound";
 import { type Addr, htmlToText, isEmail, parseAddressList } from "@/lib/util";
 import { messageJson } from "@/lib/webhooks";
@@ -119,9 +119,8 @@ export async function sendMessage(auth: ApiAuth, b: Record<string, unknown> | nu
   const cc = toAddrs(b.cc);
   const bcc = toAddrs(b.bcc);
   if (!to || !cc || !bcc) return apiError(422, "invalid_recipient", "to, cc and bcc must hold valid email addresses.");
-  if (!to.length && original) {
-    to = [{ name: original.from_name, address: original.reply_to || original.from_addr }];
-  }
+  // No recipients given: as the webmail answers (the sender, or for a message sent from here, its recipients).
+  if (!to.length && original) to = replyRecipients(original, mailbox.address).to;
 
   const text = typeof b.text === "string" ? b.text : null;
   const html = typeof b.html === "string" ? b.html : null;

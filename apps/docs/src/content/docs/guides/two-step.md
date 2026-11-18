@@ -36,6 +36,6 @@ In **Admin → Users**:
 
 - **Require two-step verification for everyone.** When it's on, people who haven't set it up can only open the Security page until they do. When it's off, each person decides for themselves.
 - The **Two-step** column shows who has it on.
-- **Reset two-step** is for someone who lost their phone and their recovery codes. It turns two-step off and signs them out everywhere; they sign in with their password and set it up again.
+- **Reset two-step** is for someone who lost their phone and their recovery codes. It turns two-step off and signs them out everywhere, [AI assistants](/docs/mcp/) included; they sign in with their password and set it up again.
 
 Two-step verification protects signing in to the web app. Programs using the [API](/docs/api/) use API keys instead, which you can limit to exactly the mailboxes and permissions they need.

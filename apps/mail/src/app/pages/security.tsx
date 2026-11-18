@@ -48,7 +48,7 @@ export async function SecurityPage({ ctx, request }: RequestInfo) {
             {back ? "Set it up below; then you go back to where you were." : "Set it up below to open your mail."}
           </div>
         )}
-        {!user.mustSetUpMfa && back && back !== "/" && (
+        {!user.mustSetUpMfa && row?.mfa_enabled_at && back && back !== "/" && (
           <div role="status" className="rounded-md border px-4 py-3 text-sm">
             Two-step verification is on.{" "}
             <a href={back} className="font-medium underline underline-offset-4">

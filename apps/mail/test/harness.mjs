@@ -43,6 +43,7 @@ export async function startWorker(seed) {
     d1Databases: { DB: "test" },
     r2Buckets: { MAIL_BUCKET: "test" },
     email: { send_email: [{ name: "EMAIL" }] },
+    ratelimits: Object.fromEntries((config.ratelimits ?? []).map((r) => [r.name, { namespace_id: r.namespace_id, simple: r.simple }])),
   });
   const db = await mf.getD1Database("DB");
   await db.batch([...migrationStatements(), ...seed.split(/;\n/)].filter((st) => st.trim()).map((st) => db.prepare(st)));

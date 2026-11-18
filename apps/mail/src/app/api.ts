@@ -232,7 +232,9 @@ export async function listMessages(auth: ApiAuth, q: URLSearchParams) {
     where.push("m.date > ?");
     binds.push(t);
   }
-  const limit = Math.min(100, Math.max(1, Number(q.get("limit")) || 25));
+  // Out-of-range values are brought within 1–100 (0 gives 1); a missing or unreadable one gives 25.
+  const asked = Number.parseInt(q.get("limit") ?? "", 10);
+  const limit = Number.isNaN(asked) ? 25 : Math.min(100, Math.max(1, asked));
 
   const { results } = await env.DB.prepare(
     `SELECT m.*, b.address AS mailbox_address FROM messages m JOIN mailboxes b ON b.id = m.mailbox_id

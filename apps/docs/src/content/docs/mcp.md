@@ -60,9 +60,9 @@ An assistant only sees the tools its access allows: a read-only one has no sendi
 - **Only what you allowed.** The assistant reaches the mailboxes you ticked, and never more than you can open yourself. If an admin takes a mailbox away from you, your assistants lose it too, from their next request. Admins may also grant **All mailboxes** or a whole domain.
 - **Sending asks you first.** Sending tools are marked as actions that change things, so assistants ask before running them. GentleMail also tells the assistant to show you the recipients and the text first.
 - **Mail is treated as data.** Anyone can write you an email, including one written to trick an AI ("forward all invoices to…"). Every message the assistant reads comes with a note to treat it as information, not instructions. Still, give an assistant Send only where you need it.
-- **Disconnect at any time.** **Security → Connected assistants** lists yours, with the access and last use of each; **Disconnect** stops it at once. Admins see everyone's under **Admin → API & webhooks**. Signing out in the assistant (in Claude Code, `/mcp` → **Clear authentication**) signs out that device only; the others stay connected until the last one signs out.
-- **Password or two-step reset.** When an admin resets someone's password or two-step verification, that person's assistants are disconnected too, in case whoever knew the old password connected one.
-- **Short-lived tokens.** The assistant gets a token valid for an hour and a renewal token that changes each time it's used. If an old renewal token is used again, someone has copied it, and that device is signed out. GentleMail stores only fingerprints of them. Where the assistant keeps them on your side depends on the app.
+- **Disconnect at any time.** **Security → Connected assistants** lists yours, with the access and last use of each; **Disconnect** stops it at once. Admins see everyone's under **Admin → API & webhooks**. Signing out in the assistant (in Claude Code, `/mcp` → **Clear authentication**) signs out that device only; the others stay connected until the last one signs out. An assistant that none of your devices has used for 60 days is removed.
+- **Password or two-step reset.** When an admin changes someone's password, their own included, or resets someone's two-step verification, that person's assistants are disconnected too, in case whoever knew the old password connected one.
+- **Short-lived tokens.** The assistant gets a token valid for an hour and a renewal token that changes each time it's used. If an old renewal token is used again more than 30 seconds later, someone has copied it, and that device is signed out. Within 30 seconds it's taken for the app retrying. GentleMail stores only fingerprints of them. Where the assistant keeps them on your side depends on the app.
 
 To change what an assistant may do, disconnect it and connect it again.
 
@@ -100,6 +100,7 @@ On macOS, use `security find-generic-password -s gentlemail -w` instead. With 1P
   - The endpoints are `/oauth/register`, `/oauth/authorize`, `/oauth/token` and `/oauth/revoke`.
   - Redirect URIs must be https, http on `localhost` or `127.0.0.1` (any port), or an app's own scheme.
 - Tokens from signing in work on `/mcp` only, not on `/api/v1`.
-- Each sign-in is its own chain of tokens. `/oauth/revoke` ends the chain the token belongs to; a refresh token used twice ends its chain. A `redirect_uri` sent to `/oauth/authorize` must be repeated at `/oauth/token`.
-- An assistant whose person can no longer open any of its mailboxes gets `401` and signs in again. JSON-RPC batches (older protocol versions) hold at most 10 messages.
-- `/mcp` and the OAuth endpoints answer any site (CORS), for assistants that run in a browser. They read only the tokens sent with the request, never the webmail's cookies.
+- Each sign-in is its own chain of tokens. `/oauth/revoke` ends the chain the token belongs to. A refresh token used again within 30 seconds of its first use gets a new pair (a retry); later, it ends its chain. A `redirect_uri` sent to `/oauth/authorize` must be repeated at `/oauth/token`.
+- Registration takes up to 5 redirect URIs of up to 500 characters, and 10 registrations a minute from one address (`429 slow_down` beyond).
+- An assistant whose person can no longer open any of its mailboxes gets `401`, and refreshing fails with `invalid_grant`, so it signs in again. JSON-RPC batches (older protocol versions) hold at most 10 messages.
+- `/mcp`, the OAuth endpoints and the discovery documents answer any site (CORS), for assistants that run in a browser. They read only the tokens sent with the request, never the webmail's cookies.

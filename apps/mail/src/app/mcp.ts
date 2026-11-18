@@ -178,9 +178,9 @@ const TOOLS: Tool[] = [
       if (!readable.length) return toolError("No such conversation.");
       // The whole thread fits TEXT_LIMIT: at most 25 messages, so each still gets 1,200 characters or more.
       const perMessage = Math.floor(TEXT_LIMIT / readable.length);
-      const messages = [];
-      for (const m of readable) {
-        messages.push({
+      // Bodies may be in R2: fetched together.
+      const messages = await Promise.all(
+        readable.map(async (m) => ({
           id: m.id,
           mailbox: m.mailbox_address,
           folder: m.folder,
@@ -189,8 +189,8 @@ const TOOLS: Tool[] = [
           subject: m.subject,
           date: new Date(m.date).toISOString(),
           text: cut(await bodyText(m), perMessage),
-        });
-      }
+        })),
+      );
       return result({ thread_id: id, messages, note: UNTRUSTED });
     },
   },

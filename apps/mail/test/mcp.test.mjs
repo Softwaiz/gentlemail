@@ -74,10 +74,12 @@ const form = (values) => {
   return body;
 };
 
-async function register(redirect_uris = ["http://127.0.0.1:5555/callback"], extra = {}) {
+// Each registration from its own address, as registrations are limited per address.
+let ipCount = 0;
+async function register(redirect_uris = ["http://127.0.0.1:5555/callback"], extra = {}, ip = `198.51.100.${++ipCount % 250}`) {
   const res = await request("/oauth/register", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "CF-Connecting-IP": ip },
     body: JSON.stringify({ client_name: "Test assistant", redirect_uris, ...extra }),
   });
   return { status: res.status, body: await res.json() };
@@ -197,6 +199,21 @@ describe("registration", () => {
   });
 });
 
+describe("registration limits", () => {
+  test("one address may register 10 apps a minute", async () => {
+    for (let i = 0; i < 10; i++) assert.equal((await register(undefined, {}, "203.0.113.9")).status, 201);
+    const res = await register(undefined, {}, "203.0.113.9");
+    assert.equal(res.status, 429);
+    assert.equal(res.body.error, "slow_down");
+    assert.equal((await register(undefined, {}, "203.0.113.10")).status, 201);
+  });
+
+  test("redirect URIs are kept short", async () => {
+    assert.equal((await register([`https://app.test/${"x".repeat(500)}`])).status, 400);
+    assert.equal((await register(Array.from({ length: 6 }, (_, i) => `https://app.test/${i}`))).status, 400);
+  });
+});
+
 describe("consent screen", () => {
   test("asks to sign in first", async () => {
     const { body: client } = await register();
@@ -247,6 +264,19 @@ describe("consent screen", () => {
       assert.equal(res.headers.get("location"), `/account/security?next=${encodeURIComponent(path)}`);
     } finally {
       await db.prepare("DELETE FROM settings WHERE key = 'require_mfa'").run();
+    }
+  });
+
+  test("after two-step setup, goes back only to a page on this site, and says so only when it's on", async () => {
+    const security = async (next) => (await request(`/account/security?next=${encodeURIComponent(next)}`, { headers: { Cookie: cookie("uMember") } })).text();
+    assert.doesNotMatch(await security("/oauth/authorize?x=1"), /Continue where you were/);
+    await db.prepare("UPDATE users SET mfa_enabled_at = 1 WHERE id = 'uMember'").run();
+    try {
+      assert.match(await security("/oauth/authorize?x=1"), /href="\/oauth\/authorize\?x=1"[^>]*>Continue where you were/);
+      for (const next of ["/\t/evil.test", "/\n/evil.test", "//evil.test", "/\\evil.test", "/ /evil.test", "https://evil.test"])
+        assert.doesNotMatch(await security(next), /Continue where you were/, JSON.stringify(next));
+    } finally {
+      await db.prepare("UPDATE users SET mfa_enabled_at = NULL WHERE id = 'uMember'").run();
     }
   });
 
@@ -310,8 +340,10 @@ describe("tokens", () => {
     const next = await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id });
     assert.equal(next.status, 200);
     assert.notEqual(next.body.refresh_token, c.refresh_token);
-    assert.equal((await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
     assert.ok((await tool(next.body.access_token, "list_mailboxes")).length);
+    // Past the grace period for retries, the old one is refused (and, being a copy, signs the device out: below).
+    await db.prepare("UPDATE oauth_tokens SET used_at = used_at - 60000 WHERE used_at IS NOT NULL").run();
+    assert.equal((await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
   });
 
   test("another app can't use a connection's refresh token", async () => {
@@ -357,14 +389,17 @@ describe("tokens", () => {
     const c = await connect("uMember", { read: ["mailbox:mA1"] });
     const next = await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id });
     assert.equal(next.status, 200);
-    // Right away, it's a retry: refused, nothing else happens.
-    assert.equal((await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
+    // Right away, it's a retry whose first answer was lost: it gets a pair too, and the first stays valid.
+    const retry = await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id });
+    assert.equal(retry.status, 200);
+    assert.equal((await rpc(retry.body.access_token, "tools/list")).status, 200);
     assert.equal((await rpc(next.body.access_token, "tools/list")).status, 200);
     // Later, it's a copy: the device's new tokens stop working too.
     await db.prepare("UPDATE oauth_tokens SET used_at = used_at - 60000 WHERE used_at IS NOT NULL").run();
     assert.equal((await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
     assert.equal((await rpc(next.body.access_token, "tools/list")).status, 401);
     assert.equal((await token({ grant_type: "refresh_token", refresh_token: next.body.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
+    assert.equal((await rpc(retry.body.access_token, "tools/list")).status, 401);
   });
 
   test("tokens from signing in don't work on the HTTP API", async () => {
@@ -488,16 +523,21 @@ describe("a member's assistant", () => {
   });
 
   test("loses a mailbox as soon as the person does, and gets it back with them", async () => {
+    const r = await connect("uMember", { read: ["mailbox:mA1"] }); // to refresh, leaving c's tokens alone
     await db.prepare("DELETE FROM mailbox_members WHERE user_id = 'uMember' AND mailbox_id = 'mA1'").run();
     try {
       // Nothing left it may use: told to sign in again, as with an unknown token.
       const res = await rpc(c.access_token, "tools/list");
       assert.equal(res.status, 401);
       assert.match(res.headers.get("www-authenticate"), /resource_metadata=/);
+      // Refreshing fails too, so the app signs in again instead of retrying in a loop.
+      assert.equal((await token({ grant_type: "refresh_token", refresh_token: r.refresh_token, client_id: r.client.client_id })).body.error, "invalid_grant");
     } finally {
       await db.prepare("INSERT INTO mailbox_members (mailbox_id, user_id) VALUES ('mA1', 'uMember')").run();
     }
     assert.deepEqual((await tool(c.access_token, "list_mailboxes")).map((m) => m.address), ["one@alpha.test"]);
+    // Its refresh token wasn't used up by the refused try.
+    assert.equal((await token({ grant_type: "refresh_token", refresh_token: r.refresh_token, client_id: r.client.client_id })).status, 200);
   });
 
   test("an admin who becomes a member keeps only their mailboxes", async () => {
@@ -555,6 +595,20 @@ describe("disconnecting", () => {
     assert.equal((await token({ grant_type: "authorization_code", code, code_verifier: verifier, client_id: c.client.client_id, redirect_uri: "http://127.0.0.1:6666/callback" })).status, 200);
   });
 
+  test("a connection whose devices all went quiet is removed by the hourly clean-up", async () => {
+    const quiet = await connect("uMember", { read: ["mailbox:mA1"] });
+    const live = await connect("uMember", { read: ["mailbox:mA1"] });
+    const old = Date.now() - 61 * 24 * 3600e3;
+    await db.batch([
+      db.prepare("UPDATE oauth_tokens SET expires_at = 1 WHERE key_id IN (SELECT id FROM api_keys WHERE client_id = ?)").bind(quiet.client.client_id),
+      db.prepare("UPDATE api_keys SET created_at = ?, last_used_at = ? WHERE client_id IN (?, ?)").bind(old, old, quiet.client.client_id, live.client.client_id),
+    ]);
+    await (await mf.getWorker()).scheduled({ scheduledTime: new Date(Date.UTC(2026, 0, 1, 12, 0)), cron: "0 * * * *" });
+    assert.equal(await db.prepare("SELECT id FROM api_keys WHERE client_id = ?").bind(quiet.client.client_id).first(), null);
+    assert.ok(await db.prepare("SELECT id FROM api_keys WHERE client_id = ?").bind(live.client.client_id).first());
+    assert.equal((await rpc(live.access_token, "tools/list")).status, 200);
+  });
+
   test("deleting the person ends their connections", async () => {
     await db.batch([
       db.prepare("INSERT INTO users (id, email, name, password_hash, role, created_at) VALUES ('uGone', 'gone@alpha.test', 'g', 'x', 'member', 0)"),
@@ -590,11 +644,18 @@ describe("assistants in a browser", () => {
   const crossSite = { "Sec-Fetch-Site": "cross-site", Origin: "https://inspector.test" };
 
   test("get an answer to the preflight", async () => {
-    for (const path of ["/mcp", "/oauth/register", "/oauth/token", "/oauth/revoke"]) {
-      const res = await request(path, { method: "OPTIONS", headers: { ...crossSite, "Access-Control-Request-Method": "POST" } });
+    const paths = ["/mcp", "/oauth/register", "/oauth/token", "/oauth/revoke"];
+    const discovery = ["/.well-known/oauth-protected-resource/mcp", "/.well-known/oauth-protected-resource", "/.well-known/oauth-authorization-server"];
+    for (const path of [...paths, ...discovery]) {
+      const method = discovery.includes(path) ? "GET" : "POST";
+      const res = await request(path, {
+        method: "OPTIONS",
+        headers: { ...crossSite, "Access-Control-Request-Method": method, "Access-Control-Request-Headers": "mcp-protocol-version" },
+      });
       assert.equal(res.status, 204, path);
       assert.equal(res.headers.get("access-control-allow-origin"), "*");
       assert.match(res.headers.get("access-control-allow-headers"), /Authorization/);
+      assert.match(res.headers.get("access-control-allow-headers"), /Mcp-Protocol-Version/);
     }
   });
 

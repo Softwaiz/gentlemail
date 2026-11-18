@@ -18,8 +18,20 @@ export const field = (form: FormData, name: string) => String(form.get(name) ?? 
 export const json = (body: unknown, status = 200, headers?: HeadersInit) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headers } });
 
-/** A path on this site to go back to after signing in; anything else becomes "/". */
-export const safeNext = (n: string | null) => (n && /^\/(?![/\\])/.test(n) && !n.includes("\\") ? n : "/");
+/**
+ * A path on this site to go back to after signing in; anything else becomes "/".
+ * Browsers drop tabs and newlines from URLs and read a backslash as "/", so "/\t/evil.com"
+ * would lead elsewhere: those are refused, and the result must stay on this origin.
+ */
+export function safeNext(n: string | null) {
+  if (!n || !n.startsWith("/") || /[\s\\\x00-\x1f\x7f]/.test(n)) return "/";
+  try {
+    const u = new URL(n, "https://x.invalid");
+    return u.origin === "https://x.invalid" && !n.startsWith("//") ? u.pathname + u.search + u.hash : "/";
+  } catch {
+    return "/";
+  }
+}
 
 /*
  * Endpoints for AI assistants, some of which run in a browser: they answer any

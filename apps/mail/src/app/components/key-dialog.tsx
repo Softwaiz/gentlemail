@@ -151,7 +151,7 @@ export function AccessEditor({
                     level: 0,
                   })
                 ) : (
-                  <div className="bg-muted/40 px-3 py-2 text-sm font-medium">{targets.domains.length ? "Other mailboxes" : "Your mailboxes"}</div>
+                  <div className="bg-muted/40 px-3 py-2 text-sm font-medium">{targets.domains.length ? "Other mailboxes" : allowAll ? "Mailboxes" : "Your mailboxes"}</div>
                 )}
                 {g.mailboxes.map((m) =>
                   row({ target: `mailbox:${m.id}`, title: m.address, inherited: mInherited, level: 1, hidden: !matches(m) }),

@@ -157,11 +157,10 @@ export const apiError = (status: number, code: string, message: string) => json(
 export const apiJson = (body: unknown, status = 200) => json(status, body);
 
 /**
- * An assistant's token: its connection, and the mailboxes its person can open
- * now (null for an admin). Access lost and given back again counts at once,
- * since nothing is deleted.
+ * An assistant's token: its connection, and whether it acts for an admin.
+ * Access lost and given back again counts at once, since nothing is deleted.
  */
-async function connectionFor(token: string): Promise<{ key: ApiKeyRow; limit: Set<string> | null } | Response> {
+async function connectionFor(token: string): Promise<{ key: ApiKeyRow; admin: boolean } | Response> {
   const row = await env.DB.prepare(
     `SELECT k.*, u.role AS user_role,
        u.mfa_enabled_at IS NULL AND EXISTS (SELECT 1 FROM settings WHERE key = 'require_mfa' AND value = '1') AS needs_mfa
@@ -174,21 +173,29 @@ async function connectionFor(token: string): Promise<{ key: ApiKeyRow; limit: Se
   if (row.needs_mfa)
     return apiError(403, "mfa_required", "Your admin requires two-step verification. Set it up in the webmail, then try again.");
   const { needs_mfa: _, user_role, ...key } = row;
-  if (user_role === "admin") return { key, limit: null };
-  const { results } = await env.DB.prepare("SELECT mailbox_id FROM mailbox_members WHERE user_id = ?")
-    .bind(key.user_id)
-    .all<{ mailbox_id: string }>();
-  return { key, limit: new Set(results.map((r) => r.mailbox_id)) };
+  return { key, admin: user_role === "admin" };
 }
+
+/** The mailboxes a person can open (SQL, one bind: their user id). */
+const MEMBER_MAILBOXES_SQL = "SELECT mailbox_id FROM mailbox_members WHERE user_id = ?";
 
 /**
  * SQL to add after GRANT_COVERS_SQL (mailbox `b`): keeps an assistant to the
  * mailboxes its person can open, as `limit` does in permFor().
  */
-export function limitSql(auth: Pick<ApiAuth, "limit">): { sql: string; binds: unknown[] } {
+export function limitSql(auth: Pick<ApiAuth, "limit" | "key">): { sql: string; binds: unknown[] } {
   if (!auth.limit) return { sql: "", binds: [] };
-  return { sql: " AND b.id IN (SELECT value FROM json_each(?))", binds: [JSON.stringify([...auth.limit])] };
+  return { sql: ` AND b.id IN (${MEMBER_MAILBOXES_SQL})`, binds: [auth.key.user_id] };
 }
+
+/**
+ * SQL condition: connection `k` may still read or send on a mailbox its person
+ * can open (any, for an admin). The same rule authenticate() applies; a
+ * connection without it can't refresh its tokens, so its app signs in again.
+ */
+export const CONNECTION_REACHES_SQL = `EXISTS (SELECT 1 FROM api_key_grants g WHERE g.key_id = k.id AND (g.can_read = 1 OR g.can_send = 1)
+  AND ((SELECT role FROM users WHERE id = k.user_id) = 'admin' OR EXISTS (
+    SELECT 1 FROM mailbox_members mm JOIN mailboxes b ON b.id = mm.mailbox_id WHERE mm.user_id = k.user_id AND ${GRANT_COVERS_SQL})))`;
 
 /** Ends every assistant connection of this person (statement for a batch): their password or two-step was reset. */
 export const endConnections = (userId: string) => env.DB.prepare("DELETE FROM api_keys WHERE user_id = ?").bind(userId);
@@ -198,50 +205,59 @@ export const endConnections = (userId: string) => env.DB.prepare("DELETE FROM ap
  * grant; with `null`, any permission will do. Which mailbox it may use is
  * checked per request with `can()`. Tokens from signing in (OAuth) are
  * accepted only where `oauth` is set: they are for /mcp.
+ *
+ * Two round trips: the key, then one batch with its grants, its person's
+ * mailboxes and "last used".
  */
 export async function authenticate(request: Request, scope: Scope | null, opts: { oauth?: boolean } = {}): Promise<ApiAuth | Response> {
   const header = request.headers.get("Authorization") ?? "";
   const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
   if (!token) return apiError(401, "unauthorized", "Send your API key as: Authorization: Bearer <key>");
   let key: ApiKeyRow | null;
-  let limit: Set<string> | null = null;
+  let limited = false;
   if (token.startsWith(ACCESS_PREFIX)) {
     if (!opts.oauth) return apiError(401, "unauthorized", "Tokens from signing in work on /mcp only. Use an API key here.");
     const found = await connectionFor(token);
     if (found instanceof Response) return found;
-    ({ key, limit } = found);
+    key = found.key;
+    limited = !found.admin;
   } else {
     key = await env.DB.prepare("SELECT * FROM api_keys WHERE key_hash = ? AND revoked_at IS NULL AND user_id IS NULL")
       .bind(await sha256(token))
       .first<ApiKeyRow>();
   }
   if (!key) return apiError(401, "unauthorized", "Unknown or revoked API key.");
-  const { results: grants } = await env.DB.prepare(
-    `SELECT g.*, d.name AS domain FROM api_key_grants g
-     LEFT JOIN domains d ON g.target_type = 'domain' AND d.id = g.target_id
-     WHERE g.key_id = ?`,
-  )
-    .bind(key.id)
-    .all<ResolvedGrant>();
+  // "Last used" is written with the reads: the key is genuine, whatever it may do.
+  const none = env.DB.prepare("SELECT NULL WHERE 0");
+  const [grantRows, memberRows, reachRows] = await env.DB.batch([
+    env.DB.prepare(
+      `SELECT g.*, d.name AS domain FROM api_key_grants g
+       LEFT JOIN domains d ON g.target_type = 'domain' AND d.id = g.target_id
+       WHERE g.key_id = ?`,
+    ).bind(key.id),
+    limited ? env.DB.prepare(MEMBER_MAILBOXES_SQL).bind(key.user_id) : none,
+    // An assistant: what its grants allow on the mailboxes its person can still open.
+    limited
+      ? env.DB.prepare(
+          `SELECT MAX(g.can_read) AS r, MAX(g.can_send) AS s FROM mailboxes b
+           JOIN api_key_grants g ON g.key_id = ? AND ${GRANT_COVERS_SQL} AND b.id IN (${MEMBER_MAILBOXES_SQL})`,
+        ).bind(key.id, key.user_id)
+      : none,
+    env.DB.prepare("UPDATE api_keys SET last_used_at = ? WHERE id = ?").bind(now(), key.id),
+  ]);
+  const grants = grantRows.results as ResolvedGrant[];
+  const limit = limited ? new Set((memberRows.results as { mailbox_id: string }[]).map((r) => r.mailbox_id)) : null;
   let can: Perm = { read: grants.some((g) => !!g.can_read), send: grants.some((g) => !!g.can_send) };
   if (limit) {
-    // An assistant: what its grants allow on the mailboxes its person can still open.
-    const l = limitSql({ limit });
-    const row = await env.DB.prepare(
-      `SELECT MAX(g.can_read) AS r, MAX(g.can_send) AS s FROM mailboxes b JOIN api_key_grants g ON g.key_id = ? AND ${GRANT_COVERS_SQL}${l.sql}`,
-    )
-      .bind(key.id, ...l.binds)
-      .first<{ r: number | null; s: number | null }>();
-    can = { read: !!row?.r, send: !!row?.s };
-    // Signing in again lets the person pick from the mailboxes they have now.
+    const reach = reachRows.results[0] as { r: number | null; s: number | null } | undefined;
+    can = { read: !!reach?.r, send: !!reach?.s };
+    // Signing in again lets the person pick from the mailboxes they have now (refreshing fails too).
     if (!can.read && !can.send)
       return apiError(401, "invalid_token", "None of the mailboxes this assistant was given can be opened by you any more. Sign in again to choose others.");
   }
   const auth: ApiAuth = { key, grants, limit, can };
   if (!(scope ? can[scope] : can.read || can.send))
     return apiError(403, "forbidden", scope ? `This key has no "${scope}" permission on any mailbox.` : "This key has no permission on any mailbox.");
-  // Cheap enough to do on every call; keeps "last used" honest in the admin UI.
-  await env.DB.prepare("UPDATE api_keys SET last_used_at = ? WHERE id = ?").bind(now(), key.id).run();
   return auth;
 }
 

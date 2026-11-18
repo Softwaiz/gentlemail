@@ -71,9 +71,9 @@ const app = defineApp([
   // MCP for AI assistants (src/app/mcp.ts), and OAuth so they connect by signing in (src/app/pages/oauth.tsx).
   // These answer browser-based assistants too (CORS); they read tokens, never cookies.
   route("/mcp", cors("/mcp", ["GET", "POST"], mcpHandler)),
-  route("/.well-known/oauth-protected-resource", { get: protectedResourceMetadata }),
-  route("/.well-known/oauth-protected-resource/mcp", { get: protectedResourceMetadata }),
-  route("/.well-known/oauth-authorization-server", { get: authorizationServerMetadata }),
+  route("/.well-known/oauth-protected-resource", cors("/.well-known/oauth-protected-resource", ["GET"], protectedResourceMetadata)),
+  route("/.well-known/oauth-protected-resource/mcp", cors("/.well-known/oauth-protected-resource/mcp", ["GET"], protectedResourceMetadata)),
+  route("/.well-known/oauth-authorization-server", cors("/.well-known/oauth-authorization-server", ["GET"], authorizationServerMetadata)),
   route("/oauth/register", cors("/oauth/register", ["POST"], registerHandler)),
   route("/oauth/token", cors("/oauth/token", ["POST"], tokenHandler)),
   route("/oauth/revoke", cors("/oauth/revoke", ["POST"], revokeHandler)),

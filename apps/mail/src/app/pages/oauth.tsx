@@ -7,7 +7,6 @@ import { json, redirect, requireUser, withFlash } from "@/app/http";
 import { AuthCard } from "@/app/pages/auth";
 import { grantsFromForm } from "@/lib/apikeys";
 import type { User } from "@/lib/auth";
-import { listMailboxesForUser } from "@/lib/db";
 import {
   type OAuthClient,
   type OAuthError,
@@ -98,6 +97,10 @@ export async function registerHandler({ request }: RequestInfo) {
   } catch {}
   if (!body || typeof body !== "object" || Array.isArray(body))
     return oauthJson({ error: "invalid_client_metadata", error_description: "Send the client metadata as a JSON object." });
+  // Registering needs no sign-in: a few per minute from one address is plenty for any assistant.
+  const limiter = env.REGISTER_LIMIT as RateLimit | undefined; // absent in copies of wrangler.jsonc made before 0.6
+  if (limiter && !(await limiter.limit({ key: request.headers.get("CF-Connecting-IP") ?? "unknown" })).success)
+    return oauthJson({ error: "slow_down", error_description: "Too many registrations from this address. Try again in a minute.", status: 429 });
   const out = await registerClient(body as Record<string, unknown>);
   return "error" in out ? oauthJson(out) : json(out, 201, { "Cache-Control": "no-store" });
 }
@@ -176,11 +179,16 @@ function redirectWith(uri: string, origin: string, state: string | null, values:
 
 /** What this person may give an assistant: an admin anything, anyone else the mailboxes they can open. */
 async function targetsFor(user: User) {
-  const mailboxes = (await listMailboxesForUser(user)).map((m) => ({ id: m.id, address: m.address }));
-  const domains =
-    user.role === "admin"
-      ? (await env.DB.prepare("SELECT id, name FROM domains ORDER BY name").all<{ id: string; name: string }>()).results
-      : [];
+  const admin = user.role === "admin";
+  const [{ results: mailboxes }, { results: domains }] = await Promise.all([
+    (admin
+      ? env.DB.prepare("SELECT id, address FROM mailboxes ORDER BY address")
+      : env.DB.prepare(
+          "SELECT m.id, m.address FROM mailboxes m JOIN mailbox_members mm ON mm.mailbox_id = m.id WHERE mm.user_id = ? ORDER BY m.address",
+        ).bind(user.id)
+    ).all<{ id: string; address: string }>(),
+    admin ? env.DB.prepare("SELECT id, name FROM domains ORDER BY name").all<{ id: string; name: string }>() : { results: [] },
+  ]);
   const targets: AccessTargets = { domains, mailboxes };
   const allowed = new Set([
     ...(user.role === "admin" ? ["all"] : []),

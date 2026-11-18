@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { sha256 } from "./auth";
-import { type Grant, grantStatements } from "./apikeys";
+import { CONNECTION_REACHES_SQL, type Grant, grantStatements } from "./apikeys";
 import { b64url, newId, now } from "./util";
 
 /*
@@ -27,6 +27,8 @@ const CODE_TTL = 5 * 60 * 1000;
 const UNUSED_CLIENT_TTL = 24 * 60 * 60 * 1000;
 const IDLE_CLIENT_TTL = 365 * 24 * 60 * 60 * 1000;
 export const SCOPE = "mail";
+/** Registered apps that haven't signed in yet, kept at most (each holds up to about 3 KB). */
+const MAX_PENDING_CLIENTS = 5000;
 
 export type OAuthClient = { id: string; name: string; redirect_uris: string; secret_hash: string | null; created_at: number; used_at: number | null };
 export type TokenSet = { access_token: string; token_type: "Bearer"; expires_in: number; refresh_token: string; scope: string };
@@ -93,11 +95,14 @@ export const clientRedirectUris = (c: OAuthClient): string[] => {
 
 const AUTH_METHODS = new Set(["none", "client_secret_post", "client_secret_basic"]);
 
-/** POST /oauth/register (RFC 7591). Open to anyone: it only lets an app ask; the person decides. */
+/**
+ * POST /oauth/register (RFC 7591). Open to anyone: it only lets an app ask; the
+ * person decides. Limited per address by REGISTER_LIMIT, when the Worker has it.
+ */
 export async function registerClient(body: Record<string, unknown>) {
   const uris = body.redirect_uris;
-  if (!Array.isArray(uris) || !uris.length || uris.length > 10 || !uris.every((u) => typeof u === "string" && u.length <= 2000))
-    return oauthError("invalid_redirect_uri", "Send redirect_uris: one to ten URLs.");
+  if (!Array.isArray(uris) || !uris.length || uris.length > 5 || !uris.every((u) => typeof u === "string" && u.length <= 500))
+    return oauthError("invalid_redirect_uri", "Send redirect_uris: one to five URLs of up to 500 characters.");
   for (const u of uris as string[]) {
     const problem = redirectUriProblem(u);
     if (problem) return oauthError("invalid_redirect_uri", problem);
@@ -111,9 +116,22 @@ export async function registerClient(body: Record<string, unknown>) {
   const id = `gmcl_${b64url(crypto.getRandomValues(new Uint8Array(16)))}`;
   const secret = method === "none" ? null : randomToken("gmcs_");
   const created = now();
-  await env.DB.prepare("INSERT INTO oauth_clients (id, name, redirect_uris, secret_hash, created_at) VALUES (?, ?, ?, ?, ?)")
-    .bind(id, name, JSON.stringify(uris), secret ? await sha256(secret) : null, created)
-    .run();
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO oauth_clients (id, name, redirect_uris, secret_hash, created_at) VALUES (?, ?, ?, ?, ?)").bind(
+      id,
+      name,
+      JSON.stringify(uris),
+      secret ? await sha256(secret) : null,
+      created,
+    ),
+    // Bounds what anonymous registrations can store: past the cap, the oldest
+    // that never signed in (and aren't signing in now) make room.
+    env.DB.prepare(
+      `DELETE FROM oauth_clients WHERE used_at IS NULL
+       AND id NOT IN (SELECT id FROM oauth_clients WHERE used_at IS NULL ORDER BY created_at DESC LIMIT ?)
+       AND NOT EXISTS (SELECT 1 FROM oauth_codes c WHERE c.client_id = oauth_clients.id)`,
+    ).bind(MAX_PENDING_CLIENTS),
+  ]);
   return {
     client_id: id,
     client_id_issued_at: Math.floor(created / 1000),
@@ -214,17 +232,29 @@ export async function exchangeCode(client: OAuthClient, form: FormData): Promise
   const key = await env.DB.prepare("SELECT id FROM api_keys WHERE user_id = ? AND client_id = ?").bind(row.user_id, client.id).first<{ id: string }>();
   if (!key) return oauthError("server_error", "Couldn't save the connection. Try again.", 500);
   const keyId = key.id;
-  await env.DB.batch([...grantStatements(keyId, grants), env.DB.prepare("UPDATE oauth_clients SET used_at = ? WHERE id = ?").bind(t, client.id)]);
+  await env.DB.batch([
+    ...grantStatements(keyId, grants),
+    env.DB.prepare("UPDATE oauth_clients SET used_at = ? WHERE id = ?").bind(t, client.id),
+    // Signing in counts as using it, and keeps the hourly purge off it until its tokens exist.
+    env.DB.prepare("UPDATE api_keys SET last_used_at = ? WHERE id = ?").bind(t, keyId),
+  ]);
   return issueTokens(keyId, newId());
 }
 
-/** A refresh token traded in again within this long is a client retrying (two tabs, a dropped answer), not a copy. */
+/**
+ * A refresh token traded in again within this long of its first use is a client
+ * retrying (two tabs, an answer lost on the way): it gets a pair of its own.
+ * Later, it's a copy.
+ */
 const REUSE_GRACE = 30 * 1000;
 
 /**
  * grant_type=refresh_token: a new pair in the same family; the token used is
- * marked used, not deleted. If it comes back, someone has a copy: the whole
- * family is signed out (OAuth 2.1 §4.3.1), and its owner signs in again.
+ * marked used, not deleted. If it comes back after the grace period, someone
+ * has a copy: the whole family is signed out (OAuth 2.1 §4.3.1), and its owner
+ * signs in again. A connection that can't reach any mailbox any more can't
+ * refresh either, so its app signs in again rather than retrying forever; its
+ * token stays valid in case the access comes back.
  */
 export async function refreshTokens(client: OAuthClient, form: FormData): Promise<TokenSet | OAuthError> {
   const token = String(form.get("refresh_token") ?? "");
@@ -233,14 +263,17 @@ export async function refreshTokens(client: OAuthClient, form: FormData): Promis
   const id = await sha256(token);
   const t = now();
   const row = await env.DB.prepare(
-    `UPDATE oauth_tokens SET used_at = ?1 WHERE id = ?2 AND kind = 'refresh' AND used_at IS NULL AND expires_at > ?1
-     AND key_id IN (SELECT id FROM api_keys WHERE client_id = ?3 AND revoked_at IS NULL) RETURNING key_id, family`,
+    `UPDATE oauth_tokens SET used_at = COALESCE(used_at, ?1)
+     WHERE id = ?2 AND kind = 'refresh' AND expires_at > ?1 AND (used_at IS NULL OR used_at >= ?1 - ?4)
+     AND key_id IN (SELECT k.id FROM api_keys k WHERE k.client_id = ?3 AND k.revoked_at IS NULL AND ${CONNECTION_REACHES_SQL})
+     RETURNING key_id, family, used_at = ?1 AS first`,
   )
-    .bind(t, id, client.id)
-    .first<{ key_id: string; family: string }>();
+    .bind(t, id, client.id, REUSE_GRACE)
+    .first<{ key_id: string; family: string; first: number }>();
   if (row) {
-    // The family's older access tokens go: this device has a new one.
-    await env.DB.prepare("DELETE FROM oauth_tokens WHERE family = ? AND kind = 'access'").bind(row.family).run();
+    // The family's older access tokens go: this device has a new one. Not on a
+    // retry, whose first answer may be in use.
+    if (row.first) await env.DB.prepare("DELETE FROM oauth_tokens WHERE family = ? AND kind = 'access'").bind(row.family).run();
     return issueTokens(row.key_id, row.family);
   }
   await env.DB.prepare(
@@ -277,15 +310,21 @@ export async function revokeToken(client: OAuthClient, token: string) {
 }
 
 /**
- * Cron, hourly: expired codes and tokens, and registered apps that never
- * connected or have been disconnected for a long time. An app that was
- * disconnected keeps its registration, so it can sign in again with it.
+ * Cron, hourly: expired codes and tokens, connections with no refresh token
+ * left (every device signed out or gone quiet for 60 days), and registered apps
+ * that never connected or have been disconnected for a long time. An app that
+ * was disconnected keeps its registration, so it can sign in again with it.
  */
 export async function purgeExpiredOAuth() {
   const t = now();
   await env.DB.batch([
     env.DB.prepare("DELETE FROM oauth_codes WHERE expires_at < ?").bind(t),
     env.DB.prepare("DELETE FROM oauth_tokens WHERE expires_at < ?").bind(t),
+    // Not one being created right now (exchangeCode adds its tokens just after).
+    env.DB.prepare(
+      `DELETE FROM api_keys WHERE user_id IS NOT NULL AND created_at < ?1 AND (last_used_at IS NULL OR last_used_at < ?1)
+       AND NOT EXISTS (SELECT 1 FROM oauth_tokens t WHERE t.key_id = api_keys.id AND t.kind = 'refresh' AND t.used_at IS NULL)`,
+    ).bind(t - CODE_TTL),
     env.DB.prepare(
       `DELETE FROM oauth_clients WHERE (used_at IS NULL AND created_at < ?1 OR used_at < ?2)
        AND NOT EXISTS (SELECT 1 FROM api_keys k WHERE k.client_id = oauth_clients.id)

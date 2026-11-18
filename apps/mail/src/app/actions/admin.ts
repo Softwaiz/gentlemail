@@ -190,8 +190,10 @@ export const updateUserAction = serverAction([
     const stmts = [env.DB.prepare("UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?").bind(text(form, "name"), email, role, id)];
     if (password) {
       stmts.push(env.DB.prepare("UPDATE users SET password_hash = ? WHERE id = ?").bind(await hashPassword(password), id));
-      // Sign them out elsewhere, assistants included: whoever knew the old password may have connected one.
-      if (!isSelf) stmts.push(env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id), endConnections(id));
+      // Disconnect their assistants: whoever knew the old password may have connected one. Sign
+      // them out elsewhere too, unless it's your own password (you'd be signed out here).
+      stmts.push(endConnections(id));
+      if (!isSelf) stmts.push(env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id));
     }
     if (role === "member") stmts.push(...accessStatements(id, form.getAll("mailboxes").map(String)));
     try {

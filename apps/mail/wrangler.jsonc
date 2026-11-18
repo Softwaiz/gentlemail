@@ -42,6 +42,9 @@
     }
   ],
 
+  // Limits how often one IP address can register an AI assistant app (POST /oauth/register)
+  "ratelimits": [{ "name": "REGISTER_LIMIT", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }],
+
   // Retries failed webhook deliveries
   "triggers": { "crons": ["* * * * *"] },
 

@@ -11,12 +11,11 @@ import {
   verifyPassword,
 } from "@/lib/auth";
 import { recoveryCodesLeft, verifySecondFactor } from "@/lib/mfa";
-import { field, redirect, withFlash } from "@/app/http";
+import { field, redirect, safeNext, withFlash } from "@/app/http";
 import { LogoMark, Wordmark, appName, hasLogo } from "@/app/components/brand";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 
-const safeNext = (n: string | null) => (n && n.startsWith("/") && !n.startsWith("//") ? n : "/");
 
 /**
  * Full-bleed ink screen in the Softwaiz manner: grid texture, oversized

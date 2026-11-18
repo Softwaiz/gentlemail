@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { sha256 } from "./auth";
 import { ACCESS_PREFIX } from "./oauth";
-import { domainOf, newId, now } from "./util";
+import { b64url, domainOf, newId, now } from "./util";
 
 /*
  * API keys. A key holds grants; each grant gives read and/or send on every
@@ -32,8 +32,6 @@ export type ApiKeyRow = {
   user_id: string | null;
   client_id: string | null;
 };
-
-const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
 /* ---------- Grants from a form ---------- */
 
@@ -102,12 +100,14 @@ export async function setApiKeyGrants(keyId: string, grants: Grant[]) {
   ]);
 }
 
-/** Grants of every live key, or of every live assistant connection (one query, however many). */
-export async function listActiveGrants(kind: "keys" | "connections" = "keys"): Promise<(Grant & { key_id: string })[]> {
+/** Grants of every live key, or of every live assistant connection, or of one person's (one query, however many). */
+export async function listActiveGrants(kind: "keys" | "connections" = "keys", userId?: string): Promise<(Grant & { key_id: string })[]> {
   const { results } = await env.DB.prepare(
     `SELECT g.* FROM api_key_grants g JOIN api_keys k ON k.id = g.key_id
-     WHERE k.revoked_at IS NULL AND k.user_id IS ${kind === "keys" ? "NULL" : "NOT NULL"}`,
-  ).all<Grant & { key_id: string }>();
+     WHERE k.revoked_at IS NULL AND k.user_id IS ${kind === "keys" ? "NULL" : "NOT NULL"} ${userId ? "AND k.user_id = ?" : ""}`,
+  )
+    .bind(...(userId ? [userId] : []))
+    .all<Grant & { key_id: string }>();
   return results;
 }
 
@@ -136,7 +136,12 @@ export const GRANT_COVERS_SQL = `(g.target_type = 'all'
 
 /* ---------- Checking a request ---------- */
 
-export type ApiAuth = { key: ApiKeyRow; grants: ResolvedGrant[] };
+/**
+ * `limit`: for an assistant acting for someone who isn't an admin, the ids of
+ * the mailboxes that person can open now. Its grants count only there. Null for
+ * API keys and admins' assistants.
+ */
+export type ApiAuth = { key: ApiKeyRow; grants: ResolvedGrant[]; limit: Set<string> | null };
 export type Perm = { read: boolean; send: boolean };
 
 const json = (status: number, body: unknown) =>
@@ -145,30 +150,37 @@ export const apiError = (status: number, code: string, message: string) => json(
 export const apiJson = (body: unknown, status = 200) => json(status, body);
 
 /**
- * An assistant's token: its connection, cut down to what the person can still
- * open. Grants on mailboxes they lost access to are deleted (all and domain
- * grants need an admin), so the SQL checks elsewhere see the same thing.
+ * An assistant's token: its connection, and the mailboxes its person can open
+ * now (null for an admin). Access lost and given back again counts at once,
+ * since nothing is deleted.
  */
-async function connectionFor(token: string): Promise<ApiKeyRow | Response> {
+async function connectionFor(token: string): Promise<{ key: ApiKeyRow; limit: Set<string> | null } | Response> {
   const row = await env.DB.prepare(
-    `SELECT k.*, u.mfa_enabled_at IS NULL AND EXISTS (SELECT 1 FROM settings WHERE key = 'require_mfa' AND value = '1') AS needs_mfa
+    `SELECT k.*, u.role AS user_role,
+       u.mfa_enabled_at IS NULL AND EXISTS (SELECT 1 FROM settings WHERE key = 'require_mfa' AND value = '1') AS needs_mfa
      FROM oauth_tokens t JOIN api_keys k ON k.id = t.key_id JOIN users u ON u.id = k.user_id
      WHERE t.id = ? AND t.kind = 'access' AND t.expires_at > ? AND k.revoked_at IS NULL`,
   )
     .bind(await sha256(token), now())
-    .first<ApiKeyRow & { needs_mfa: number }>();
+    .first<ApiKeyRow & { user_role: string; needs_mfa: number }>();
   if (!row) return apiError(401, "invalid_token", "This token is unknown, expired or disconnected. Sign in again.");
   if (row.needs_mfa)
     return apiError(403, "mfa_required", "Your admin requires two-step verification. Set it up in the webmail, then try again.");
-  await env.DB.prepare(
-    `DELETE FROM api_key_grants WHERE key_id = ?1 AND NOT EXISTS (
-       SELECT 1 FROM users u WHERE u.id = ?2 AND (u.role = 'admin' OR (api_key_grants.target_type = 'mailbox' AND EXISTS (
-         SELECT 1 FROM mailbox_members mm WHERE mm.user_id = u.id AND mm.mailbox_id = api_key_grants.target_id))))`,
-  )
-    .bind(row.id, row.user_id)
-    .run();
-  const { needs_mfa: _, ...key } = row;
-  return key;
+  const { needs_mfa: _, user_role, ...key } = row;
+  if (user_role === "admin") return { key, limit: null };
+  const { results } = await env.DB.prepare("SELECT mailbox_id FROM mailbox_members WHERE user_id = ?")
+    .bind(key.user_id)
+    .all<{ mailbox_id: string }>();
+  return { key, limit: new Set(results.map((r) => r.mailbox_id)) };
+}
+
+/**
+ * SQL to add after GRANT_COVERS_SQL (mailbox `b`): keeps an assistant to the
+ * mailboxes its person can open, as `limit` does in permFor().
+ */
+export function limitSql(auth: ApiAuth): { sql: string; binds: unknown[] } {
+  if (!auth.limit) return { sql: "", binds: [] };
+  return { sql: " AND b.id IN (SELECT mailbox_id FROM mailbox_members WHERE user_id = ?)", binds: [auth.key.user_id] };
 }
 
 /**
@@ -182,11 +194,12 @@ export async function authenticate(request: Request, scope: Scope | null, opts: 
   const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
   if (!token) return apiError(401, "unauthorized", "Send your API key as: Authorization: Bearer <key>");
   let key: ApiKeyRow | null;
+  let limit: Set<string> | null = null;
   if (token.startsWith(ACCESS_PREFIX)) {
     if (!opts.oauth) return apiError(401, "unauthorized", "Tokens from signing in work on /mcp only. Use an API key here.");
     const found = await connectionFor(token);
     if (found instanceof Response) return found;
-    key = found;
+    ({ key, limit } = found);
   } else {
     key = await env.DB.prepare("SELECT * FROM api_keys WHERE key_hash = ? AND revoked_at IS NULL AND user_id IS NULL")
       .bind(await sha256(token))
@@ -200,7 +213,7 @@ export async function authenticate(request: Request, scope: Scope | null, opts: 
   )
     .bind(key.id)
     .all<ResolvedGrant>();
-  const auth = { key, grants };
+  const auth: ApiAuth = { key, grants, limit };
   const holds = (g: Grant) => (scope === "read" ? g.can_read : scope === "send" ? g.can_send : g.can_read || g.can_send);
   if (!grants.some(holds))
     return apiError(403, "forbidden", scope ? `This key has no "${scope}" permission on any mailbox.` : "This key has no permission on any mailbox.");
@@ -213,6 +226,7 @@ export async function authenticate(request: Request, scope: Scope | null, opts: 
 export function permFor(auth: ApiAuth, mailbox: { id: string; address: string }): Perm {
   const domain = domainOf(mailbox.address);
   const perm = { read: false, send: false };
+  if (auth.limit && !auth.limit.has(mailbox.id)) return perm;
   for (const g of auth.grants) {
     const covers =
       g.target_type === "all" ||

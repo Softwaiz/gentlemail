@@ -8,6 +8,8 @@
 ALTER TABLE api_keys ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE CASCADE;
 ALTER TABLE api_keys ADD COLUMN client_id TEXT;
 CREATE INDEX api_keys_user ON api_keys(user_id);
+-- One connection per person and app: signing in again updates it.
+CREATE UNIQUE INDEX api_keys_connection ON api_keys(user_id, client_id) WHERE client_id IS NOT NULL;
 
 -- Apps that registered themselves (Dynamic Client Registration, RFC 7591).
 CREATE TABLE oauth_clients (
@@ -15,7 +17,8 @@ CREATE TABLE oauth_clients (
   name          TEXT NOT NULL,              -- as the app calls itself; shown on the consent screen
   redirect_uris TEXT NOT NULL,              -- JSON array
   secret_hash   TEXT,                       -- SHA-256 of client_secret; NULL = public client (PKCE only)
-  created_at    INTEGER NOT NULL
+  created_at    INTEGER NOT NULL,
+  used_at       INTEGER                     -- last sign-in through it; NULL = never connected
 );
 
 -- Authorization codes: single use, a few minutes. The connection is made when one is exchanged.

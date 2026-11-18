@@ -48,6 +48,9 @@ function seedSql() {
   msg("m3", "mA1", "tH", "Newsletter", null, "<p>Only <b>HTML</b> here</p>", 1000);
   msg("m4", "mA2", "tB", "For two", "Hello two", null, 1000);
   msg("m5", "mB1", "tC", "Beta secret", "Only for beta", null, 1000);
+  // A conversation across mailboxes: one old message the member can read, then 30 newer ones they can't.
+  msg("mx", "mA1", "tX", "Shared", "Readable", null, 900000);
+  for (let i = 0; i < 30; i++) msg(`mx${i}`, "mB1", "tX", "Re: Shared", "Not for the member", null, 1000 + i);
   rows.push(`INSERT INTO api_keys (id, name, prefix, key_hash, scopes, created_at) VALUES ('kRead', 'kRead', 'gm_test', ${q(sha256(API_KEY))}, '', ${t});`);
   rows.push(`INSERT INTO api_key_grants (key_id, target_type, target_id, can_read, can_send) VALUES ('kRead', 'mailbox', 'mA2', 1, 0);`);
   return rows.join("\n");
@@ -207,7 +210,7 @@ describe("consent screen", () => {
     const res = await request(`/oauth/authorize?${authorizeParams(client, pkce().challenge)}`, { headers: { Cookie: cookie("uMember") } });
     assert.equal(res.status, 200);
     const html = await res.text();
-    assert.match(html, /Connect Test assistant/);
+    assert.match(html, /calls itself (<!-- -->)?<span[^>]*>“(<!-- -->)?Test assistant(<!-- -->)?”/);
     assert.match(html, /one@alpha\.test/);
     assert.doesNotMatch(html, /one@beta\.test/);
     assert.doesNotMatch(html, /All mailboxes/);
@@ -232,6 +235,27 @@ describe("consent screen", () => {
     });
     assert.equal(elsewhere.status, 200);
     assert.match(await elsewhere.text(), /didn.t register/);
+  });
+
+  test("required two-step setup comes back to the consent screen", async () => {
+    const { body: client } = await register();
+    const path = `/oauth/authorize?${authorizeParams(client, pkce().challenge)}`;
+    await db.prepare("INSERT INTO settings (key, value) VALUES ('require_mfa', '1')").run();
+    try {
+      const res = await request(path, { headers: { Cookie: cookie("uMember") } });
+      assert.equal(res.status, 303);
+      assert.equal(res.headers.get("location"), `/account/security?next=${encodeURIComponent(path)}`);
+    } finally {
+      await db.prepare("DELETE FROM settings WHERE key = 'require_mfa'").run();
+    }
+  });
+
+  test("puts where the access goes first, since apps name themselves", async () => {
+    const { body: client } = await register(["https://evil.test/cb"], { client_name: "Claude" });
+    const params = authorizeParams(client, pkce().challenge, { redirect_uri: "https://evil.test/cb" });
+    const html = await (await request(`/oauth/authorize?${params}`, { headers: { Cookie: cookie("uMember") } })).text();
+    assert.match(html, /calls itself/);
+    assert.match(html, />evil\.test</);
   });
 
   test("PKCE is required", async () => {
@@ -294,6 +318,19 @@ describe("tokens", () => {
     const c = await connect("uMember", { read: ["mailbox:mA1"] });
     const { body: other } = await register();
     assert.equal((await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: other.client_id })).body.error, "invalid_grant");
+  });
+
+  test("signing in again with the same app keeps one connection, and the other device's tokens", async () => {
+    const first = await connect("uMember", { read: ["mailbox:mA1"] });
+    const { verifier, challenge } = pkce();
+    const code = await allow(first.client, "uMember", { read: ["mailbox:mA1"], send: ["mailbox:mA1"] }, challenge);
+    const second = await token({ grant_type: "authorization_code", code, code_verifier: verifier, client_id: first.client.client_id });
+    assert.equal(second.status, 200);
+    const rows = await db.prepare("SELECT COUNT(*) AS n FROM api_keys WHERE client_id = ?").bind(first.client.client_id).first();
+    assert.equal(rows.n, 1);
+    // The new access applies to both; the first device keeps working.
+    assert.deepEqual((await tool(first.access_token, "list_mailboxes"))[0].permissions, ["read", "send"]);
+    assert.equal((await token({ grant_type: "refresh_token", refresh_token: first.refresh_token, client_id: first.client.client_id })).status, 200);
   });
 
   test("tokens from signing in don't work on the HTTP API", async () => {
@@ -394,14 +431,36 @@ describe("a member's assistant", () => {
     assert.equal(res.body.error.code, -32602);
   });
 
-  test("loses a mailbox as soon as the person does", async () => {
+  test("reads its part of a conversation, however many newer messages it can't see", async () => {
+    const t = await tool(c.access_token, "get_thread", { thread_id: "tX" });
+    assert.deepEqual(t.messages.map((m) => m.id), ["mx"]);
+  });
+
+  test("loses a mailbox as soon as the person does, and gets it back with them", async () => {
     await db.prepare("DELETE FROM mailbox_members WHERE user_id = 'uMember' AND mailbox_id = 'mA1'").run();
     try {
-      const res = await rpc(c.access_token, "tools/call", { name: "list_mailboxes", arguments: {} });
-      assert.equal(res.status, 403);
+      assert.deepEqual(await tool(c.access_token, "list_mailboxes"), []);
+      assert.match((await tool(c.access_token, "get_message", { id: "m1" })).error, /No such message/);
+      assert.deepEqual((await tool(c.access_token, "search_messages", { folder: "all" })).messages, []);
+      assert.match((await tool(c.access_token, "get_thread", { thread_id: "tA" })).error, /No such conversation/);
+      assert.match((await tool(c.access_token, "send_email", { from: "one@alpha.test", to: ["x@elsewhere.test"], subject: "s", text: "t" })).error, /can't send/);
     } finally {
       await db.prepare("INSERT INTO mailbox_members (mailbox_id, user_id) VALUES ('mA1', 'uMember')").run();
     }
+    assert.deepEqual((await tool(c.access_token, "list_mailboxes")).map((m) => m.address), ["one@alpha.test"]);
+  });
+
+  test("an admin who becomes a member keeps only their mailboxes", async () => {
+    await db.batch([
+      db.prepare("INSERT INTO users (id, email, name, password_hash, role, created_at) VALUES ('uDemoted', 'demoted@alpha.test', 'd', 'x', 'admin', 0)"),
+      db.prepare(`INSERT INTO sessions (id, user_id, expires_at, created_at) VALUES ('${sha256("session-demoted")}', 'uDemoted', ${Date.now() + 3600e3}, 0)`),
+      db.prepare("INSERT INTO mailbox_members (mailbox_id, user_id) VALUES ('mA2', 'uDemoted')"),
+    ]);
+    USERS.push({ id: "uDemoted", session: "session-demoted" });
+    const d = await connect("uDemoted", { read: ["all"] });
+    assert.equal((await tool(d.access_token, "list_mailboxes")).length, 3);
+    await db.prepare("UPDATE users SET role = 'member' WHERE id = 'uDemoted'").run();
+    assert.deepEqual((await tool(d.access_token, "list_mailboxes")).map((m) => m.address), ["two@alpha.test"]);
   });
 });
 
@@ -416,6 +475,19 @@ describe("disconnecting", () => {
     assert.equal(res.status, 200);
     assert.equal((await rpc(c.access_token, "tools/list")).status, 401);
     assert.equal((await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
+  });
+
+  test("a disconnected app can sign in again with its registration, after the hourly clean-up", async () => {
+    const c = await connect("uMember", { read: ["mailbox:mA1"] });
+    await db.prepare("DELETE FROM api_keys WHERE client_id = ?").bind(c.client.client_id).run(); // Disconnect
+    await db.prepare("UPDATE oauth_clients SET created_at = 0 WHERE id = ?").bind(c.client.client_id).run();
+    const { body: unused } = await register();
+    await db.prepare("UPDATE oauth_clients SET created_at = 0 WHERE id = ?").bind(unused.client_id).run();
+    await (await mf.getWorker()).scheduled({ scheduledTime: new Date(Date.UTC(2026, 0, 1, 12, 0)), cron: "0 * * * *" });
+    assert.equal(await db.prepare("SELECT id FROM oauth_clients WHERE id = ?").bind(unused.client_id).first(), null);
+    const { verifier, challenge } = pkce();
+    const code = await allow(c.client, "uMember", { read: ["mailbox:mA1"] }, challenge);
+    assert.equal((await token({ grant_type: "authorization_code", code, code_verifier: verifier, client_id: c.client.client_id })).status, 200);
   });
 
   test("deleting the person ends their connections", async () => {
@@ -447,11 +519,55 @@ describe("API keys on /mcp", () => {
     assert.match((await tool(API_KEY, "send_email", { from: "two@alpha.test", to: ["x@elsewhere.test"], subject: "s", text: "t" })).error, /can't send/);
   });
 
-  test("a web page on another site can't call it", async () => {
-    const res = await request("/mcp", {
+});
+
+describe("assistants in a browser", () => {
+  const crossSite = { "Sec-Fetch-Site": "cross-site", Origin: "https://inspector.test" };
+
+  test("get an answer to the preflight", async () => {
+    for (const path of ["/mcp", "/oauth/register", "/oauth/token", "/oauth/revoke"]) {
+      const res = await request(path, { method: "OPTIONS", headers: { ...crossSite, "Access-Control-Request-Method": "POST" } });
+      assert.equal(res.status, 204, path);
+      assert.equal(res.headers.get("access-control-allow-origin"), "*");
+      assert.match(res.headers.get("access-control-allow-headers"), /Authorization/);
+    }
+  });
+
+  test("can register, trade a code and call /mcp from another site", async () => {
+    const reg = await request("/oauth/register", {
       method: "POST",
-      headers: { Authorization: `Bearer ${API_KEY}`, "Content-Type": "application/json", "Sec-Fetch-Site": "cross-site", Origin: "https://evil.test" },
+      headers: { ...crossSite, "Content-Type": "application/json" },
+      body: JSON.stringify({ client_name: "Inspector", redirect_uris: ["http://127.0.0.1:5555/callback"] }),
+    });
+    assert.equal(reg.status, 201);
+    const client = await reg.json();
+    const { verifier, challenge } = pkce();
+    const code = await allow(client, "uMember", { read: ["mailbox:mA1"] }, challenge);
+    const res = await request("/oauth/token", {
+      method: "POST",
+      headers: { ...crossSite, "Content-Type": "application/x-www-form-urlencoded" },
+      body: form({ grant_type: "authorization_code", code, code_verifier: verifier, client_id: client.client_id }),
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("access-control-allow-origin"), "*");
+    const { access_token } = await res.json();
+    const mcp = await request("/mcp", {
+      method: "POST",
+      headers: { ...crossSite, Authorization: `Bearer ${access_token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    });
+    assert.equal(mcp.status, 200);
+    assert.equal(mcp.headers.get("access-control-allow-origin"), "*");
+    const unauth = await request("/mcp", { method: "POST", headers: { ...crossSite, "Content-Type": "application/json" }, body: "{}" });
+    assert.equal(unauth.status, 401);
+    assert.match(unauth.headers.get("access-control-expose-headers"), /WWW-Authenticate/);
+  });
+
+  test("still can't post the consent form from another site", async () => {
+    const res = await request("/oauth/authorize", {
+      method: "POST",
+      headers: { ...crossSite, Cookie: cookie("uMember"), "Content-Type": "application/x-www-form-urlencoded" },
+      body: form({ decision: "allow" }),
     });
     assert.equal(res.status, 403);
   });

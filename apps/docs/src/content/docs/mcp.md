@@ -99,4 +99,4 @@ On macOS, use `security find-generic-password -s gentlemail -w` instead. With 1P
   - The endpoints are `/oauth/register`, `/oauth/authorize`, `/oauth/token` and `/oauth/revoke`.
   - Redirect URIs must be https, http on `localhost` or `127.0.0.1` (any port), or an app's own scheme.
 - Tokens from signing in work on `/mcp` only, not on `/api/v1`.
-- Requests from web pages on other sites are refused.
+- `/mcp` and the OAuth endpoints answer any site (CORS), for assistants that run in a browser. They read only the tokens sent with the request, never the webmail's cookies.

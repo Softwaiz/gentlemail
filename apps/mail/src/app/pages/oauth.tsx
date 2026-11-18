@@ -3,7 +3,7 @@ import type { RequestInfo } from "rwsdk/worker";
 import { appName } from "@/app/components/brand";
 import { AccessEditor, type AccessTargets } from "@/app/components/key-dialog";
 import { Button } from "@/app/components/ui/button";
-import { redirect, requireUser, withFlash } from "@/app/http";
+import { json, redirect, requireUser, withFlash } from "@/app/http";
 import { AuthCard } from "@/app/pages/auth";
 import { grantsFromForm } from "@/lib/apikeys";
 import type { User } from "@/lib/auth";
@@ -34,8 +34,6 @@ import {
 const DOCS = "https://gentlemail.dev/docs/mcp/";
 const originOf = (request: Request) => new URL(request.url).origin;
 
-const json = (body: unknown, status = 200, headers?: HeadersInit) =>
-  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headers } });
 /** Discovery documents can be read from any site; they hold nothing private. */
 const discovery = (body: unknown) => json(body, 200, { "Access-Control-Allow-Origin": "*", "Cache-Control": "max-age=3600" });
 const oauthJson = ({ status = 400, ...err }: OAuthError) =>
@@ -185,12 +183,12 @@ async function targetsFor(user: User) {
   return { targets, allowed, allowAll: user.role === "admin" };
 }
 
-/** Where the person goes back to, in words. */
-function destination(uri: string) {
+/** Where the answer goes: the site, or which kind of app. */
+function destination(uri: string): { where: string; note: string } {
   const u = new URL(uri);
-  if (u.protocol === "http:") return `${u.host} (an app on this computer)`;
-  if (u.protocol === "https:") return u.host;
-  return `the app (${u.protocol}//)`;
+  if (u.protocol === "http:") return { where: u.host, note: "An app on this computer." };
+  if (u.protocol === "https:") return { where: u.hostname, note: "A website." };
+  return { where: `${u.protocol}//`, note: "An app installed on this device." };
 }
 
 export async function AuthorizePage(ri: RequestInfo) {
@@ -219,16 +217,24 @@ export async function AuthorizePage(ri: RequestInfo) {
   const err = url.searchParams.get("err");
   const strong = "font-medium text-foreground";
 
+  const dest = destination(req.redirectUri);
+
   return (
-    <AuthCard title={`Connect ${req.client.name}`} err={err}>
+    <AuthCard title="Connect an assistant" err={err}>
       <p className="text-sm leading-relaxed text-muted-foreground">
-        <span className={strong}>{req.client.name}</span> wants to use mail as <span className={strong}>{user.email}</span>. Choose
-        what it may read and send. You can disconnect it at any time under Security.
+        An app that calls itself <span className={strong}>“{req.client.name}”</span> wants to use mail as{" "}
+        <span className={strong}>{user.email}</span>. Choose what it may read and send. You can disconnect it at any time under
+        Security.
       </p>
-      <p className="mt-3 rounded-md border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-        Only connect an assistant you are setting up yourself. When you allow it, you go back to{" "}
-        <span className="font-mono text-foreground">{destination(req.redirectUri)}</span>.
-      </p>
+      {/* Anyone can register an app under any name, so the address is what to check. */}
+      <div className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-3 text-sm">
+        <div className="text-xs text-muted-foreground">If you allow it, access is given to</div>
+        <div className="mt-1 break-all font-mono text-base font-semibold text-foreground">{dest.where}</div>
+        <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          {dest.note} The app picks its own name, so check this address instead: for Claude it is claude.ai. If you didn't just start
+          connecting an assistant yourself, choose Cancel.
+        </div>
+      </div>
       <form method="post" className="mt-4 grid gap-4">
         {[...req.params].map(([k, v]) => (
           <input key={k} type="hidden" name={k} value={v} />

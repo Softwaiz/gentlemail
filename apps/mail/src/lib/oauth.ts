@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { sha256 } from "./auth";
 import type { Grant } from "./apikeys";
-import { newId, now } from "./util";
+import { b64url, newId, now } from "./util";
 
 /*
  * The OAuth 2.1 authorization server behind /mcp, kept in D1.
@@ -23,16 +23,16 @@ const CODE_PREFIX = "gmc_";
 export const ACCESS_TTL = 60 * 60 * 1000;
 export const REFRESH_TTL = 60 * 24 * 60 * 60 * 1000;
 const CODE_TTL = 5 * 60 * 1000;
-/** Registered apps that never connected are removed after a day. */
+/** Registered apps that never connected are removed after a day; others a year after their last sign-in, once disconnected. */
 const UNUSED_CLIENT_TTL = 24 * 60 * 60 * 1000;
+const IDLE_CLIENT_TTL = 365 * 24 * 60 * 60 * 1000;
 export const SCOPE = "mail";
 
-export type OAuthClient = { id: string; name: string; redirect_uris: string; secret_hash: string | null; created_at: number };
+export type OAuthClient = { id: string; name: string; redirect_uris: string; secret_hash: string | null; created_at: number; used_at: number | null };
 export type TokenSet = { access_token: string; token_type: "Bearer"; expires_in: number; refresh_token: string; scope: string };
 /** An OAuth error, as the token and registration endpoints return it (RFC 6749 §5.2). */
 export type OAuthError = { error: string; error_description: string; status?: number };
 
-const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const randomToken = (prefix: string) => prefix + b64url(crypto.getRandomValues(new Uint8Array(32)));
 const oauthError = (error: string, error_description: string, status = 400): OAuthError => ({ error, error_description, status });
 
@@ -198,29 +198,30 @@ export async function exchangeCode(client: OAuthClient, form: FormData): Promise
   if ((await s256(verifier)) !== row.code_challenge) return oauthError("invalid_grant", "code_verifier doesn't match the code_challenge.");
 
   const grants: Grant[] = JSON.parse(row.grants);
-  // Signing in again from the same app updates its connection instead of adding another.
-  const existing = await env.DB.prepare("SELECT id FROM api_keys WHERE user_id = ? AND client_id = ? AND revoked_at IS NULL")
-    .bind(row.user_id, client.id)
-    .first<{ id: string }>();
-  const keyId = existing?.id ?? newId();
-  const grantRows = grants.map((g) =>
-    env.DB.prepare("INSERT INTO api_key_grants (key_id, target_type, target_id, can_read, can_send) VALUES (?, ?, ?, ?, ?)").bind(
-      keyId,
-      g.target_type,
-      g.target_id,
-      g.can_read,
-      g.can_send,
-    ),
-  );
+  // One connection per person and app (a unique index): signing in again, from
+  // any device, replaces its access and keeps the tokens other devices hold.
+  const t = now();
+  await env.DB.prepare(
+    `INSERT OR IGNORE INTO api_keys (id, name, prefix, key_hash, mailbox_id, scopes, created_by, created_at, user_id, client_id)
+     VALUES (?1, ?2, 'oauth', 'oauth:' || ?1, NULL, '', ?3, ?4, ?3, ?5)`,
+  )
+    .bind(newId(), client.name, row.user_id, t, client.id)
+    .run();
+  const key = await env.DB.prepare("SELECT id FROM api_keys WHERE user_id = ? AND client_id = ?").bind(row.user_id, client.id).first<{ id: string }>();
+  if (!key) return oauthError("server_error", "Couldn't save the connection. Try again.", 500);
+  const keyId = key.id;
   await env.DB.batch([
-    existing
-      ? env.DB.prepare("DELETE FROM oauth_tokens WHERE key_id = ?").bind(keyId)
-      : env.DB.prepare(
-          `INSERT INTO api_keys (id, name, prefix, key_hash, mailbox_id, scopes, created_by, created_at, user_id, client_id)
-           VALUES (?, ?, 'oauth', ?, NULL, '', ?, ?, ?, ?)`,
-        ).bind(keyId, client.name, `oauth:${keyId}`, row.user_id, now(), row.user_id, client.id),
     env.DB.prepare("DELETE FROM api_key_grants WHERE key_id = ?").bind(keyId),
-    ...grantRows,
+    ...grants.map((g) =>
+      env.DB.prepare("INSERT INTO api_key_grants (key_id, target_type, target_id, can_read, can_send) VALUES (?, ?, ?, ?, ?)").bind(
+        keyId,
+        g.target_type,
+        g.target_id,
+        g.can_read,
+        g.can_send,
+      ),
+    ),
+    env.DB.prepare("UPDATE oauth_clients SET used_at = ? WHERE id = ?").bind(t, client.id),
   ]);
   return issueTokens(keyId);
 }
@@ -250,16 +251,20 @@ export async function revokeToken(client: OAuthClient, token: string) {
     .run();
 }
 
-/** Cron, hourly: expired codes and tokens, and registered apps that never connected. */
+/**
+ * Cron, hourly: expired codes and tokens, and registered apps that never
+ * connected or have been disconnected for a long time. An app that was
+ * disconnected keeps its registration, so it can sign in again with it.
+ */
 export async function purgeExpiredOAuth() {
   const t = now();
   await env.DB.batch([
     env.DB.prepare("DELETE FROM oauth_codes WHERE expires_at < ?").bind(t),
     env.DB.prepare("DELETE FROM oauth_tokens WHERE expires_at < ?").bind(t),
     env.DB.prepare(
-      `DELETE FROM oauth_clients WHERE created_at < ?
+      `DELETE FROM oauth_clients WHERE (used_at IS NULL AND created_at < ?1 OR used_at < ?2)
        AND NOT EXISTS (SELECT 1 FROM api_keys k WHERE k.client_id = oauth_clients.id)
        AND NOT EXISTS (SELECT 1 FROM oauth_codes c WHERE c.client_id = oauth_clients.id)`,
-    ).bind(t - UNUSED_CLIENT_TTL),
+    ).bind(t - UNUSED_CLIENT_TTL, t - IDLE_CLIENT_TTL),
   ]);
 }

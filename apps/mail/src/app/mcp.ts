@@ -1,8 +1,9 @@
 import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
 import { appName } from "@/app/components/brand";
-import { MESSAGE_ACTIONS, actOnMessage, getMessage, listMailboxes, listMessages, messageFor, sendMessage } from "@/app/api";
-import { type ApiAuth, authenticate, can } from "@/lib/apikeys";
+import { json } from "@/app/http";
+import { MESSAGE_ACTIONS, actOnMessage, getMessage, listMailboxes, listMessages, messageFor, readableBinds, readableSql, sendMessage } from "@/app/api";
+import { type ApiAuth, authenticate } from "@/lib/apikeys";
 import { type MessageRow, getHtmlBody, parseAddrs } from "@/lib/db";
 import { type Addr, formatAddr, htmlToText } from "@/lib/util";
 import pkg from "../../package.json";
@@ -168,11 +169,11 @@ const TOOLS: Tool[] = [
       if (!id) return toolError("Give the thread_id.");
       const { results } = await env.DB.prepare(
         `SELECT m.*, b.address AS mailbox_address FROM messages m JOIN mailboxes b ON b.id = m.mailbox_id
-         WHERE m.thread_id = ? ORDER BY m.date DESC LIMIT ?`,
+         WHERE m.thread_id = ? AND ${readableSql(auth)} ORDER BY m.date DESC LIMIT ?`,
       )
-        .bind(id, THREAD_LIMIT)
+        .bind(id, ...readableBinds(auth), THREAD_LIMIT)
         .all<MessageRow & { mailbox_address: string }>();
-      const readable = results.filter((m) => can(auth, { id: m.mailbox_id, address: m.mailbox_address }, "read")).reverse();
+      const readable = results.reverse();
       if (!readable.length) return toolError("No such conversation.");
       const perMessage = Math.max(2000, Math.floor(TEXT_LIMIT / readable.length));
       const messages = [];
@@ -345,12 +346,9 @@ async function handleMessage(auth: ApiAuth, m: RpcMessage) {
   }
 }
 
-const json = (body: unknown, status = 200, headers?: HeadersInit) =>
-  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headers } });
-
 export const protectedResourceMetadataUrl = (origin: string) => `${origin}/.well-known/oauth-protected-resource/mcp`;
 
-/** /mcp: POST only. Browsers on other sites are already refused by checkOrigin (src/app/http.ts). */
+/** /mcp: POST only (GET gets 405). It answers any site, with CORS (cors() in src/app/http.ts): it reads only tokens. */
 export async function mcpHandler({ request }: RequestInfo) {
   if (request.method !== "POST")
     return json(rpcError(null, -32000, "Send JSON-RPC with POST. This server has no event stream."), 405, { Allow: "POST" });

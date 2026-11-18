@@ -4,7 +4,7 @@ import { defineApp, type RequestInfo } from "rwsdk/worker";
 
 import { Document } from "@/app/document";
 import { setCommonHeaders } from "@/app/headers";
-import { checkOrigin, redirect, requireSignedIn, requireUser } from "@/app/http";
+import { checkOrigin, cors, redirect, requireSignedIn, requireUser } from "@/app/http";
 import { pageNotFound, requireAdmin, requireFolder, requireMailbox, requireRecord, requireThread } from "@/app/access";
 import { AdminMailboxPage, AdminPage } from "@/app/pages/admin";
 import { AdminDomainPage } from "@/app/pages/domains";
@@ -69,13 +69,14 @@ const app = defineApp([
   route("/api/v1/attachments/:id", { get: attachmentApiHandler }),
   route("/api/*", apiNotFound),
   // MCP for AI assistants (src/app/mcp.ts), and OAuth so they connect by signing in (src/app/pages/oauth.tsx).
-  route("/mcp", mcpHandler),
+  // These answer browser-based assistants too (CORS); they read tokens, never cookies.
+  route("/mcp", cors("/mcp", ["GET", "POST"], mcpHandler)),
   route("/.well-known/oauth-protected-resource", { get: protectedResourceMetadata }),
   route("/.well-known/oauth-protected-resource/mcp", { get: protectedResourceMetadata }),
   route("/.well-known/oauth-authorization-server", { get: authorizationServerMetadata }),
-  route("/oauth/register", { post: registerHandler }),
-  route("/oauth/token", { post: tokenHandler }),
-  route("/oauth/revoke", { post: revokeHandler }),
+  route("/oauth/register", cors("/oauth/register", ["POST"], registerHandler)),
+  route("/oauth/token", cors("/oauth/token", ["POST"], tokenHandler)),
+  route("/oauth/revoke", cors("/oauth/revoke", ["POST"], revokeHandler)),
 
   render(Document, [
     route("/setup", { get: SetupPage, post: setupAction }),

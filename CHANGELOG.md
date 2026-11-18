@@ -31,7 +31,7 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 - API & webhooks and Admin fit on phones and tablets: their tables become cards, code samples scroll inside their box, and long webhook URLs and errors no longer push the page sideways. ([#21](https://github.com/Softwaiz/gentlemail/pull/21))
 
 ### Upgrading
-- Migration `0007_oauth.sql` adds the tables for assistant sign-ins. Nothing changes until someone connects an assistant.
+- Migration `0007_oauth.sql` adds the tables for assistant sign-ins. **Apply it with the deploy:** until it runs, the API, **API & webhooks** and **Security** fail. Once applied, nothing changes until someone connects an assistant. See [Updating](https://gentlemail.dev/docs/updating/#from-05-to-06).
 
 ## 0.5.0 (2026-11-16)
 

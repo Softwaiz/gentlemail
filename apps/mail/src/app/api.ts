@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
-import { type ApiAuth, GRANT_COVERS_SQL, type Scope, apiError, apiJson, authenticate, can } from "@/lib/apikeys";
+import { type ApiAuth, GRANT_COVERS_SQL, type Scope, apiError, apiJson, authenticate, can, limitSql } from "@/lib/apikeys";
 import { type Mailbox, type MessageRow, getHtmlBody, isFolder, listAttachments } from "@/lib/db";
 import { SendError, type OutgoingFile, sendMail } from "@/lib/outbound";
 import { type Addr, htmlToText, isEmail, parseAddressList } from "@/lib/util";
@@ -80,13 +80,14 @@ export async function messageFor(auth: ApiAuth, id: string, scope: Scope) {
 
 /** The mailboxes this key can do something on, with what it can do there. */
 async function usableMailboxes(auth: ApiAuth) {
+  const limit = limitSql(auth);
   const { results } = await env.DB.prepare(
     `SELECT b.id, b.address, b.display_name, b.active, MAX(g.can_read) AS can_read, MAX(g.can_send) AS can_send
-     FROM mailboxes b JOIN api_key_grants g ON g.key_id = ? AND ${GRANT_COVERS_SQL}
+     FROM mailboxes b JOIN api_key_grants g ON g.key_id = ? AND ${GRANT_COVERS_SQL}${limit.sql}
      GROUP BY b.id HAVING MAX(g.can_read) = 1 OR MAX(g.can_send) = 1
      ORDER BY b.address`,
   )
-    .bind(auth.key.id)
+    .bind(auth.key.id, ...limit.binds)
     .all<{ id: string; address: string; display_name: string; active: number; can_read: number; can_send: number }>();
   return results;
 }
@@ -187,6 +188,11 @@ export async function listMailboxes(auth: ApiAuth) {
 
 export const listHandler = withKey("read", async ({ request }, auth) => listMessages(auth, new URL(request.url).searchParams));
 
+/** SQL condition: message `m` is in a mailbox this key may read (no limit on how many). */
+export const readableSql = (auth: ApiAuth) =>
+  `m.mailbox_id IN (SELECT b.id FROM mailboxes b JOIN api_key_grants g ON g.key_id = ? AND g.can_read = 1 AND ${GRANT_COVERS_SQL}${limitSql(auth).sql})`;
+export const readableBinds = (auth: ApiAuth) => [auth.key.id, ...limitSql(auth).binds];
+
 /** Escapes % and _ so a search matches them literally (with ESCAPE '\\'). */
 const likeTerm = (s: string) => `%${s.replace(/[\\%_]/g, (c) => "\\" + c)}%`;
 
@@ -202,8 +208,8 @@ export async function listMessages(auth: ApiAuth, q: URLSearchParams) {
     binds.push(mb.id);
   } else {
     // Only the mailboxes this key may read, worked out in SQL (no limit on how many).
-    where.push(`m.mailbox_id IN (SELECT b.id FROM mailboxes b JOIN api_key_grants g ON g.key_id = ? AND g.can_read = 1 AND ${GRANT_COVERS_SQL})`);
-    binds.push(auth.key.id);
+    where.push(readableSql(auth));
+    binds.push(...readableBinds(auth));
   }
   const folder = q.get("folder") ?? "inbox";
   if (folder !== "all") {

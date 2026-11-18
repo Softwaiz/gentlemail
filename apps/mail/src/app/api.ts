@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
 import { type ApiAuth, GRANT_COVERS_SQL, type Scope, apiError, apiJson, authenticate, can, limitSql } from "@/lib/apikeys";
-import { type Mailbox, type MessageRow, getHtmlBody, isFolder, listAttachments, replyRecipients } from "@/lib/db";
+import { type Mailbox, type MessageRow, getHtmlBody, isFolder, listAttachments, replyRecipients, searchSql } from "@/lib/db";
 import { SendError, type OutgoingFile, sendMail } from "@/lib/outbound";
 import { type Addr, htmlToText, isEmail, parseAddressList } from "@/lib/util";
 import { messageJson } from "@/lib/webhooks";
@@ -192,8 +192,6 @@ export const readableSql = (auth: ApiAuth) =>
   `m.mailbox_id IN (SELECT b.id FROM mailboxes b JOIN api_key_grants g ON g.key_id = ? AND g.can_read = 1 AND ${GRANT_COVERS_SQL}${limitSql(auth).sql})`;
 export const readableBinds = (auth: ApiAuth) => [auth.key.id, ...limitSql(auth).binds];
 
-/** Escapes % and _ so a search matches them literally (with ESCAPE '\\'). */
-const likeTerm = (s: string) => `%${s.replace(/[\\%_]/g, (c) => "\\" + c)}%`;
 
 export async function listMessages(auth: ApiAuth, q: URLSearchParams) {
   const where: string[] = [];
@@ -217,13 +215,12 @@ export async function listMessages(auth: ApiAuth, q: URLSearchParams) {
     binds.push(folder);
   }
   if (q.get("unread") === "true") where.push("m.is_read = 0");
-  // Words anywhere in the subject, sender, recipients or text, as in the webmail's search.
+  // The webmail's search.
   const search = (q.get("q") ?? "").trim().slice(0, 200);
   if (search) {
-    where.push(
-      `(${["m.subject", "m.from_addr", "m.from_name", "m.to_json", "m.text_body"].map((c) => `${c} LIKE ? ESCAPE '\\'`).join(" OR ")})`,
-    );
-    binds.push(...Array(5).fill(likeTerm(search)));
+    const s = searchSql(search);
+    where.push(s.sql);
+    binds.push(...s.binds);
   }
   const since = q.get("since");
   if (since) {

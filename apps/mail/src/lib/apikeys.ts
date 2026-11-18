@@ -1,6 +1,6 @@
 import { env, waitUntil } from "cloudflare:workers";
 import { sha256 } from "./auth";
-import { ACCESS_PREFIX } from "./oauth";
+import { ACCESS_PREFIX } from "./token-prefixes";
 import { b64url, domainOf, newId, now } from "./util";
 
 /*
@@ -197,8 +197,22 @@ export const CONNECTION_REACHES_SQL = `EXISTS (SELECT 1 FROM api_key_grants g WH
   AND ((SELECT role FROM users WHERE id = k.user_id) = 'admin' OR EXISTS (
     SELECT 1 FROM mailbox_members mm JOIN mailboxes b ON b.id = mm.mailbox_id WHERE mm.user_id = k.user_id AND ${GRANT_COVERS_SQL})))`;
 
-/** Ends every assistant connection of this person (statement for a batch): their password or two-step was reset. */
-export const endConnections = (userId: string) => env.DB.prepare("DELETE FROM api_keys WHERE user_id = ?").bind(userId);
+/**
+ * SQL condition: connection `k` may be used now: it reaches a mailbox, and its
+ * person isn't held back by required two-step verification they haven't set up.
+ */
+export const CONNECTION_USABLE_SQL = `${CONNECTION_REACHES_SQL} AND NOT EXISTS (
+  SELECT 1 FROM users u WHERE u.id = k.user_id AND u.mfa_enabled_at IS NULL
+    AND EXISTS (SELECT 1 FROM settings WHERE key = 'require_mfa' AND value = '1'))`;
+
+/**
+ * Ends every assistant connection of this person, and sign-ins not yet traded
+ * for tokens (statements for a batch): their password or two-step was reset.
+ */
+export const endConnections = (userId: string) => [
+  env.DB.prepare("DELETE FROM api_keys WHERE user_id = ?").bind(userId),
+  env.DB.prepare("DELETE FROM oauth_codes WHERE user_id = ?").bind(userId),
+];
 
 /**
  * Checks the Bearer key. With a scope, the key must hold it on at least one
@@ -227,27 +241,29 @@ export async function authenticate(request: Request, scope: Scope | null, opts: 
       .first<ApiKeyRow>();
   }
   if (!key) return apiError(401, "unauthorized", "Unknown or revoked API key.");
-  const none = env.DB.prepare("SELECT NULL WHERE 0");
-  const [grantRows, memberRows, reachRows] = await env.DB.batch([
-    env.DB.prepare(
-      `SELECT g.*, d.name AS domain FROM api_key_grants g
-       LEFT JOIN domains d ON g.target_type = 'domain' AND d.id = g.target_id
-       WHERE g.key_id = ?`,
-    ).bind(key.id),
-    limited ? env.DB.prepare(MEMBER_MAILBOXES_SQL).bind(key.user_id) : none,
-    // An assistant: what its grants allow on the mailboxes its person can still open.
+  const grantsQuery = env.DB.prepare(
+    `SELECT g.*, d.name AS domain FROM api_key_grants g
+     LEFT JOIN domains d ON g.target_type = 'domain' AND d.id = g.target_id
+     WHERE g.key_id = ?`,
+  ).bind(key.id);
+  const [grantRows, memberRows, reachRows] = await env.DB.batch(
     limited
-      ? env.DB.prepare(
-          `SELECT MAX(g.can_read) AS r, MAX(g.can_send) AS s FROM mailboxes b
-           JOIN api_key_grants g ON g.key_id = ? AND ${GRANT_COVERS_SQL} AND b.id IN (${MEMBER_MAILBOXES_SQL})`,
-        ).bind(key.id, key.user_id)
-      : none,
-  ]);
+      ? [
+          grantsQuery,
+          env.DB.prepare(MEMBER_MAILBOXES_SQL).bind(key.user_id),
+          // An assistant: what its grants allow on the mailboxes its person can still open.
+          env.DB.prepare(
+            `SELECT MAX(g.can_read) AS r, MAX(g.can_send) AS s FROM mailboxes b
+             JOIN api_key_grants g ON g.key_id = ? AND ${GRANT_COVERS_SQL} AND b.id IN (${MEMBER_MAILBOXES_SQL})`,
+          ).bind(key.id, key.user_id),
+        ]
+      : [grantsQuery],
+  );
   const grants = grantRows.results as ResolvedGrant[];
-  const limit = limited ? new Set((memberRows.results as { mailbox_id: string }[]).map((r) => r.mailbox_id)) : null;
+  const limit = memberRows ? new Set((memberRows.results as { mailbox_id: string }[]).map((r) => r.mailbox_id)) : null;
   let can: Perm = { read: grants.some((g) => !!g.can_read), send: grants.some((g) => !!g.can_send) };
   if (limit) {
-    const reach = reachRows.results[0] as { r: number | null; s: number | null } | undefined;
+    const reach = reachRows?.results[0] as { r: number | null; s: number | null } | undefined;
     can = { read: !!reach?.r, send: !!reach?.s };
     // Signing in again lets the person pick from the mailboxes they have now (refreshing fails too).
     if (!can.read && !can.send)

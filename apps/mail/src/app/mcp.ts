@@ -4,7 +4,8 @@ import { appName } from "@/app/components/brand";
 import { json } from "@/app/http";
 import { MESSAGE_ACTIONS, actOnMessage, getMessage, listMailboxes, listMessages, messageFor, readableBinds, readableSql, sendMessage } from "@/app/api";
 import { type ApiAuth, authenticate } from "@/lib/apikeys";
-import { type MessageRow, getHtmlBody, parseAddrs, replyRecipients } from "@/lib/db";
+import { type MessageRow, getHtmlBody, listAttachments, replyRecipients } from "@/lib/db";
+import { messageJson } from "@/lib/webhooks";
 import { formatAddr, htmlToText } from "@/lib/util";
 import pkg from "../../package.json";
 
@@ -178,18 +179,13 @@ const TOOLS: Tool[] = [
       if (!readable.length) return toolError("No such conversation.");
       // The whole thread fits TEXT_LIMIT: at most 25 messages, so each still gets 1,200 characters or more.
       const perMessage = Math.floor(TEXT_LIMIT / readable.length);
-      // Bodies may be in R2: fetched together.
+      // Each message as get_message gives it. Bodies may be in R2: fetched together.
+      const atts = await listAttachments(readable.map((m) => m.id));
       const messages = await Promise.all(
-        readable.map(async (m) => ({
-          id: m.id,
-          mailbox: m.mailbox_address,
-          folder: m.folder,
-          from: addr({ name: m.from_name, address: m.from_addr }),
-          to: parseAddrs(m.to_json).map(addr),
-          subject: m.subject,
-          date: new Date(m.date).toISOString(),
-          text: cut(await bodyText(m), perMessage),
-        })),
+        readable.map(async (m) => {
+          const data = messageJson(m, m.mailbox_address, atts.filter((x) => x.message_id === m.id));
+          return { ...summary(data), reply_to: data.reply_to, text: cut(await bodyText(m), perMessage) };
+        }),
       );
       return result({ thread_id: id, messages, note: UNTRUSTED });
     },

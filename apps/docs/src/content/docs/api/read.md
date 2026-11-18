@@ -14,7 +14,7 @@ These need **Read** on the mailbox. A key only ever sees the mailboxes it has Re
 | `mailbox` | Only this address. Without it, every mailbox the key can read. |
 | `folder` | `inbox` (default), `sent`, `archive`, `spam`, `trash` or `all`. |
 | `unread=true` | Only unread messages. |
-| `q` | Words to find in the subject, sender, recipients or text. |
+| `q` | Words to find in the subject, sender, recipients (To and Cc) or text. |
 | `since` | Only messages after this date: ISO 8601 or epoch milliseconds. |
 | `limit` | 1 to 100, default 25. A value outside that range is brought to 1 or 100. |
 

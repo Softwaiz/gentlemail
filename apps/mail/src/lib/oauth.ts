@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { sha256 } from "./auth";
-import { CONNECTION_REACHES_SQL, type Grant, grantStatements } from "./apikeys";
+import { CONNECTION_USABLE_SQL, type Grant, grantStatements } from "./apikeys";
+import { ACCESS_PREFIX, CODE_PREFIX, REFRESH_PREFIX } from "./token-prefixes";
 import { b64url, newId, now } from "./util";
 
 /*
@@ -17,9 +18,6 @@ import { b64url, newId, now } from "./util";
  * are stored.
  */
 
-export const ACCESS_PREFIX = "gma_";
-const REFRESH_PREFIX = "gmr_";
-const CODE_PREFIX = "gmc_";
 export const ACCESS_TTL = 60 * 60 * 1000;
 export const REFRESH_TTL = 60 * 24 * 60 * 60 * 1000;
 const CODE_TTL = 5 * 60 * 1000;
@@ -205,9 +203,11 @@ export async function exchangeCode(client: OAuthClient, form: FormData): Promise
     .bind(await sha256(code))
     .first<{ client_id: string; user_id: string; redirect_uri: string | null; code_challenge: string; grants: string; expires_at: number }>();
   if (!row || row.expires_at < now() || row.client_id !== client.id) return oauthError("invalid_grant", "This code is unknown, used or expired. Sign in again.");
-  // RFC 6749 §4.1.3: sent to /oauth/authorize, so it must be sent here too, the same.
+  // RFC 6749 §4.1.3: sent to /oauth/authorize, so it must be sent here too, the same. Left out
+  // there, it may still be sent here (many libraries always do): then it's one the app registered.
   const redirectUri = form.get("redirect_uri");
-  if (row.redirect_uri != null ? String(redirectUri ?? "") !== row.redirect_uri : redirectUri != null)
+  const sent = redirectUri == null ? null : String(redirectUri);
+  if (row.redirect_uri != null ? sent !== row.redirect_uri : sent != null && !clientRedirectUris(client).includes(sent))
     return oauthError("invalid_grant", "redirect_uri doesn't match the one used to sign in.");
   if ((await s256(verifier)) !== row.code_challenge) return oauthError("invalid_grant", "code_verifier doesn't match the code_challenge.");
 
@@ -240,14 +240,17 @@ export async function exchangeCode(client: OAuthClient, form: FormData): Promise
  * once. Any later use, or a second retry, is a copy.
  */
 const REUSE_GRACE = 30 * 1000;
+/** How long a used refresh token is remembered: a copy used later than that is just unknown. */
+const USED_REFRESH_TTL = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * grant_type=refresh_token: a new pair in the same family; the token used is
  * marked used, not deleted. If it comes back after the grace period, someone
  * has a copy: the whole family is signed out (OAuth 2.1 §4.3.1), and its owner
- * signs in again. A connection that can't reach any mailbox any more can't
- * refresh either, so its app signs in again rather than retrying forever; its
- * token stays valid in case the access comes back.
+ * signs in again. A connection that can't reach any mailbox any more, or whose
+ * person must first set up required two-step verification, can't refresh
+ * either, so its app signs in again rather than retrying forever; its token
+ * stays valid in case that changes.
  */
 export async function refreshTokens(client: OAuthClient, form: FormData): Promise<TokenSet | OAuthError> {
   const token = String(form.get("refresh_token") ?? "");
@@ -259,7 +262,7 @@ export async function refreshTokens(client: OAuthClient, form: FormData): Promis
   const row = await env.DB.prepare(
     `UPDATE oauth_tokens SET used_at = CASE WHEN used_at IS NULL THEN ?1 ELSE ?1 - ?4 - 1 END
      WHERE id = ?2 AND kind = 'refresh' AND expires_at > ?1 AND (used_at IS NULL OR used_at >= ?1 - ?4)
-     AND key_id IN (SELECT k.id FROM api_keys k WHERE k.client_id = ?3 AND k.revoked_at IS NULL AND ${CONNECTION_REACHES_SQL})
+     AND key_id IN (SELECT k.id FROM api_keys k WHERE k.client_id = ?3 AND k.revoked_at IS NULL AND ${CONNECTION_USABLE_SQL})
      RETURNING key_id, family, used_at = ?1 AS first`,
   )
     .bind(t, id, client.id, REUSE_GRACE)
@@ -313,7 +316,8 @@ export async function purgeExpiredOAuth() {
   const t = now();
   await env.DB.batch([
     env.DB.prepare("DELETE FROM oauth_codes WHERE expires_at < ?").bind(t),
-    env.DB.prepare("DELETE FROM oauth_tokens WHERE expires_at < ?").bind(t),
+    // Used refresh tokens are kept a week, to recognise a copy coming back.
+    env.DB.prepare("DELETE FROM oauth_tokens WHERE expires_at < ? OR used_at < ?").bind(t, t - USED_REFRESH_TTL),
     // Not one being created right now (exchangeCode adds its tokens just after).
     env.DB.prepare(
       `DELETE FROM api_keys WHERE user_id IS NOT NULL AND created_at < ?1 AND (last_used_at IS NULL OR last_used_at < ?1)

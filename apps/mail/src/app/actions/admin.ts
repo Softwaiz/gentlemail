@@ -4,7 +4,7 @@ import { env } from "cloudflare:workers";
 import { requestInfo, serverAction } from "rwsdk/worker";
 import { type ActionResult, adminOnly, fail, ok, text } from "@/app/actions/guards";
 import { createApiKey, endConnections, grantsFromForm, setApiKeyGrants } from "@/lib/apikeys";
-import { createUser, hashPassword } from "@/lib/auth";
+import { createUser, currentSessionId, hashPassword } from "@/lib/auth";
 import { type Domain, type Mailbox, isDomainActive } from "@/lib/db";
 import { isEmail, newId, now } from "@/lib/util";
 import { type DeliveryRow, EVENTS, type WebhookRow, attemptDelivery, newSecret, sendTestEvent } from "@/lib/webhooks";
@@ -190,10 +190,11 @@ export const updateUserAction = serverAction([
     const stmts = [env.DB.prepare("UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?").bind(text(form, "name"), email, role, id)];
     if (password) {
       stmts.push(env.DB.prepare("UPDATE users SET password_hash = ? WHERE id = ?").bind(await hashPassword(password), id));
-      // Disconnect their assistants: whoever knew the old password may have connected one. Sign
-      // them out elsewhere too, unless it's your own password (you'd be signed out here).
-      stmts.push(endConnections(id));
-      if (!isSelf) stmts.push(env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id));
+      // Whoever knew the old password may be signed in or have connected an assistant: both end.
+      // Your own password: every session but this one.
+      stmts.push(...endConnections(id));
+      const keep = isSelf ? await currentSessionId(requestInfo.request) : null;
+      stmts.push(env.DB.prepare("DELETE FROM sessions WHERE user_id = ? AND id IS NOT ?").bind(id, keep));
     }
     if (role === "member") stmts.push(...accessStatements(id, form.getAll("mailboxes").map(String)));
     try {

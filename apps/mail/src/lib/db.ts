@@ -218,3 +218,13 @@ export async function unreadByFolder(mailboxId: string): Promise<Partial<Record<
     .all<{ folder: Folder; n: number }>();
   return Object.fromEntries(results.map((r) => [r.folder, r.n]));
 }
+
+/**
+ * SQL condition for a search, for the webmail and the API: the words anywhere in
+ * the subject, sender, To, Cc or text of message `m`. % and _ match themselves.
+ */
+export function searchSql(term: string): { sql: string; binds: string[] } {
+  const like = `%${term.replace(/[\\%_]/g, (c) => "\\" + c)}%`;
+  const columns = ["m.subject", "m.from_addr", "m.from_name", "m.to_json", "m.cc_json", "m.text_body"];
+  return { sql: `(${columns.map((c) => `${c} LIKE ? ESCAPE '\\'`).join(" OR ")})`, binds: columns.map(() => like) };
+}

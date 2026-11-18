@@ -176,7 +176,9 @@ export async function loginVerifyAction({ request }: RequestInfo) {
   let next = safeNext(challenge.next);
   if (result.usedRecovery) {
     const left = await recoveryCodesLeft(challenge.user_id);
-    next = withFlash("/account/security", left ? "msg" : "err", left
+    // Security says how many codes are left, then offers to continue to `next` (an assistant's sign-in, say).
+    const security = next === "/" ? "/account/security" : `/account/security?next=${encodeURIComponent(next)}`;
+    next = withFlash(security, left ? "msg" : "err", left
       ? `Signed in with a recovery code. ${left} left.`
       : "That was your last recovery code. Make new ones now.");
   }

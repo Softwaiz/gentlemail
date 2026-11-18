@@ -19,6 +19,7 @@ import {
   isFolder,
   listAttachments,
   parseAddrs,
+  searchSql,
 } from "@/lib/db";
 import { formatAddr, formatBytes, formatDate, htmlHasOwnColors } from "@/lib/util";
 
@@ -43,15 +44,15 @@ export async function FolderPage(ri: RequestInfo) {
 
   let rows: ListRow[];
   if (q) {
-    const like = `%${q}%`;
+    const search = searchSql(q);
     rows = (
       await env.DB.prepare(
         `SELECT m.*, 1 AS thread_count, (1 - m.is_read) AS thread_unread, m.is_starred AS thread_starred FROM messages m
          WHERE m.mailbox_id = ? AND m.folder != 'trash'
-           AND (m.subject LIKE ? OR m.from_addr LIKE ? OR m.from_name LIKE ? OR m.to_json LIKE ? OR m.text_body LIKE ?)
+           AND ${search.sql}
          ORDER BY m.date DESC LIMIT ? OFFSET ?`,
       )
-        .bind(mailbox.id, like, like, like, like, like, PAGE_SIZE + 1, offset)
+        .bind(mailbox.id, ...search.binds, PAGE_SIZE + 1, offset)
         .all<ListRow>()
     ).results;
   } else {

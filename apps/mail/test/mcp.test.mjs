@@ -301,6 +301,18 @@ describe("consent screen", () => {
     }
   });
 
+  test("required two-step not set up: no new tokens, so the app signs in again", async () => {
+    const c = await connect("uMember", { read: ["mailbox:mA1"] });
+    await db.prepare("INSERT INTO settings (key, value) VALUES ('require_mfa', '1')").run();
+    try {
+      assert.equal((await rpc(c.access_token, "tools/list")).status, 403);
+      assert.equal((await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
+    } finally {
+      await db.prepare("DELETE FROM settings WHERE key = 'require_mfa'").run();
+    }
+    assert.equal((await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id })).status, 200);
+  });
+
   test("puts where the access goes first, since apps name themselves", async () => {
     const { body: client } = await register(["https://evil.test/cb"], { client_name: "Claude" });
     const params = authorizeParams(client, pkce().challenge, { redirect_uri: "https://evil.test/cb" });
@@ -404,6 +416,20 @@ describe("tokens", () => {
     });
     const code2 = new URL(res.headers.get("location")).searchParams.get("code");
     assert.equal((await token({ grant_type: "authorization_code", code: code2, code_verifier: p.verifier, client_id: single.client_id })).status, 200);
+    // Left out of the sign-in, sent with the token request (as many libraries do): fine if it's the registered one.
+    const signIn = async () => {
+      const p = pkce();
+      const res = await request("/oauth/authorize", {
+        method: "POST",
+        headers: { Cookie: cookie("uMember"), "Content-Type": "application/x-www-form-urlencoded" },
+        body: form({ ...Object.fromEntries(params), code_challenge: p.challenge, decision: "allow", read: "mailbox:mA1" }),
+      });
+      return { code: new URL(res.headers.get("location")).searchParams.get("code"), verifier: p.verifier };
+    };
+    const a = await signIn();
+    assert.equal((await token({ grant_type: "authorization_code", code: a.code, code_verifier: a.verifier, client_id: single.client_id, redirect_uri: "https://app.test/cb" })).status, 200);
+    const b = await signIn();
+    assert.equal((await token({ grant_type: "authorization_code", code: b.code, code_verifier: b.verifier, client_id: single.client_id, redirect_uri: "https://other.test/cb" })).body.error, "invalid_grant");
   });
 
   test("a used refresh token coming back signs that device out", async () => {
@@ -476,6 +502,9 @@ describe("a member's assistant", () => {
     assert.deepEqual(messages.map((m) => m.id).sort(), ["m1", "m2"]);
     // % and _ are matched as themselves.
     assert.equal((await tool(c.access_token, "search_messages", { query: "%" })).messages.length, 0);
+    // Cc counts as a recipient.
+    await db.prepare("UPDATE messages SET cc_json = ? WHERE id = 'm3'").bind(JSON.stringify([{ name: "", address: "copied@elsewhere.test" }])).run();
+    assert.deepEqual((await tool(c.access_token, "search_messages", { query: "copied@elsewhere" })).messages.map((m) => m.id), ["m3"]);
   });
 
   test("reads a message as text, HTML-only ones too", async () => {
@@ -488,6 +517,8 @@ describe("a member's assistant", () => {
   test("reads a conversation oldest first", async () => {
     const t = await tool(c.access_token, "get_thread", { thread_id: "tA" });
     assert.deepEqual(t.messages.map((m) => m.id), ["m1", "m2"]);
+    // The same fields as get_message.
+    for (const k of ["to", "unread", "starred", "attachments", "text"]) assert.ok(k in t.messages[0], k);
   });
 
   test("sends only from its mailbox", async () => {
@@ -617,6 +648,16 @@ describe("disconnecting", () => {
     const { verifier, challenge } = pkce();
     const code = await allow(c.client, "uMember", { read: ["mailbox:mA1"] }, challenge);
     assert.equal((await token({ grant_type: "authorization_code", code, code_verifier: verifier, client_id: c.client.client_id, redirect_uri: "http://127.0.0.1:6666/callback" })).status, 200);
+  });
+
+  test("used refresh tokens are forgotten after a week", async () => {
+    const c = await connect("uMember", { read: ["mailbox:mA1"] });
+    const next = await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id });
+    const id = sha256(c.refresh_token);
+    await db.prepare("UPDATE oauth_tokens SET used_at = ? WHERE id = ?").bind(Date.now() - 8 * 24 * 3600e3, id).run();
+    await (await mf.getWorker()).scheduled({ scheduledTime: new Date(Date.UTC(2026, 0, 1, 12, 0)), cron: "0 * * * *" });
+    assert.equal(await db.prepare("SELECT id FROM oauth_tokens WHERE id = ?").bind(id).first(), null);
+    assert.equal((await rpc(next.body.access_token, "tools/list")).status, 200);
   });
 
   test("a connection whose devices all went quiet is removed by the hourly clean-up", async () => {

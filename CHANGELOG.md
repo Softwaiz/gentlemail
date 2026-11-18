@@ -13,7 +13,7 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 ### Added
 - An [MCP server](https://gentlemail.dev/docs/mcp/) at `/mcp`, so AI assistants such as Claude, ChatGPT or Cursor can search, read, mark and answer your mail. You connect one by signing in and ticking what it may read and send, mailbox by mailbox; it never reaches more than you can open. **Security → Connected assistants** lists yours, with a **Disconnect** button; admins see everyone's on API & webhooks. API keys work on `/mcp` too. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 - The [Updating guide](https://gentlemail.dev/docs/updating/) lists every release that changes the database, with its migration, and the steps from 0.5 to 0.6. The MCP page has examples of what to ask an assistant. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
-- `GET /api/v1/messages` takes `q` to search subject, sender, recipients and text, as the webmail's search does. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
+- `GET /api/v1/messages` takes `q` to search subject, sender, recipients (To and Cc) and text, as the webmail's search does. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 - An automated test, run on every pull request, that checks API keys reach exactly the mailboxes they are allowed to: each kind of grant (all mailboxes, a domain, a mailbox; read, send) on every `/api/v1` endpoint, including look-alike domains, subdomains, revoked keys and replies. ([#26](https://github.com/Softwaiz/gentlemail/pull/26))
 - The JavaScript SDK, [`gentlemail` on npm](https://www.npmjs.com/package/gentlemail): send, read, reply and verify webhooks, typed, on Workers, Node, Deno and Bun. It has its own versions ([packages/sdk/CHANGELOG.md](packages/sdk/CHANGELOG.md)) and a [docs page](https://gentlemail.dev/docs/sdk/). The webhook docs now describe the `ping` test event. ([#17](https://github.com/Softwaiz/gentlemail/pull/17))
 - A **Before you start** section at the top of the [deploy guide](https://gentlemail.dev/docs/deploy/): what you need (a domain on Cloudflare, the Workers Paid plan, a GitHub account) and what it costs. The deploy guide is now the one place that explains deploying; the website's /deploy page leads there. ([#22](https://github.com/Softwaiz/gentlemail/pull/22))
@@ -24,13 +24,15 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 - A theme choice in the user menu: Dark, Light or Same as device. It applies at once and is remembered in that browser. ([#21](https://github.com/Softwaiz/gentlemail/pull/21))
 
 ### Fixed
+- The webmail's search also looks in Cc, as the API's does, and finds `%` and `_` as typed instead of treating them as wildcards. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
+- Signing in with a recovery code shows how many are left, then offers to continue to the page you were opening, instead of dropping it. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 - `GET /api/v1/messages` with `limit=0` returned 25 messages; it now returns 1, as values out of range are brought to 1–100. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 - In the API key dialog, an admin on an instance without domains saw the mailbox list headed "Your mailboxes"; it now says "Mailboxes". ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 - A reply through the API to a message sent from your own mailbox, without `to`, went back to that mailbox. It now goes to the original recipients, as in the webmail. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 
 ### Security
-- Resetting someone's two-step verification also disconnects their AI assistants. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
-- Changing a person's password in Admin, your own included, also disconnects their AI assistants. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
+- Resetting someone's two-step verification also disconnects their AI assistants and cancels their unfinished assistant sign-ins. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
+- Changing a person's password in Admin, your own included, also disconnects their AI assistants and cancels their unfinished assistant sign-ins. Changing your own also signs you out in your other browsers. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 - The page you return to after signing in can no longer be another site, written as `/\example.com` or with a tab or line break after the first `/`. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 
 ### Changed
@@ -73,6 +75,8 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 - Opening a conversation marks it read through a server action once it's on screen, instead of while the page loads. ([#7](https://github.com/Softwaiz/gentlemail/pull/7))
 
 ### Fixed
+- The webmail's search also looks in Cc, as the API's does, and finds `%` and `_` as typed instead of treating them as wildcards. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
+- Signing in with a recovery code shows how many are left, then offers to continue to the page you were opening, instead of dropping it. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 - Conversations of more than 100 messages open again, and bulk actions (archive, trash, mark read…) work on selections holding more than 100 messages. ([#7](https://github.com/Softwaiz/gentlemail/pull/7))
 - An incoming reply with a very long `References` header (a long email chain) is stored instead of failing. ([#7](https://github.com/Softwaiz/gentlemail/pull/7))
 - Command-line deploy instructions: the first deploy creates the database before migrations run, and `deploy` needs a `build` first. ([#5](https://github.com/Softwaiz/gentlemail/pull/5))
@@ -86,6 +90,8 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 - "Not found" and "Access restricted" pages with the right HTTP status (404 / 403): for an unknown page, mailbox, conversation, domain or webhook, and for a mailbox or admin page you aren't allowed to open. They show inside the app, with a way to sign in as someone else. ([#4](https://github.com/Softwaiz/gentlemail/pull/4))
 
 ### Fixed
+- The webmail's search also looks in Cc, as the API's does, and finds `%` and `_` as typed instead of treating them as wildcards. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
+- Signing in with a recovery code shows how many are left, then offers to continue to the page you were opening, instead of dropping it. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 - Deleting a mailbox returns to the mailbox list instead of showing "Not found". ([#4](https://github.com/Softwaiz/gentlemail/pull/4))
 - Confirm buttons such as "Delete forever" use the destructive colour, and their text stays readable on hover. ([#4](https://github.com/Softwaiz/gentlemail/pull/4))
 

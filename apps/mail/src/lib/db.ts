@@ -106,16 +106,22 @@ export function replyRecipients(
   return { to, cc };
 }
 
+/** The mailboxes a person sees: every one for an admin, otherwise those they're a member of. `columns` of `m`. */
+const mailboxesForUser = (user: User, columns: string) =>
+  user.role === "admin"
+    ? env.DB.prepare(`SELECT ${columns} FROM mailboxes m ORDER BY m.address`)
+    : env.DB.prepare(`SELECT ${columns} FROM mailboxes m JOIN mailbox_members mm ON mm.mailbox_id = m.id WHERE mm.user_id = ? ORDER BY m.address`).bind(
+        user.id,
+      );
+
 export async function listMailboxesForUser(user: User): Promise<(Mailbox & { unread: number })[]> {
-  const base = `SELECT m.*, (SELECT COUNT(*) FROM messages x WHERE x.mailbox_id = m.id AND x.folder = 'inbox' AND x.is_read = 0) AS unread FROM mailboxes m`;
-  const q =
-    user.role === "admin"
-      ? env.DB.prepare(`${base} ORDER BY m.address`)
-      : env.DB.prepare(
-          `${base} JOIN mailbox_members mm ON mm.mailbox_id = m.id WHERE mm.user_id = ? ORDER BY m.address`,
-        ).bind(user.id);
-  const { results } = await q.all<Mailbox & { unread: number }>();
-  return results;
+  const unread = "(SELECT COUNT(*) FROM messages x WHERE x.mailbox_id = m.id AND x.folder = 'inbox' AND x.is_read = 0) AS unread";
+  return (await mailboxesForUser(user, `m.*, ${unread}`).all<Mailbox & { unread: number }>()).results;
+}
+
+/** The same mailboxes, ids and addresses only (no unread counts). */
+export async function listMailboxAddressesForUser(user: User): Promise<{ id: string; address: string }[]> {
+  return (await mailboxesForUser(user, "m.id, m.address").all<{ id: string; address: string }>()).results;
 }
 
 /** Returns the mailbox if the user may access it, otherwise null. */

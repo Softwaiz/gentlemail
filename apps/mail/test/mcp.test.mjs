@@ -208,6 +208,27 @@ describe("registration limits", () => {
     assert.equal((await register(undefined, {}, "203.0.113.10")).status, 201);
   });
 
+  test("past 5,000 apps that never signed in, the hourly clean-up drops the oldest, never the last 15 minutes", async () => {
+    // An app registered 10 minutes ago, then 5,010 newer ones: it is past the cap but still kept. One an hour old goes.
+    const t = Date.now();
+    const { body: signingIn } = await register();
+    const { body: stale } = await register();
+    await db.batch([
+      db.prepare("UPDATE oauth_clients SET created_at = ? WHERE id = ?").bind(t - 10 * 60e3, signingIn.client_id),
+      db.prepare("UPDATE oauth_clients SET created_at = ? WHERE id = ?").bind(t - 3600e3, stale.client_id),
+      db
+        .prepare(
+          `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 5010)
+           INSERT INTO oauth_clients (id, name, redirect_uris, created_at) SELECT 'bulk' || i, 'bulk', '[]', ? + i FROM n`,
+        )
+        .bind(t - 5 * 60e3),
+    ]);
+    await (await mf.getWorker()).scheduled({ scheduledTime: new Date(Date.UTC(2026, 0, 1, 12, 0)), cron: "0 * * * *" });
+    assert.ok(await db.prepare("SELECT id FROM oauth_clients WHERE id = ?").bind(signingIn.client_id).first());
+    assert.equal(await db.prepare("SELECT id FROM oauth_clients WHERE id = ?").bind(stale.client_id).first(), null);
+    await db.prepare("DELETE FROM oauth_clients WHERE id LIKE 'bulk%'").run();
+  });
+
   test("redirect URIs are kept short", async () => {
     assert.equal((await register([`https://app.test/${"x".repeat(500)}`])).status, 400);
     assert.equal((await register(Array.from({ length: 6 }, (_, i) => `https://app.test/${i}`))).status, 400);
@@ -273,7 +294,7 @@ describe("consent screen", () => {
     await db.prepare("UPDATE users SET mfa_enabled_at = 1 WHERE id = 'uMember'").run();
     try {
       assert.match(await security("/oauth/authorize?x=1"), /href="\/oauth\/authorize\?x=1"[^>]*>Continue where you were/);
-      for (const next of ["/\t/evil.test", "/\n/evil.test", "//evil.test", "/\\evil.test", "/ /evil.test", "https://evil.test"])
+      for (const next of ["/\t/evil.test", "/\n/evil.test", "//evil.test", "/\\evil.test", "/ /evil.test", "https://evil.test", "/.//evil.test", "/%2e//evil.test", "/a/..//evil.test"])
         assert.doesNotMatch(await security(next), /Continue where you were/, JSON.stringify(next));
     } finally {
       await db.prepare("UPDATE users SET mfa_enabled_at = NULL WHERE id = 'uMember'").run();
@@ -394,8 +415,7 @@ describe("tokens", () => {
     assert.equal(retry.status, 200);
     assert.equal((await rpc(retry.body.access_token, "tools/list")).status, 200);
     assert.equal((await rpc(next.body.access_token, "tools/list")).status, 200);
-    // Later, it's a copy: the device's new tokens stop working too.
-    await db.prepare("UPDATE oauth_tokens SET used_at = used_at - 60000 WHERE used_at IS NOT NULL").run();
+    // Only once: a second retry is a copy, and the device's new tokens stop working too.
     assert.equal((await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
     assert.equal((await rpc(next.body.access_token, "tools/list")).status, 401);
     assert.equal((await token({ grant_type: "refresh_token", refresh_token: next.body.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
@@ -530,6 +550,10 @@ describe("a member's assistant", () => {
       const res = await rpc(c.access_token, "tools/list");
       assert.equal(res.status, 401);
       assert.match(res.headers.get("www-authenticate"), /resource_metadata=/);
+      // A refused call isn't a use.
+      const used = await db.prepare("SELECT last_used_at FROM api_keys WHERE client_id = ?").bind(c.client.client_id).first();
+      await rpc(c.access_token, "tools/list");
+      assert.deepEqual(await db.prepare("SELECT last_used_at FROM api_keys WHERE client_id = ?").bind(c.client.client_id).first(), used);
       // Refreshing fails too, so the app signs in again instead of retrying in a loop.
       assert.equal((await token({ grant_type: "refresh_token", refresh_token: r.refresh_token, client_id: r.client.client_id })).body.error, "invalid_grant");
     } finally {
@@ -656,6 +680,7 @@ describe("assistants in a browser", () => {
       assert.equal(res.headers.get("access-control-allow-origin"), "*");
       assert.match(res.headers.get("access-control-allow-headers"), /Authorization/);
       assert.match(res.headers.get("access-control-allow-headers"), /Mcp-Protocol-Version/);
+      if (discovery.includes(path)) assert.equal((await request(path, { method: "HEAD" })).status, 200, path);
     }
   });
 

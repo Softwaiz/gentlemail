@@ -49,7 +49,7 @@ Skipping releases is fine: the same command applies every pending migration, old
 
 1. Pull the release, as above.
 2. Apply `0007_oauth.sql`. With the Deploy button's setup it happens on the push; otherwise run `npx wrangler d1 migrations apply DB --remote`.
-3. If you keep your own `wrangler.jsonc`, add the new `ratelimits` entry from the repository's: it limits how often one address can register an assistant app. It needs nothing created in Cloudflare. Without it, GentleMail still works, and keeps at most 5,000 registrations that never signed in.
+3. If you keep your own `wrangler.jsonc`, add the new `ratelimits` entry from the repository's: it limits how often one address can register an assistant app. It needs nothing created in Cloudflare. Without it, GentleMail still works and logs a warning, and keeps at most 5,000 registrations that never signed in.
 4. No new secret or setting. Assistants connect at your address followed by `/mcp`, and nothing changes until someone connects one.
 
 Until the migration is applied, the API, **API & webhooks** and **Security** fail.

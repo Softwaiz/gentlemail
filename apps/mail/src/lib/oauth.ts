@@ -27,8 +27,13 @@ const CODE_TTL = 5 * 60 * 1000;
 const UNUSED_CLIENT_TTL = 24 * 60 * 60 * 1000;
 const IDLE_CLIENT_TTL = 365 * 24 * 60 * 60 * 1000;
 export const SCOPE = "mail";
-/** Registered apps that haven't signed in yet, kept at most (each holds up to about 3 KB). */
+/**
+ * Registered apps that haven't signed in yet, kept at most by the hourly purge
+ * (each holds up to about 3 KB). Those registered in the last 15 minutes are
+ * always kept: their person may be on the sign-in or consent page.
+ */
 const MAX_PENDING_CLIENTS = 5000;
+const PENDING_CLIENT_KEEP = 15 * 60 * 1000;
 
 export type OAuthClient = { id: string; name: string; redirect_uris: string; secret_hash: string | null; created_at: number; used_at: number | null };
 export type TokenSet = { access_token: string; token_type: "Bearer"; expires_in: number; refresh_token: string; scope: string };
@@ -116,22 +121,9 @@ export async function registerClient(body: Record<string, unknown>) {
   const id = `gmcl_${b64url(crypto.getRandomValues(new Uint8Array(16)))}`;
   const secret = method === "none" ? null : randomToken("gmcs_");
   const created = now();
-  await env.DB.batch([
-    env.DB.prepare("INSERT INTO oauth_clients (id, name, redirect_uris, secret_hash, created_at) VALUES (?, ?, ?, ?, ?)").bind(
-      id,
-      name,
-      JSON.stringify(uris),
-      secret ? await sha256(secret) : null,
-      created,
-    ),
-    // Bounds what anonymous registrations can store: past the cap, the oldest
-    // that never signed in (and aren't signing in now) make room.
-    env.DB.prepare(
-      `DELETE FROM oauth_clients WHERE used_at IS NULL
-       AND id NOT IN (SELECT id FROM oauth_clients WHERE used_at IS NULL ORDER BY created_at DESC LIMIT ?)
-       AND NOT EXISTS (SELECT 1 FROM oauth_codes c WHERE c.client_id = oauth_clients.id)`,
-    ).bind(MAX_PENDING_CLIENTS),
-  ]);
+  await env.DB.prepare("INSERT INTO oauth_clients (id, name, redirect_uris, secret_hash, created_at) VALUES (?, ?, ?, ?, ?)")
+    .bind(id, name, JSON.stringify(uris), secret ? await sha256(secret) : null, created)
+    .run();
   return {
     client_id: id,
     client_id_issued_at: Math.floor(created / 1000),
@@ -223,28 +215,29 @@ export async function exchangeCode(client: OAuthClient, form: FormData): Promise
   // One connection per person and app (a unique index): signing in again, from
   // any device, replaces its access and keeps the tokens other devices hold.
   const t = now();
-  await env.DB.prepare(
-    `INSERT OR IGNORE INTO api_keys (id, name, prefix, key_hash, mailbox_id, scopes, created_by, created_at, user_id, client_id)
-     VALUES (?1, ?2, 'oauth', 'oauth:' || ?1, NULL, '', ?3, ?4, ?3, ?5)`,
+  // Signing in counts as using it: set in the same statement, so the hourly
+  // purge can't remove a dormant connection while it's being taken up again.
+  const key = await env.DB.prepare(
+    `INSERT INTO api_keys (id, name, prefix, key_hash, mailbox_id, scopes, created_by, created_at, user_id, client_id, last_used_at)
+     VALUES (?1, ?2, 'oauth', 'oauth:' || ?1, NULL, '', ?3, ?4, ?3, ?5, ?4)
+     ON CONFLICT (user_id, client_id) WHERE client_id IS NOT NULL DO UPDATE SET last_used_at = excluded.last_used_at
+     RETURNING id`,
   )
     .bind(newId(), client.name, row.user_id, t, client.id)
-    .run();
-  const key = await env.DB.prepare("SELECT id FROM api_keys WHERE user_id = ? AND client_id = ?").bind(row.user_id, client.id).first<{ id: string }>();
+    .first<{ id: string }>();
   if (!key) return oauthError("server_error", "Couldn't save the connection. Try again.", 500);
   const keyId = key.id;
   await env.DB.batch([
     ...grantStatements(keyId, grants),
     env.DB.prepare("UPDATE oauth_clients SET used_at = ? WHERE id = ?").bind(t, client.id),
-    // Signing in counts as using it, and keeps the hourly purge off it until its tokens exist.
-    env.DB.prepare("UPDATE api_keys SET last_used_at = ? WHERE id = ?").bind(t, keyId),
   ]);
   return issueTokens(keyId, newId());
 }
 
 /**
  * A refresh token traded in again within this long of its first use is a client
- * retrying (two tabs, an answer lost on the way): it gets a pair of its own.
- * Later, it's a copy.
+ * retrying (two tabs, an answer lost on the way): it gets a pair of its own,
+ * once. Any later use, or a second retry, is a copy.
  */
 const REUSE_GRACE = 30 * 1000;
 
@@ -262,8 +255,9 @@ export async function refreshTokens(client: OAuthClient, form: FormData): Promis
   if (!token.startsWith(REFRESH_PREFIX)) return unknown;
   const id = await sha256(token);
   const t = now();
+  // A retry moves used_at back out of the window, so a second retry counts as a copy.
   const row = await env.DB.prepare(
-    `UPDATE oauth_tokens SET used_at = COALESCE(used_at, ?1)
+    `UPDATE oauth_tokens SET used_at = CASE WHEN used_at IS NULL THEN ?1 ELSE ?1 - ?4 - 1 END
      WHERE id = ?2 AND kind = 'refresh' AND expires_at > ?1 AND (used_at IS NULL OR used_at >= ?1 - ?4)
      AND key_id IN (SELECT k.id FROM api_keys k WHERE k.client_id = ?3 AND k.revoked_at IS NULL AND ${CONNECTION_REACHES_SQL})
      RETURNING key_id, family, used_at = ?1 AS first`,
@@ -330,5 +324,11 @@ export async function purgeExpiredOAuth() {
        AND NOT EXISTS (SELECT 1 FROM api_keys k WHERE k.client_id = oauth_clients.id)
        AND NOT EXISTS (SELECT 1 FROM oauth_codes c WHERE c.client_id = oauth_clients.id)`,
     ).bind(t - UNUSED_CLIENT_TTL, t - IDLE_CLIENT_TTL),
+    // Past the cap, the oldest that never signed in make room.
+    env.DB.prepare(
+      `DELETE FROM oauth_clients WHERE used_at IS NULL AND created_at < ?1
+       AND id NOT IN (SELECT id FROM oauth_clients WHERE used_at IS NULL ORDER BY created_at DESC LIMIT ?2)
+       AND NOT EXISTS (SELECT 1 FROM oauth_codes c WHERE c.client_id = oauth_clients.id)`,
+    ).bind(t - PENDING_CLIENT_KEEP, MAX_PENDING_CLIENTS),
   ]);
 }

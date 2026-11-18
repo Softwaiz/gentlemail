@@ -27,7 +27,9 @@ export function safeNext(n: string | null) {
   if (!n || !n.startsWith("/") || /[\s\\\x00-\x1f\x7f]/.test(n)) return "/";
   try {
     const u = new URL(n, "https://x.invalid");
-    return u.origin === "https://x.invalid" && !n.startsWith("//") ? u.pathname + u.search + u.hash : "/";
+    const path = u.pathname + u.search + u.hash;
+    // Checked on the result, which "/.//evil.com" turns into "//evil.com".
+    return u.origin === "https://x.invalid" && !/^\/[/\\]/.test(path) ? path : "/";
   } catch {
     return "/";
   }

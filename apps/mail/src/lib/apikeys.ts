@@ -1,4 +1,4 @@
-import { env } from "cloudflare:workers";
+import { env, waitUntil } from "cloudflare:workers";
 import { sha256 } from "./auth";
 import { ACCESS_PREFIX } from "./oauth";
 import { b64url, domainOf, newId, now } from "./util";
@@ -206,8 +206,8 @@ export const endConnections = (userId: string) => env.DB.prepare("DELETE FROM ap
  * checked per request with `can()`. Tokens from signing in (OAuth) are
  * accepted only where `oauth` is set: they are for /mcp.
  *
- * Two round trips: the key, then one batch with its grants, its person's
- * mailboxes and "last used".
+ * Two round trips: the key, then one batch with its grants and its person's
+ * mailboxes. "Last used" is written after the answer, for accepted calls only.
  */
 export async function authenticate(request: Request, scope: Scope | null, opts: { oauth?: boolean } = {}): Promise<ApiAuth | Response> {
   const header = request.headers.get("Authorization") ?? "";
@@ -227,7 +227,6 @@ export async function authenticate(request: Request, scope: Scope | null, opts: 
       .first<ApiKeyRow>();
   }
   if (!key) return apiError(401, "unauthorized", "Unknown or revoked API key.");
-  // "Last used" is written with the reads: the key is genuine, whatever it may do.
   const none = env.DB.prepare("SELECT NULL WHERE 0");
   const [grantRows, memberRows, reachRows] = await env.DB.batch([
     env.DB.prepare(
@@ -243,7 +242,6 @@ export async function authenticate(request: Request, scope: Scope | null, opts: 
            JOIN api_key_grants g ON g.key_id = ? AND ${GRANT_COVERS_SQL} AND b.id IN (${MEMBER_MAILBOXES_SQL})`,
         ).bind(key.id, key.user_id)
       : none,
-    env.DB.prepare("UPDATE api_keys SET last_used_at = ? WHERE id = ?").bind(now(), key.id),
   ]);
   const grants = grantRows.results as ResolvedGrant[];
   const limit = limited ? new Set((memberRows.results as { mailbox_id: string }[]).map((r) => r.mailbox_id)) : null;
@@ -258,6 +256,12 @@ export async function authenticate(request: Request, scope: Scope | null, opts: 
   const auth: ApiAuth = { key, grants, limit, can };
   if (!(scope ? can[scope] : can.read || can.send))
     return apiError(403, "forbidden", scope ? `This key has no "${scope}" permission on any mailbox.` : "This key has no permission on any mailbox.");
+  waitUntil(
+    env.DB.prepare("UPDATE api_keys SET last_used_at = ? WHERE id = ?")
+      .bind(now(), key.id)
+      .run()
+      .catch((e) => console.error("last_used_at update failed", e)),
+  );
   return auth;
 }
 

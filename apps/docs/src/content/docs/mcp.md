@@ -17,13 +17,29 @@ You also find it under **Security** in the webmail, in **Connected assistants**.
 
 The assistant opens a GentleMail page. You sign in as usual, with two-step verification if it's on. You then tick what the assistant may **Read** and **Send**, mailbox by mailbox, and click **Allow**. No key to copy: the assistant keeps its own sign-in and renews it by itself.
 
-- **Claude (claude.ai, desktop and mobile):** Settings → Connectors → **Add custom connector**, paste the address, then **Connect**.
+- **Claude (claude.ai, desktop and mobile):** on claude.ai, Settings → Connectors → **Add custom connector**, paste the address, then **Connect**. The connector then shows up in the desktop and mobile apps too.
 - **Claude Code:** run the command below, then `/mcp` in Claude Code and choose **Authenticate**.
   ```sh
   claude mcp add --transport http gentlemail https://mail.example.com/mcp
   ```
-- **ChatGPT:** with developer mode on, add a custom connector with the address and choose OAuth.
-- **Cursor, VS Code and others:** add a remote (HTTP) MCP server with the address. They open the sign-in page when you first use it.
+- **Other assistants** (ChatGPT in developer mode, Cursor, VS Code…): add a remote MCP server, also called a custom connector or HTTP server, with the address, and choose OAuth if asked. They open the sign-in page the first time you use it.
+
+Your instance must be reachable over HTTPS, as it is once deployed: assistants refuse plain `http://` addresses, except on your own computer.
+
+## Things to ask it
+
+Ask in your own words; the assistant picks the tools. For example:
+
+- "What came in on support@ today? Summarise each message in one line."
+- "Do I have unread mail from Paul? Open the latest conversation and tell me what he needs."
+- "Find the invoice from Acme last month and give me the amount and due date."
+- "Draft a reply to that message saying we'll ship on Friday. Show it to me before sending."
+- "Reply to everyone in that thread that the meeting moves to 3pm."
+- "Mark the newsletters in my inbox as read and archive them."
+- "Move that message to spam."
+- "Send an email from hello@ to anna@example.com thanking her for the call, signed with my signature."
+
+When it's about to send, the assistant shows you the message and waits for your go-ahead. On a mailbox it may only read, it can't send at all.
 
 ## What it can do
 

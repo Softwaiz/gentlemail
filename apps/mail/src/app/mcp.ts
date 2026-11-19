@@ -344,6 +344,9 @@ async function handleMessage(auth: ApiAuth, m: RpcMessage) {
     case "tools/call": {
       const tool = TOOL_BY_NAME.get(str(params.name) ?? "");
       if (!tool) return rpcError(m.id, -32602, `Unknown tool: ${String(params.name)}`);
+      // Only the tools it was shown: each tool's own checks then apply on top.
+      if (!toolsFor(auth).includes(tool))
+        return rpcError(m.id, -32602, `This connection can't use ${tool.name}: it needs the ${tool.needs.join(" and ")} permission.`);
       const args = (params.arguments && typeof params.arguments === "object" ? params.arguments : {}) as Json;
       try {
         return rpcResult(m.id, await tool.run(auth, args));

@@ -112,6 +112,7 @@ On macOS, use `security find-generic-password -s gentlemail -w` instead. With 1P
   - The metadata is at `/.well-known/oauth-protected-resource/mcp` and `/.well-known/oauth-authorization-server`.
   - The endpoints are `/oauth/register`, `/oauth/authorize`, `/oauth/token` and `/oauth/revoke`.
   - Redirect URIs must be https, http on `localhost` or `127.0.0.1` (any port), or an app's own scheme.
+- A connection only gets the tools its access allows: calling one `tools/list` didn't show is a JSON-RPC error (`-32602`) naming the permission it needs.
 - Tokens from signing in work on `/mcp` only, not on `/api/v1`.
 - Each sign-in is its own chain of tokens. `/oauth/revoke` ends the chain the token belongs to. A refresh token used again within 30 seconds of its first use (a retry) gets the same pair it got then, while that pair's refresh token is unused; it is kept encrypted with a key derived from the old refresh token, for those 30 seconds. Any other reuse ends its chain. Used refresh tokens are remembered for a week. A `redirect_uri` sent to `/oauth/authorize` must be repeated at `/oauth/token`; one left out there may be sent at `/oauth/token` if it's registered.
 - Registration takes up to 5 redirect URIs of up to 500 characters, and 10 registrations a minute from one address (`429 slow_down` beyond).

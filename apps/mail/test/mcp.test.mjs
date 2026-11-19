@@ -151,6 +151,13 @@ async function tool(bearer, name, args = {}) {
   return out.isError ? { error: text } : JSON.parse(text);
 }
 
+/** Calls a tool tools/list doesn't show: a JSON-RPC error, and its message. */
+async function hiddenTool(bearer, name, args = {}) {
+  const res = await rpc(bearer, "tools/call", { name, arguments: args });
+  assert.equal(res.body.error?.code, -32602, JSON.stringify(res.body));
+  return res.body.error.message;
+}
+
 const toolNames = async (bearer) => (await rpc(bearer, "tools/list")).body.result.tools.map((t) => t.name).sort();
 
 /* ---------- Tests ---------- */
@@ -880,7 +887,7 @@ describe("organize", () => {
     const c = await connect("uMember", { read: ["mailbox:mA1"] });
     assert.deepEqual(await toolNames(c.access_token), ["get_message", "get_thread", "list_mailboxes", "search_messages"]);
     for (const action of ["read", "star", "archive", "trash", "spam"])
-      assert.match((await tool(c.access_token, "update_message", { id: "m3", action })).error, /needs the "organize" permission/, action);
+      assert.deepEqual(await hiddenTool(c.access_token, "update_message", { id: "m3", action }), "This connection can't use update_message: it needs the organize permission.", action);
     const m3 = await db.prepare("SELECT folder, is_read, is_starred FROM messages WHERE id = 'm3'").first();
     assert.deepEqual({ ...m3 }, { folder: "inbox", is_read: 0, is_starred: 0 });
   });
@@ -889,7 +896,7 @@ describe("organize", () => {
     const c = await connect("uMember", { organize: ["mailbox:mA1"] });
     assert.deepEqual(await toolNames(c.access_token), ["list_mailboxes", "update_message"]);
     assert.deepEqual((await tool(c.access_token, "list_mailboxes")).map((m) => m.permissions), [["organize"]]);
-    assert.match((await tool(c.access_token, "get_message", { id: "m3" })).error, /No such message|read/);
+    assert.equal(await hiddenTool(c.access_token, "get_message", { id: "m3" }), "This connection can't use get_message: it needs the read permission.");
     assert.equal((await tool(c.access_token, "update_message", { id: "m3", action: "archive" })).status, "ok");
     assert.equal((await db.prepare("SELECT folder FROM messages WHERE id = 'm3'").first()).folder, "archive");
     await db.prepare("UPDATE messages SET folder = 'inbox' WHERE id = 'm3'").run();
@@ -916,7 +923,10 @@ describe("API keys on /mcp", () => {
   test("work too, with the key's own access", async () => {
     assert.deepEqual(await toolNames(API_KEY), ["get_message", "get_thread", "list_mailboxes", "search_messages"]);
     assert.deepEqual((await tool(API_KEY, "list_mailboxes")).map((m) => m.address), ["two@alpha.test"]);
-    assert.match((await tool(API_KEY, "send_email", { from: "two@alpha.test", to: ["x@elsewhere.test"], subject: "s", text: "t" })).error, /can't send/);
+    assert.equal(
+      await hiddenTool(API_KEY, "send_email", { from: "two@alpha.test", to: ["x@elsewhere.test"], subject: "s", text: "t" }),
+      "This connection can't use send_email: it needs the send permission.",
+    );
   });
 
 });

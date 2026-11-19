@@ -122,14 +122,14 @@ await mail.send({
     sdk: `const mailboxes = await mail.mailboxes.list();       // the ones this key can use
 const unread = await mail.messages.list({ mailbox: "${example}", unread: true });
 const message = await mail.messages.get(unread[0].id);  // full text and HTML
-await mail.messages.update(message.id, "archive");       // read, unread, star, archive, trash, inbox
+await mail.messages.update(message.id, "archive");       // read, unread, star, unstar, archive, trash, spam, inbox
 await mail.messages.reply(message, { text: "Thanks, we're on it." });
 const file = await mail.attachments.download(message.attachments[0].url);`,
     http: `GET  /api/v1/mailboxes
 GET  /api/v1/messages?mailbox=${example}&folder=inbox&unread=true&since=2026-11-01
 GET  /api/v1/messages/{id}             full text, raw HTML, attachment links
 GET  /api/v1/attachments/{id}          file bytes
-POST /api/v1/messages/{id}  {"action":"archive"}   read, unread, star, archive, trash, inbox`,
+POST /api/v1/messages/{id}  {"action":"archive"}   read, unread, star, unstar, archive, trash, spam, inbox`,
     sdkNote: <>Reading needs a key with the Read permission on that mailbox, marking and moving needs Organize, and sending needs Send.</>,
     httpNote: <>Reading needs a key with the Read permission on that mailbox, marking and moving needs Organize, and sending needs Send.</>,
   },

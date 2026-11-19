@@ -68,13 +68,17 @@ export async function mailboxFor(auth: ApiAuth, address: string, scope: Scope) {
   return mb;
 }
 
-export async function messageFor(auth: ApiAuth, id: string, scope: Scope) {
-  const msg = await env.DB.prepare(
-    "SELECT m.*, b.address AS mailbox_address FROM messages m JOIN mailboxes b ON b.id = m.mailbox_id WHERE m.id = ?",
-  )
+/** A message with its mailbox's address, whoever may see it (check with can()). */
+const loadMessage = (id: string) =>
+  env.DB.prepare("SELECT m.*, b.address AS mailbox_address FROM messages m JOIN mailboxes b ON b.id = m.mailbox_id WHERE m.id = ?")
     .bind(id)
     .first<MessageRow & { mailbox_address: string }>();
-  if (!msg || !can(auth, { id: msg.mailbox_id, address: msg.mailbox_address }, scope)) return null;
+
+const mailboxOf = (msg: MessageRow & { mailbox_address: string }) => ({ id: msg.mailbox_id, address: msg.mailbox_address });
+
+export async function messageFor(auth: ApiAuth, id: string, scope: Scope) {
+  const msg = await loadMessage(id);
+  if (!msg || !can(auth, mailboxOf(msg), scope)) return null;
   return msg;
 }
 
@@ -296,12 +300,12 @@ export const messageActionHandler = withKey(null, async ({ params, request }, au
 });
 
 export async function actOnMessage(auth: ApiAuth, id: string, action: string) {
-  const msg = await messageFor(auth, id, "organize");
-  if (!msg) {
+  const msg = await loadMessage(id);
+  if (!msg || !can(auth, mailboxOf(msg), "organize")) {
     // One it can see but not file: say what's missing, as a reply does for read. This is
     // what a key from before Organize existed gets, so it's checked before "no organize at all".
-    const seen = await messageFor(auth, id, "read");
-    if (seen) return apiError(403, "organize_required", `Marking and moving messages needs the "organize" permission on ${seen.mailbox_address}.`);
+    if (msg && can(auth, mailboxOf(msg), "read"))
+      return apiError(403, "organize_required", `Marking and moving messages needs the "organize" permission on ${msg.mailbox_address}.`);
     if (!auth.can.organize) return apiError(403, "forbidden", 'This key has no "organize" permission on any mailbox.');
     return apiError(404, "not_found", "No such message.");
   }

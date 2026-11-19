@@ -3,7 +3,7 @@ title: Read mail
 description: List, read, move and download GentleMail messages and attachments with the API.
 ---
 
-These need **Read** on the mailbox, except marking and moving, which need **Organize**. A key only ever sees the mailboxes it has Read on.
+These need **Read** on the mailbox, except marking and moving, which need **Organize**. A key only lists and reads messages from the mailboxes it has Read on.
 
 ## List messages
 

@@ -26,14 +26,34 @@ export type AccessTargets = {
   mailboxes: { id: string; address: string }[];
 };
 /** "all" | "domain:<id>" | "mailbox:<id>" → permissions granted directly on it. */
-export type AccessValue = Record<string, { read: boolean; send: boolean }>;
+export type AccessValue = Record<string, Record<Perm, boolean>>;
 
-type Perm = "read" | "send";
+/** The permissions, in column order (the server's Scope; kept here, as this file runs in the browser). */
+type Perm = "read" | "organize" | "send";
+const PERMS: { perm: Perm; label: string }[] = [
+  { perm: "read", label: "Read" },
+  { perm: "organize", label: "Organize" },
+  { perm: "send", label: "Send" },
+];
+const NONE: Record<Perm, boolean> = { read: false, organize: false, send: false };
+/** Narrower on phones, where a name may wrap rather than be cut off (see row()). */
+/** An address may wrap after its "@" (on phones) rather than mid-word. */
+const breakAfterAt = (text: string) => {
+  const at = text.indexOf("@");
+  return at < 0 ? text : (
+    <>
+      {text.slice(0, at + 1)}
+      <wbr />
+      {text.slice(at + 1)}
+    </>
+  );
+};
+const COLUMNS = "grid-cols-[minmax(0,1fr)_repeat(3,52px)] sm:grid-cols-[minmax(0,1fr)_repeat(3,64px)]";
 
 /**
- * Read / Send per line: every mailbox, each domain (mailboxes added to it later
- * included) and each mailbox. A line already covered by a broader one shows as
- * ticked and locked. Posts checkboxes named "read" and "send"; the server
+ * Read / Organize / Send per line: every mailbox, each domain (mailboxes added
+ * to it later included) and each mailbox. A line already covered by a broader
+ * one shows as ticked and locked. Posts checkboxes named after each permission; the server
  * replaces all of a key's grants with what is posted, so every grant must be
  * in the form: the filter only hides rows, and a locked line still posts its
  * own grant, so removing the broader line later leaves it in place.
@@ -68,7 +88,7 @@ export function AccessEditor({
   const q = filter.trim().toLowerCase();
   const own = (t: string, p: Perm) => !!value[t]?.[p];
   const toggle = (t: string, p: Perm, on: boolean) =>
-    setValue((v) => ({ ...v, [t]: { ...(v[t] ?? { read: false, send: false }), [p]: on } }));
+    setValue((v) => ({ ...v, [t]: { ...NONE, ...v[t], [p]: on } }));
 
   const cell = (target: string, perm: Perm, inherited: boolean, label: string) =>
     inherited ? (
@@ -97,22 +117,21 @@ export function AccessEditor({
   }) => (
     <div
       key={target}
-      className={cn("grid grid-cols-[minmax(0,1fr)_56px_56px] items-center gap-2 px-3 py-2", level === 0 ? "bg-muted/40" : "pl-7", hidden && "hidden")}
+      className={cn("grid items-center gap-2 px-3 py-2", COLUMNS, level === 0 ? "bg-muted/40" : "pl-5 sm:pl-7", hidden && "hidden")}
     >
       <div className="min-w-0">
-        <div className={cn("truncate text-sm", level === 0 && "font-medium")}>{title}</div>
-        {hint && <div className="truncate text-xs text-muted-foreground">{hint}</div>}
+        <div className={cn("text-sm max-sm:[overflow-wrap:anywhere] sm:truncate", level === 0 && "font-medium")}>{breakAfterAt(title)}</div>
+        {hint && <div className="text-xs text-muted-foreground max-sm:[overflow-wrap:anywhere] sm:truncate">{hint}</div>}
       </div>
-      <div className="grid place-items-center">
-        {cell(target, "read", inherited.read, `${title}: read`)}
-      </div>
-      <div className="grid place-items-center">
-        {cell(target, "send", inherited.send, `${title}: send`)}
-      </div>
+      {PERMS.map(({ perm }) => (
+        <div key={perm} className="grid place-items-center">
+          {cell(target, perm, inherited[perm], `${title}: ${perm}`)}
+        </div>
+      ))}
     </div>
   );
 
-  const allOn = { read: own("all", "read"), send: own("all", "send") };
+  const allOn = Object.fromEntries(PERMS.map(({ perm }) => [perm, own("all", perm)])) as Record<Perm, boolean>;
   return (
     <div className="grid gap-2">
       {targets.mailboxes.length > 8 && (
@@ -122,21 +141,23 @@ export function AccessEditor({
         </div>
       )}
       <div className="overflow-hidden rounded-md border">
-        <div className="grid grid-cols-[minmax(0,1fr)_56px_56px] gap-2 border-b px-3 py-1.5 text-xs font-medium text-muted-foreground">
+        <div className={cn("grid gap-2 border-b px-3 py-1.5 text-[11px] font-medium text-muted-foreground sm:text-xs", COLUMNS)}>
           <span>Access to</span>
-          <span className="text-center">Read</span>
-          <span className="text-center">Send</span>
+          {PERMS.map(({ perm, label }) => (
+            <span key={perm} className="text-center">
+              {label}
+            </span>
+          ))}
         </div>
         <div className="max-h-[45vh] divide-y overflow-y-auto">
           {allowAll &&
-            row({ target: "all", title: "All mailboxes", hint: "Every mailbox, now and later", inherited: { read: false, send: false }, level: 0 })}
+            row({ target: "all", title: "All mailboxes", hint: "Every mailbox, now and later", inherited: NONE, level: 0 })}
           {groups.map((g) => {
             const dKey = g.domain ? `domain:${g.domain.id}` : "";
             const dInherited = allOn;
-            const mInherited = {
-              read: allOn.read || (!!g.domain && own(dKey, "read")),
-              send: allOn.send || (!!g.domain && own(dKey, "send")),
-            };
+            const mInherited = Object.fromEntries(
+              PERMS.map(({ perm }) => [perm, allOn[perm] || (!!g.domain && own(dKey, perm))]),
+            ) as Record<Perm, boolean>;
             // Filtered-out rows are hidden, not removed, so their grants are still posted.
             const matches = (m: { address: string }) => !q || m.address.toLowerCase().includes(q);
             const groupHidden = !!q && !g.mailboxes.some(matches) && !g.domain?.name.toLowerCase().includes(q);
@@ -162,7 +183,8 @@ export function AccessEditor({
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        <strong className="font-medium text-foreground">Read</strong>: list and read messages and attachments, mark read, archive.{" "}
+        <strong className="font-medium text-foreground">Read</strong>: search and read messages and attachments.{" "}
+        <strong className="font-medium text-foreground">Organize</strong>: mark read or unread, star, archive, move to spam or trash.{" "}
         <strong className="font-medium text-foreground">Send</strong>: send from the mailbox.
       </p>
     </div>

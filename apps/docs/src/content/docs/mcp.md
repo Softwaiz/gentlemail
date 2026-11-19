@@ -23,7 +23,7 @@ You also find it under **Security** in the webmail, in **Connected assistants**.
 
 ## Connect
 
-The assistant opens a GentleMail page. You sign in as usual, with two-step verification if it's on. You then tick what the assistant may **Read** and **Send**, mailbox by mailbox, and click **Allow**. No key to copy: the assistant keeps its own sign-in and renews it by itself.
+The assistant opens a GentleMail page. You sign in as usual, with two-step verification if it's on. You then tick what the assistant may **Read**, **Organize** (mark and move messages) and **Send**, mailbox by mailbox, and click **Allow**. No key to copy: the assistant keeps its own sign-in and renews it by itself.
 
 - **Claude (claude.ai, desktop and mobile):** on claude.ai, Settings → Connectors → **Add custom connector**, paste the address, then **Connect**. The connector then shows up in the desktop and mobile apps too.
 - **Claude Code:** run the command below, then `/mcp` in Claude Code and choose **Authenticate**.
@@ -47,21 +47,21 @@ Ask in your own words; the assistant picks the tools. For example:
 - "Move that message to spam."
 - "Send an email from hello@ to anna@example.com thanking her for the call, signed with my signature."
 
-When it's about to send, the assistant shows you the message and waits for your go-ahead. On a mailbox it may only read, it can't send at all.
+When it's about to send, the assistant shows you the message and waits for your go-ahead. On a mailbox it may only read, it can't send, mark or move anything: tick **Organize** for the last three examples.
 
 ## What it can do
 
 | Tool | Needs | What it does |
 |---|---|---|
-| `list_mailboxes` | | The mailboxes it may use, and whether it may read or send on each. |
+| `list_mailboxes` | | The mailboxes it may use, and whether it may read, organize and send on each. |
 | `search_messages` | Read | Lists a folder or searches subject, sender, recipients and text. A search covers every folder but spam and trash, unless the assistant names a folder. |
 | `get_message` | Read | One message as text, with recipients and attachment names. |
 | `get_thread` | Read | A conversation, oldest first. Past 25 messages, it gives the first one and the newest 24, and says how many it left out in between. |
-| `update_message` | Read | Marks read or unread, stars, moves to inbox, archive, spam or trash. |
+| `update_message` | Organize | Marks read or unread, stars, moves to inbox, archive, spam or trash. |
 | `send_email` | Send | Sends a new message from a mailbox. |
 | `reply` | Read and Send | Replies in the conversation, quoting the original, optionally to everyone. |
 
-An assistant only sees the tools its access allows: a read-only one has no sending tools. It can't download attachments, delete mail for good or change settings.
+An assistant only sees the tools its access allows: a read-only one has no sending tools and can't mark or move anything. It can't download attachments, delete mail for good or change settings.
 
 ## Staying in control
 
@@ -74,6 +74,10 @@ An assistant only sees the tools its access allows: a read-only one has no sendi
 - **Short-lived tokens.** The assistant gets a token valid for an hour and a renewal token that changes each time it's used. If an old renewal token is used again more than 30 seconds later, someone has copied it, and that device is signed out. Within 30 seconds, it's taken for the app retrying (two tabs renewing at once, an answer lost on the way) and gets the same tokens as the first time, as long as the device hasn't renewed again since. GentleMail stores only fingerprints of them. Where the assistant keeps them on your side depends on the app.
 
 To change what an assistant may do, disconnect it and connect it again.
+
+:::note[Connected before 0.6.1?]
+Until 0.6.1, Read also let an assistant mark and move messages. That's now **Organize**, and assistants connected before don't have it. To give it back, disconnect the assistant and connect it again, ticking Organize where you want it.
+:::
 
 ## With an API key instead
 

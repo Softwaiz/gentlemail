@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 export const grantKey = (g: Grant) => (g.target_type === "all" ? "all" : `${g.target_type}:${g.target_id}`);
 export const grantValue = (grants: Grant[]): AccessValue =>
-  Object.fromEntries(grants.map((g) => [grantKey(g), { read: !!g.can_read, send: !!g.can_send }]));
+  Object.fromEntries(grants.map((g) => [grantKey(g), { read: !!g.can_read, organize: !!g.can_organize, send: !!g.can_send }]));
 
 /** What each grant target is called, by grantKey(): "domain:<id>" → "All of example.com", "mailbox:<id>" → its address. */
 export const targetNames = (targets: AccessTargets) =>
@@ -15,7 +15,7 @@ export const targetNames = (targets: AccessTargets) =>
     ...targets.mailboxes.map((m) => [`mailbox:${m.id}`, m.address] as const),
   ]);
 
-/** One line per grant, broadest first: "All mailboxes · read, send". */
+/** One line per grant, broadest first: "All mailboxes · read, organize, send". */
 export function AccessSummary({ grants, names }: { grants: Grant[]; names: Map<string, string> }) {
   const order = { all: 0, domain: 1, mailbox: 2 } as const;
   const name = (g: Grant) =>
@@ -32,7 +32,7 @@ export function AccessSummary({ grants, names }: { grants: Grant[]; names: Map<s
           <span className={cn(g.target_type !== "mailbox" && "font-medium")}>{name(g)}</span>
           <span className="text-muted-foreground">
             {" · "}
-            {[g.can_read && "read", g.can_send && "send"].filter(Boolean).join(", ")}
+            {[g.can_read && "read", g.can_organize && "organize", g.can_send && "send"].filter(Boolean).join(", ")}
           </span>
         </li>
       ))}

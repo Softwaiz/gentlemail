@@ -12,11 +12,11 @@ import { messageJson } from "@/lib/webhooks";
  *   GET  /api/v1/mailboxes            mailboxes this key can use, with its permissions on each
  *   GET  /api/v1/messages             list and search (scope: read)
  *   GET  /api/v1/messages/:id         one message with text and HTML (scope: read)
- *   POST /api/v1/messages/:id         mark read/unread, archive, trash, star… (scope: read)
+ *   POST /api/v1/messages/:id         mark read/unread, archive, trash, star… (scope: organize)
  *   GET  /api/v1/attachments/:id      attachment bytes (scope: read)
  *
  * A key's access is a set of grants (all mailboxes, a domain, a mailbox), each
- * with read and/or send; every request is checked against the mailbox it touches.
+ * with read, organize and/or send; every request is checked against the mailbox it touches.
  *
  * The work itself is in the functions below the handlers (sendMessage,
  * listMessages…), which take an authenticated key and return the response;
@@ -82,13 +82,14 @@ export async function messageFor(auth: ApiAuth, id: string, scope: Scope) {
 async function usableMailboxes(auth: ApiAuth) {
   const covered = coveredMailboxes(auth);
   const { results } = await env.DB.prepare(
-    `SELECT b.id, b.address, b.display_name, b.active, MAX(g.can_read) AS can_read, MAX(g.can_send) AS can_send
+    `SELECT b.id, b.address, b.display_name, b.active,
+       MAX(g.can_read) AS can_read, MAX(g.can_organize) AS can_organize, MAX(g.can_send) AS can_send
      FROM ${covered.sql}
-     GROUP BY b.id HAVING MAX(g.can_read) = 1 OR MAX(g.can_send) = 1
+     GROUP BY b.id HAVING MAX(g.can_read) = 1 OR MAX(g.can_organize) = 1 OR MAX(g.can_send) = 1
      ORDER BY b.address`,
   )
     .bind(...covered.binds)
-    .all<{ id: string; address: string; display_name: string; active: number; can_read: number; can_send: number }>();
+    .all<{ id: string; address: string; display_name: string; active: number; can_read: number; can_organize: number; can_send: number }>();
   return results;
 }
 
@@ -177,10 +178,10 @@ export const mailboxesHandler = withKey(null, async (_info, auth) => listMailbox
 export async function listMailboxes(auth: ApiAuth) {
   const mailboxes = await usableMailboxes(auth);
   return apiJson({
-    data: mailboxes.map(({ can_read, can_send, ...m }) => ({
+    data: mailboxes.map(({ can_read, can_organize, can_send, ...m }) => ({
       ...m,
       active: !!m.active,
-      permissions: [...(can_read ? ["read"] : []), ...(can_send ? ["send"] : [])],
+      permissions: [...(can_read ? ["read"] : []), ...(can_organize ? ["organize"] : []), ...(can_send ? ["send"] : [])],
     })),
   });
 }
@@ -288,14 +289,19 @@ const ACTIONS: Record<string, string> = {
 
 export const MESSAGE_ACTIONS = Object.keys(ACTIONS);
 
-export const messageActionHandler = withKey("read", async ({ params, request }, auth) => {
+export const messageActionHandler = withKey("organize", async ({ params, request }, auth) => {
   const b = await readJson(request);
   return actOnMessage(auth, params.id, typeof b?.action === "string" ? b.action : "");
 });
 
 export async function actOnMessage(auth: ApiAuth, id: string, action: string) {
-  const msg = await messageFor(auth, id, "read");
-  if (!msg) return apiError(404, "not_found", "No such message.");
+  const msg = await messageFor(auth, id, "organize");
+  if (!msg) {
+    // One it can see but not file: say what's missing, as a reply does for read.
+    const seen = await messageFor(auth, id, "read");
+    if (seen) return apiError(403, "organize_required", `Marking and moving messages needs the "organize" permission on ${seen.mailbox_address}.`);
+    return apiError(404, "not_found", "No such message.");
+  }
   if (!ACTIONS[action]) return apiError(422, "invalid_action", `action must be one of: ${Object.keys(ACTIONS).join(", ")}.`);
   await env.DB.prepare(`UPDATE messages SET ${ACTIONS[action]} WHERE id = ?`).bind(msg.id).run();
   return apiJson({ id: msg.id, action, status: "ok" });

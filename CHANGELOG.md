@@ -13,6 +13,12 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 ### Added
 - The [MCP docs page](https://gentlemail.dev/docs/mcp/) has its own social card, shown when its link is shared: the assistants it works with, and "Only what you allow". ([#29](https://github.com/Softwaiz/gentlemail/pull/29))
 
+### Security
+- Read no longer lets an API key or an AI assistant mark or move messages. That's a new permission, **Organize** (mark read or unread, star, archive, spam, trash, back to the inbox), ticked per mailbox beside Read and Send. Before, an assistant allowed only to read a mailbox could still archive or trash its mail. A read-only assistant no longer sees the `update_message` tool, and the API answers `403 organize_required`. Organize works without Read, so a program can file a message by its ID from a webhook. `GET /api/v1/mailboxes` lists `"organize"` among a mailbox's permissions. ([#30](https://github.com/Softwaiz/gentlemail/pull/30))
+
+### Upgrading
+- Migration `0009_organize_permission.sql`. **No existing key or assistant gets Organize.** Tick it on API keys that mark or move messages (**Admin → API & webhooks → Edit access**), or they get `403 organize_required`; connect assistants again to give it to them. See [Updating](https://gentlemail.dev/docs/updating/). ([#30](https://github.com/Softwaiz/gentlemail/pull/30))
+
 ## 0.6.0 (2026-11-19)
 
 ### Added

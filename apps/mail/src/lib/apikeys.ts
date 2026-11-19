@@ -4,9 +4,10 @@ import { ACCESS_PREFIX } from "./token-prefixes";
 import { b64url, domainOf, json, newId, now } from "./util";
 
 /*
- * API keys. A key holds grants; each grant gives read and/or send on every
- * mailbox, on a whole domain (mailboxes added later included) or on one
- * mailbox. A key may do something on a mailbox when any grant covering that
+ * API keys. A key holds grants; each grant gives read, organize and/or send
+ * on every mailbox, on a whole domain (mailboxes added later included) or on
+ * one mailbox. Organize is marking and moving messages (read/unread, star,
+ * archive, spam, trash, inbox). A key may do something on a mailbox when any grant covering that
  * mailbox allows it.
  *
  * An assistant connected by signing in (OAuth, see oauth.ts) is a row here
@@ -14,10 +15,11 @@ import { b64url, domainOf, json, newId, now } from "./util";
  * open, and only with the short-lived tokens it got, on /mcp.
  */
 
-export type Scope = "send" | "read";
+export type Scope = "read" | "organize" | "send";
+export const SCOPES: Scope[] = ["read", "organize", "send"];
 
 export type GrantTarget = "all" | "domain" | "mailbox";
-export type Grant = { target_type: GrantTarget; target_id: string; can_read: number; can_send: number };
+export type Grant = { target_type: GrantTarget; target_id: string; can_read: number; can_organize: number; can_send: number };
 /** A grant with the domain name resolved, for matching mailboxes by address. */
 type ResolvedGrant = Grant & { domain: string | null };
 
@@ -36,13 +38,14 @@ export type ApiKeyRow = {
 /* ---------- Grants from a form ---------- */
 
 /**
- * Reads the access matrix posted by the key dialog: checkboxes named "read"
- * and "send" whose values are "all", "domain:<id>" or "mailbox:<id>".
+ * Reads the access matrix posted by the key dialog: checkboxes named "read",
+ * "organize" and "send" whose values are "all", "domain:<id>" or "mailbox:<id>".
  * Unknown domains and mailboxes are dropped, and so is anything outside
  * `allowed` when given (the lines a person may grant an assistant).
  */
 export async function grantsFromForm(form: FormData, allowed?: Set<string>): Promise<Grant[]> {
   const read = new Set(form.getAll("read").map(String));
+  const organize = new Set(form.getAll("organize").map(String));
   const send = new Set(form.getAll("send").map(String));
   let known = allowed;
   if (!known) {
@@ -53,10 +56,16 @@ export async function grantsFromForm(form: FormData, allowed?: Set<string>): Pro
     known = new Set(["all", ...domains.map((d) => `domain:${d.id}`), ...mailboxes.map((m) => `mailbox:${m.id}`)]);
   }
   const grants: Grant[] = [];
-  for (const target of new Set([...read, ...send])) {
+  for (const target of new Set([...read, ...organize, ...send])) {
     if (!known.has(target)) continue;
     const [type, id = ""] = target === "all" ? ["all"] : target.split(":");
-    grants.push({ target_type: type as GrantTarget, target_id: id, can_read: read.has(target) ? 1 : 0, can_send: send.has(target) ? 1 : 0 });
+    grants.push({
+      target_type: type as GrantTarget,
+      target_id: id,
+      can_read: read.has(target) ? 1 : 0,
+      can_organize: organize.has(target) ? 1 : 0,
+      can_send: send.has(target) ? 1 : 0,
+    });
   }
   return grants;
 }
@@ -65,13 +74,9 @@ export async function grantsFromForm(form: FormData, allowed?: Set<string>): Pro
 export const grantStatements = (keyId: string, grants: Grant[]) => [
   env.DB.prepare("DELETE FROM api_key_grants WHERE key_id = ?").bind(keyId),
   ...grants.map((g) =>
-    env.DB.prepare("INSERT INTO api_key_grants (key_id, target_type, target_id, can_read, can_send) VALUES (?, ?, ?, ?, ?)").bind(
-      keyId,
-      g.target_type,
-      g.target_id,
-      g.can_read,
-      g.can_send,
-    ),
+    env.DB.prepare(
+      "INSERT INTO api_key_grants (key_id, target_type, target_id, can_read, can_organize, can_send) VALUES (?, ?, ?, ?, ?, ?)",
+    ).bind(keyId, g.target_type, g.target_id, g.can_read, g.can_organize, g.can_send),
   ),
 ];
 
@@ -146,10 +151,13 @@ export type ApiAuth = {
   key: ApiKeyRow;
   grants: ResolvedGrant[];
   limit: Set<string> | null;
-  /** Whether it may read and send on at least one mailbox it can reach now (decides which MCP tools it sees). */
+  /** Whether it may read, organize and send on at least one mailbox it can reach now (decides which MCP tools it sees). */
   can: Perm;
 };
-export type Perm = { read: boolean; send: boolean };
+export type Perm = Record<Scope, boolean>;
+
+/** SQL condition: grant `g` allows something. */
+const GRANT_ALLOWS_SQL = "(g.can_read = 1 OR g.can_organize = 1 OR g.can_send = 1)";
 
 export const apiError = (status: number, code: string, message: string) => json({ error: { code, message } }, status);
 export const apiJson = (body: unknown, status = 200) => json(body, status);
@@ -192,13 +200,13 @@ export function coveredMailboxes(auth: Pick<ApiAuth, "limit" | "key">): { sql: s
 }
 
 /**
- * SQL condition: connection `k` may still read or send on a mailbox its person
+ * SQL condition: connection `k` may still do something on a mailbox its person
  * can open (any, for an admin). The same rule authenticate() applies; a
  * connection without it can't refresh its tokens, so its app signs in again.
  */
 export const CONNECTION_REACHES_SQL = `CASE WHEN (SELECT role FROM users WHERE id = k.user_id) = 'admin'
-  THEN EXISTS (SELECT 1 FROM api_key_grants g WHERE g.key_id = k.id AND (g.can_read = 1 OR g.can_send = 1))
-  ELSE EXISTS (SELECT 1 FROM ${coveredSql("k.id", "k.user_id")} WHERE g.can_read = 1 OR g.can_send = 1) END`;
+  THEN EXISTS (SELECT 1 FROM api_key_grants g WHERE g.key_id = k.id AND ${GRANT_ALLOWS_SQL})
+  ELSE EXISTS (SELECT 1 FROM ${coveredSql("k.id", "k.user_id")} WHERE ${GRANT_ALLOWS_SQL}) END`;
 
 /**
  * SQL condition: connection `k` may be used now: it reaches a mailbox, and its
@@ -256,24 +264,29 @@ export async function authenticate(request: Request, scope: Scope | null, opts: 
           env.DB.prepare(memberMailboxesSql()).bind(key.user_id),
           // An assistant: what its grants allow on the mailboxes its person can still open.
           env.DB.prepare(
-            `SELECT MAX(g.can_read) AS r, MAX(g.can_send) AS s FROM ${coveredSql("?", "?")}`,
+            `SELECT MAX(g.can_read) AS r, MAX(g.can_organize) AS o, MAX(g.can_send) AS s FROM ${coveredSql("?", "?")}`,
           ).bind(key.id, key.user_id),
         ]
       : [grantsQuery],
   );
   const grants = grantRows.results as ResolvedGrant[];
   const limit = memberRows ? new Set((memberRows.results as { mailbox_id: string }[]).map((r) => r.mailbox_id)) : null;
-  let can: Perm = { read: grants.some((g) => !!g.can_read), send: grants.some((g) => !!g.can_send) };
+  let can: Perm = {
+    read: grants.some((g) => !!g.can_read),
+    organize: grants.some((g) => !!g.can_organize),
+    send: grants.some((g) => !!g.can_send),
+  };
   if (limit) {
-    const reach = reachRows?.results[0] as { r: number | null; s: number | null } | undefined;
-    can = { read: !!reach?.r, send: !!reach?.s };
+    const reach = reachRows?.results[0] as { r: number | null; o: number | null; s: number | null } | undefined;
+    can = { read: !!reach?.r, organize: !!reach?.o, send: !!reach?.s };
   }
+  const anything = can.read || can.organize || can.send;
   // An assistant (an admin's too) with nothing left: signing in again lets the person pick
   // from the mailboxes they have now (refreshing fails too), so it's a 401, not a 403.
-  if (key.user_id && !can.read && !can.send)
+  if (key.user_id && !anything)
     return apiError(401, "invalid_token", "None of the mailboxes this assistant was given can be opened by you any more. Sign in again to choose others.");
   const auth: ApiAuth = { key, grants, limit, can };
-  if (!(scope ? can[scope] : can.read || can.send))
+  if (!(scope ? can[scope] : anything))
     return apiError(403, "forbidden", scope ? `This key has no "${scope}" permission on any mailbox.` : "This key has no permission on any mailbox.");
   waitUntil(
     env.DB.prepare("UPDATE api_keys SET last_used_at = ? WHERE id = ?")
@@ -287,7 +300,7 @@ export async function authenticate(request: Request, scope: Scope | null, opts: 
 /** What the key may do on this mailbox: the union of every grant that covers it. */
 export function permFor(auth: ApiAuth, mailbox: { id: string; address: string }): Perm {
   const domain = domainOf(mailbox.address);
-  const perm = { read: false, send: false };
+  const perm: Perm = { read: false, organize: false, send: false };
   if (auth.limit && !auth.limit.has(mailbox.id)) return perm;
   for (const g of auth.grants) {
     const covers =
@@ -296,6 +309,7 @@ export function permFor(auth: ApiAuth, mailbox: { id: string; address: string })
       (g.target_type === "domain" && g.domain?.toLowerCase() === domain);
     if (!covers) continue;
     perm.read ||= !!g.can_read;
+    perm.organize ||= !!g.can_organize;
     perm.send ||= !!g.can_send;
   }
   return perm;

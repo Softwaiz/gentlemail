@@ -130,8 +130,8 @@ GET  /api/v1/messages?mailbox=${example}&folder=inbox&unread=true&since=2026-11-
 GET  /api/v1/messages/{id}             full text, raw HTML, attachment links
 GET  /api/v1/attachments/{id}          file bytes
 POST /api/v1/messages/{id}  {"action":"archive"}   read, unread, star, archive, trash, inbox`,
-    sdkNote: <>Reading needs a key with the Read permission on that mailbox; sending needs Send.</>,
-    httpNote: <>Reading needs a key with the Read permission on that mailbox; sending needs Send.</>,
+    sdkNote: <>Reading needs a key with the Read permission on that mailbox, marking and moving needs Organize, and sending needs Send.</>,
+    httpNote: <>Reading needs a key with the Read permission on that mailbox, marking and moving needs Organize, and sending needs Send.</>,
   },
   {
     title: "Receive webhooks",
@@ -211,7 +211,7 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
       <div className="grid gap-6">
         <Section
           title="API keys"
-          description="Give each key Read and/or Send on all mailboxes, whole domains or the mailboxes you pick."
+          description="Give each key Read, Organize and/or Send on all mailboxes, whole domains or the mailboxes you pick."
           action={<NewKeyDialog targets={targets} />}
         >
           {/* Phones and tablets: each key is a small card (name, key and buttons; access; last use). */}

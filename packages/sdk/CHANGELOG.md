@@ -4,6 +4,9 @@ The SDK's own versions, released independently of the GentleMail app. Released w
 
 ## Unreleased
 
+### Changed
+- `Permission` includes `"organize"`, which `messages.update()` needs from GentleMail 0.6.1 on. Give your key Organize on the mailboxes it marks or moves ([#30](https://github.com/Softwaiz/gentlemail/pull/30)).
+
 ## 0.1.0 (2026-11-17)
 
 ### Added

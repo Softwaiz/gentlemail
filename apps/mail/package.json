@@ -1,6 +1,6 @@
 {
   "name": "@emails/mail",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Multi-mailbox webmail on Cloudflare (rwsdk, D1, R2, Email Service)",
   "type": "module",
   "license": "MIT",

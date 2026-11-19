@@ -10,6 +10,9 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 
 ## Unreleased
 
+### Added
+- Formatting in the webmail composer: bold, italic, underline, strikethrough, subscript, superscript, links, bulleted and numbered lists, quotes and inline code, from a toolbar or keyboard shortcuts (Ctrl/⌘ B, I, U, K…). Messages go out as HTML with a matching plain-text part. Only this formatting is sent, whatever the page posts. ([#32](https://github.com/Softwaiz/gentlemail/pull/32))
+
 ## 0.6.1 (2026-11-19)
 
 ### Added

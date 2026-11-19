@@ -1,6 +1,14 @@
 ---
 title: Connect an AI assistant (MCP)
 description: Let Claude, ChatGPT, Cursor or another AI assistant read, search and answer your GentleMail mail through MCP, with access you choose and can take back.
+# Its own social card (source: social/og-mcp.html), in place of the docs' one.
+head:
+  - tag: meta
+    attrs: { property: og:image, content: https://gentlemail.dev/docs/og-mcp.png }
+  - tag: meta
+    attrs: { property: og:image:alt, content: "GentleMail MCP: your AI assistant reads your mail, only what you allow." }
+  - tag: meta
+    attrs: { name: twitter:image, content: https://gentlemail.dev/docs/og-mcp.png }
 ---
 
 GentleMail is an [MCP](https://modelcontextprotocol.io) server. Add your instance to an AI assistant and it can search your mail, read conversations and, if you allow it, send and reply.

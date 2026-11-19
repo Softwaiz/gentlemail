@@ -116,9 +116,12 @@ export async function registerClient(body: Record<string, unknown>) {
   const grantTypes = Array.isArray(body.grant_types) ? body.grant_types : ["authorization_code", "refresh_token"];
   if (!grantTypes.includes("authorization_code")) return oauthError("invalid_client_metadata", "grant_types must include authorization_code.");
 
-  // Control and format characters (direction overrides, zero-width ones) could make a name show as another: dropped.
+  // Control and format characters (direction overrides, zero-width ones) could make a name show as another,
+  // and fillers (U+3164 and the like) as blank: dropped. Cut by character, so an emoji isn't cut in half.
   const raw = typeof body.client_name === "string" ? body.client_name : "";
-  const name = raw.replace(/\p{Cf}/gu, "").replace(/\p{Cc}/gu, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "An unnamed app";
+  const cleaned = raw.replace(/[\p{Cf}\u115F\u1160\u3164\uFFA0\u2800]/gu, "").replace(/\p{Cc}/gu, " ").replace(/\s+/g, " ").trim();
+  const short = Array.from(cleaned).slice(0, 80).join("").trim();
+  const name = /[\p{L}\p{N}\p{P}\p{S}]/u.test(short) ? short : "An unnamed app";
   const id = `gmcl_${b64url(crypto.getRandomValues(new Uint8Array(16)))}`;
   const secret = method === "none" ? null : randomToken("gmcs_");
   const created = now();
@@ -234,7 +237,9 @@ export async function exchangeCode(client: OAuthClient, form: FormData): Promise
   const token = (id: string, kind: string, ttl: number) =>
     env.DB.prepare(`INSERT INTO oauth_tokens (id, key_id, family, kind, expires_at, created_at) SELECT ?, ${keyOf}, ?, ?, ?, ? WHERE ${codeLive}`)
       .bind(id, ...of, family, kind, t + ttl, t, codeId);
-  const results = await env.DB.batch([
+  let results: D1Result[];
+  try {
+    results = await env.DB.batch([
     // Signing in counts as using it: set in the same statement, so the hourly
     // purge can't remove a dormant connection while it's being taken up again.
     env.DB.prepare(
@@ -251,7 +256,12 @@ export async function exchangeCode(client: OAuthClient, form: FormData): Promise
     token(refreshId, "refresh", REFRESH_TTL),
     env.DB.prepare(`UPDATE oauth_clients SET used_at = ? WHERE id = ? AND ${codeLive}`).bind(t, client.id, codeId),
     env.DB.prepare("DELETE FROM oauth_codes WHERE id = ?").bind(codeId),
-  ]);
+    ]);
+  } catch (e) {
+    // The app gets an OAuth error it can show, not a bare 500 page. Its code is spent: the person signs in again.
+    console.error("oauth connection failed", e);
+    return oauthError("server_error", "Couldn't save the connection. Sign in again.", 500);
+  }
   if (!results.at(-1)!.meta.changes) return oauthError("invalid_grant", "This sign-in was cancelled. Sign in again.");
   return set;
 }

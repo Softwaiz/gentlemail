@@ -234,6 +234,13 @@ describe("registration limits", () => {
     assert.equal(body.client_name, "edualc Bot");
   });
 
+  test("an app name that would show blank gets a stand-in, and a long one isn't cut inside a character", async () => {
+    assert.equal((await register(undefined, { client_name: "\u3164\u3164 \u2800" })).body.client_name, "An unnamed app");
+    const long = (await register(undefined, { client_name: "a".repeat(79) + "😀😀" })).body.client_name;
+    assert.equal(Array.from(long).length, 80);
+    assert.ok(long.endsWith("😀"));
+  });
+
   test("redirect URIs are kept short", async () => {
     assert.equal((await register([`https://app.test/${"x".repeat(500)}`])).status, 400);
     assert.equal((await register(Array.from({ length: 6 }, (_, i) => `https://app.test/${i}`))).status, 400);

@@ -35,6 +35,7 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 - The page you return to after signing in can no longer be another site, written as `/\example.com` or with a tab or line break after the first `/`. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 
 ### Changed
+- In the API key dialog, on an instance without domains, an admin's mailbox list is headed "Mailboxes" instead of "Other mailboxes". ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 - The README shows the product: the GentleMail banner, and screenshots of the inbox, API & webhooks and the phone layout. ([#25](https://github.com/Softwaiz/gentlemail/pull/25))
 - The webmail is dark by default; it used to follow the device, so phones in light mode showed it in cream. ([#21](https://github.com/Softwaiz/gentlemail/pull/21))
 - On phones, the menu opens as a full-screen layer over the page, with the mailbox switcher, folders and your account, instead of unfolding above the inbox. The top bar stays at the top while you scroll. ([#21](https://github.com/Softwaiz/gentlemail/pull/21))
@@ -42,7 +43,7 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 - API & webhooks and Admin fit on phones and tablets: their tables become cards, code samples scroll inside their box, and long webhook URLs and errors no longer push the page sideways. ([#21](https://github.com/Softwaiz/gentlemail/pull/21))
 
 ### Upgrading
-- Migrations `0007_oauth.sql` and `0008_oauth_retry.sql` add the tables for assistant sign-ins. **Apply them with the deploy:** until it runs, the API, **API & webhooks** and **Security** fail. The new `ratelimits` entry in `wrangler.jsonc` limits assistant app registrations per address; copy it if you keep your own `wrangler.jsonc`. Once applied, nothing changes until someone connects an assistant. See [Updating](https://gentlemail.dev/docs/updating/#from-05-to-06). ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
+- Migrations `0007_oauth.sql` and `0008_oauth_retry.sql` add the tables for assistant sign-ins. **Apply them with the deploy:** until they run, the API, **API & webhooks** and **Security** fail. The new `ratelimits` entry in `wrangler.jsonc` limits assistant app registrations per address; copy it if you keep your own `wrangler.jsonc`. Once applied, nothing changes until someone connects an assistant. See [Updating](https://gentlemail.dev/docs/updating/#from-05-to-06). ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 
 ## 0.5.0 (2026-11-16)
 

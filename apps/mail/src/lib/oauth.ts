@@ -181,19 +181,24 @@ async function s256(verifier: string) {
   return b64url(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))));
 }
 
-/**
- * A new pair in sign-in `family`, created at `t`. A refresh gives its pair the
- * time the used token was marked used, so a retry can find that first answer.
- */
-async function issueTokens(keyId: string, family: string, t = now()): Promise<TokenSet> {
+/** A fresh pair: the tokens to give out, and the hashes to store. */
+async function newPair() {
   const access = randomToken(ACCESS_PREFIX);
   const refresh = randomToken(REFRESH_PREFIX);
+  const set: TokenSet = { access_token: access, token_type: "Bearer", expires_in: ACCESS_TTL / 1000, refresh_token: refresh, scope: SCOPE };
+  return { set, accessId: await sha256(access), refreshId: await sha256(refresh) };
+}
+
+/** A new pair in sign-in `family`. */
+async function issueTokens(keyId: string, family: string): Promise<TokenSet> {
+  const { set, accessId, refreshId } = await newPair();
+  const t = now();
   const insert = "INSERT INTO oauth_tokens (id, key_id, family, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)";
   await env.DB.batch([
-    env.DB.prepare(insert).bind(await sha256(access), keyId, family, "access", t + ACCESS_TTL, t),
-    env.DB.prepare(insert).bind(await sha256(refresh), keyId, family, "refresh", t + REFRESH_TTL, t),
+    env.DB.prepare(insert).bind(accessId, keyId, family, "access", t + ACCESS_TTL, t),
+    env.DB.prepare(insert).bind(refreshId, keyId, family, "refresh", t + REFRESH_TTL, t),
   ]);
-  return { access_token: access, token_type: "Bearer", expires_in: ACCESS_TTL / 1000, refresh_token: refresh, scope: SCOPE };
+  return set;
 }
 
 /** grant_type=authorization_code: checks the code, PKCE and redirect URI, then connects the app. */
@@ -239,10 +244,11 @@ export async function exchangeCode(client: OAuthClient, form: FormData): Promise
 
 /**
  * A refresh token traded in again within this long of its first use is a client
- * retrying (two tabs, an answer lost on the way): it gets a new pair, once, and
- * the first answer's pair stops working, so the family stays one chain. If that
- * first answer did arrive (the retry was a copy), its refresh token coming back
- * is a reuse and signs the device out. Any later use, or a second retry, is a copy.
+ * retrying (two tabs, an answer lost on the way): it gets a pair too, once. The
+ * family then holds two unused refresh tokens, and the first of them used
+ * retires the other, so it stays one chain: a copy and its original can't both
+ * go on, and the one retired coming back is a reuse that signs the device out.
+ * Any later use, or a second retry, is a copy.
  */
 const REUSE_GRACE = 30 * 1000;
 /** How long a used refresh token is remembered: a copy used later than that is just unknown. */
@@ -256,46 +262,42 @@ const USED_REFRESH_TTL = 7 * 24 * 60 * 60 * 1000;
  * person must first set up required two-step verification, can't refresh
  * either, so its app signs in again rather than retrying forever; its token
  * stays valid in case that changes.
+ *
+ * One batch (a transaction): a second request with the same token sees either
+ * nothing done or everything done, never a used token without its new pair.
  */
 export async function refreshTokens(client: OAuthClient, form: FormData): Promise<TokenSet | OAuthError> {
   const token = String(form.get("refresh_token") ?? "");
   const unknown = oauthError("invalid_grant", "This refresh token is unknown, used or expired. Sign in again.");
   if (!token.startsWith(REFRESH_PREFIX)) return unknown;
   const id = await sha256(token);
+  const { set, accessId, refreshId } = await newPair();
   const t = now();
-  // A retry moves used_at back out of the window, so a second retry counts as a
-  // copy. It moves by REUSE_GRACE + 1 from the first use, so the first use's
-  // time (which its pair was created with) can be read back from it.
-  const row = await env.DB.prepare(
-    `UPDATE oauth_tokens SET used_at = CASE WHEN used_at IS NULL THEN ?1 ELSE used_at - ?4 - 1 END
-     WHERE id = ?2 AND kind = 'refresh' AND expires_at > ?1 AND (used_at IS NULL OR used_at >= ?1 - ?4)
-     AND key_id IN (SELECT k.id FROM api_keys k WHERE k.client_id = ?3 AND k.revoked_at IS NULL AND ${CONNECTION_USABLE_SQL})
-     RETURNING key_id, family, used_at = ?1 AS first, used_at + ?4 + 1 AS first_use`,
-  )
-    .bind(t, id, client.id, REUSE_GRACE)
-    .first<{ key_id: string; family: string; first: number; first_use: number }>();
-  if (row) {
-    if (row.first) {
-      // The family's older access tokens go: this device has a new one.
-      await env.DB.prepare("DELETE FROM oauth_tokens WHERE family = ? AND kind = 'access'").bind(row.family).run();
-      return issueTokens(row.key_id, row.family, t);
-    }
-    // A retry: the first answer's refresh token is marked used outside the
-    // window, so using it later is caught as a copy, and its access token goes.
-    // If that refresh token was already used, the first answer arrived and is
-    // in use: this is a copy, and the device is signed out.
-    const [superseded] = await env.DB.batch([
-      env.DB.prepare("UPDATE oauth_tokens SET used_at = ? WHERE family = ? AND kind = 'refresh' AND created_at = ? AND used_at IS NULL").bind(
-        t - REUSE_GRACE - 1,
-        row.family,
-        row.first_use,
-      ),
-      env.DB.prepare("DELETE FROM oauth_tokens WHERE family = ? AND kind = 'access' AND created_at = ?").bind(row.family, row.first_use),
-    ]);
-    if (superseded.meta.changes) return issueTokens(row.key_id, row.family);
-    await env.DB.prepare("DELETE FROM oauth_tokens WHERE family = ?").bind(row.family).run();
-    return unknown;
-  }
+  // A new token in the used one's family: ?1 now, ?2 the token used, ?3 the client, ?4 the grace; ?5–?7 the new token.
+  const insert = (tokenId: string, kind: string, ttl: number) =>
+    env.DB.prepare(
+      `INSERT INTO oauth_tokens (id, key_id, family, kind, expires_at, created_at)
+       SELECT ?5, key_id, family, ?6, ?1 + ?7, ?1 FROM oauth_tokens
+       WHERE id = ?2 AND kind = 'refresh' AND expires_at > ?1 AND (used_at IS NULL OR used_at >= ?1 - ?4)
+       AND key_id IN (SELECT k.id FROM api_keys k WHERE k.client_id = ?3 AND k.revoked_at IS NULL AND ${CONNECTION_USABLE_SQL})`,
+    ).bind(t, id, client.id, REUSE_GRACE, tokenId, kind, ttl);
+  // Only on a first use (the token isn't marked yet), and only if the new pair went in.
+  const firstUse = `(SELECT used_at FROM oauth_tokens WHERE id = ?2) IS NULL AND family = (SELECT family FROM oauth_tokens WHERE id = ?3)`;
+  const [, issued] = await env.DB.batch([
+    insert(accessId, "access", ACCESS_TTL),
+    insert(refreshId, "refresh", REFRESH_TTL),
+    // The family's other unused refresh token (a retry's twin) is retired, and its older access tokens go.
+    env.DB.prepare(
+      `UPDATE oauth_tokens SET used_at = ?1 - ?4 - 1 WHERE kind = 'refresh' AND used_at IS NULL AND id NOT IN (?2, ?3) AND ${firstUse}`,
+    ).bind(t, id, refreshId, REUSE_GRACE),
+    env.DB.prepare(`DELETE FROM oauth_tokens WHERE kind = 'access' AND id != ?1 AND ${firstUse}`).bind(accessId, id, refreshId),
+    // A retry moves used_at out of the window, so a second retry counts as a copy.
+    env.DB.prepare(
+      `UPDATE oauth_tokens SET used_at = CASE WHEN used_at IS NULL THEN ?1 ELSE ?1 - ?3 - 1 END
+       WHERE id = ?2 AND EXISTS (SELECT 1 FROM oauth_tokens WHERE id = ?4)`,
+    ).bind(t, id, REUSE_GRACE, refreshId),
+  ]);
+  if (issued.meta.changes) return set;
   await env.DB.prepare(
     `DELETE FROM oauth_tokens WHERE family IN (
        SELECT family FROM oauth_tokens WHERE id = ? AND kind = 'refresh' AND used_at < ?

@@ -324,8 +324,19 @@ describe("consent screen", () => {
   test("PKCE is required", async () => {
     const { body: client } = await register();
     const res = await request(`/oauth/authorize?${authorizeParams(client, "", { code_challenge_method: "plain" })}`, { headers: { Cookie: cookie("uMember") } });
-    assert.equal(res.status, 303);
-    assert.equal(new URL(res.headers.get("location")).searchParams.get("error"), "invalid_request");
+    assert.equal(res.status, 200);
+    assert.match(await res.text(), /PKCE is required/);
+  });
+
+  test("a broken request is shown here, never redirected to the app without a click", async () => {
+    const { body: client } = await register(["https://evil.test/phish"]);
+    for (const extra of [{ response_type: "token" }, { code_challenge: "" }, { resource: "https://elsewhere.test/mcp" }]) {
+      const params = authorizeParams(client, pkce().challenge, { redirect_uri: "https://evil.test/phish", ...extra });
+      const res = await request(`/oauth/authorize?${params}`, { headers: { Cookie: cookie("uMember") } });
+      assert.equal(res.status, 200, JSON.stringify(extra));
+      assert.equal(res.headers.get("location"), null);
+      assert.match(await res.text(), /sign-in request is broken/);
+    }
   });
 
   test("Cancel sends access_denied back to the app", async () => {
@@ -457,15 +468,27 @@ describe("tokens", () => {
     const c = await connect("uMember", { read: ["mailbox:mA1"] });
     const next = await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id });
     assert.equal(next.status, 200);
-    // Right away, it's a retry whose first answer was lost: it gets a pair, and the first answer stops working.
+    // Right away, it's a retry whose first answer was lost: it gets a pair too, and both answers work.
     const retry = await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id });
     assert.equal(retry.status, 200);
     assert.equal((await rpc(retry.body.access_token, "tools/list")).status, 200);
-    assert.equal((await rpc(next.body.access_token, "tools/list")).status, 401);
+    assert.equal((await rpc(next.body.access_token, "tools/list")).status, 200);
     // Only once: a second retry is a copy, and the device's new tokens stop working too.
     assert.equal((await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
     assert.equal((await token({ grant_type: "refresh_token", refresh_token: retry.body.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
     assert.equal((await rpc(retry.body.access_token, "tools/list")).status, 401);
+    assert.equal((await rpc(next.body.access_token, "tools/list")).status, 401);
+  });
+
+  test("two refreshes at the same moment both succeed and keep the device signed in", async () => {
+    const c = await connect("uMember", { read: ["mailbox:mA1"] });
+    const again = () => token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id });
+    const [a, b] = await Promise.all([again(), again()]);
+    assert.deepEqual([a.status, b.status], [200, 200]);
+    // The app keeps one answer (either); using it retires the other, and the device stays signed in.
+    const kept = await token({ grant_type: "refresh_token", refresh_token: b.body.refresh_token, client_id: c.client.client_id });
+    assert.equal(kept.status, 200);
+    assert.equal((await rpc(kept.body.access_token, "tools/list")).status, 200);
   });
 
   test("a copy used within the retry window doesn't start a chain of its own", async () => {
@@ -474,20 +497,24 @@ describe("tokens", () => {
     // Someone with a copy of the old token trades it in seconds later, as a retry would.
     const copy = await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id });
     assert.equal(copy.status, 200);
-    // The real device's next refresh is then a reuse: the whole device is signed out, the copy's chain with it.
-    assert.equal((await token({ grant_type: "refresh_token", refresh_token: mine.body.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
+    // The real device goes on: that retires the copy's refresh token.
+    const next = await token({ grant_type: "refresh_token", refresh_token: mine.body.refresh_token, client_id: c.client.client_id });
+    assert.equal(next.status, 200);
     assert.equal((await rpc(copy.body.access_token, "tools/list")).status, 401);
+    // The copy coming back is a reuse: the device is signed out, so its owner signs in again and the copy is useless.
     assert.equal((await token({ grant_type: "refresh_token", refresh_token: copy.body.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
+    assert.equal((await rpc(next.body.access_token, "tools/list")).status, 401);
   });
 
-  test("a retry after the first answer was already used is a copy", async () => {
+  test("a retry after the first answer was used can't outlive the device's chain", async () => {
     const c = await connect("uMember", { read: ["mailbox:mA1"] });
     const first = await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id });
     const second = await token({ grant_type: "refresh_token", refresh_token: first.body.refresh_token, client_id: c.client.client_id });
-    assert.equal(second.status, 200);
-    // The first answer arrived and is in use, so the old token coming back is no retry.
-    assert.equal((await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
-    assert.equal((await rpc(second.body.access_token, "tools/list")).status, 401);
+    const late = await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id });
+    assert.equal(late.status, 200);
+    // Whichever goes on first retires the other, whose next use signs the device out.
+    assert.equal((await token({ grant_type: "refresh_token", refresh_token: second.body.refresh_token, client_id: c.client.client_id })).status, 200);
+    assert.equal((await token({ grant_type: "refresh_token", refresh_token: late.body.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
   });
 
   test("tokens from signing in don't work on the HTTP API", async () => {

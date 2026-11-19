@@ -9,10 +9,15 @@ export const disconnectAssistantAction = serverAction([
   signedIn,
   async (id: string): Promise<ActionResult> => {
     const user = requestInfo.ctx.user!;
-    // Its grants and tokens go with it (ON DELETE CASCADE).
-    const { meta } = await env.DB.prepare("DELETE FROM api_keys WHERE id = ? AND user_id IS NOT NULL AND (user_id = ? OR ? = 'admin')")
-      .bind(id, user.id, user.role)
-      .run();
+    const mine = "id = ?1 AND user_id IS NOT NULL AND (user_id = ?2 OR ?3 = 'admin')";
+    const [, { meta }] = await env.DB.batch([
+      // Its sign-ins not yet traded for tokens too, or the app could connect again with one within minutes.
+      env.DB.prepare(
+        `DELETE FROM oauth_codes WHERE EXISTS (SELECT 1 FROM api_keys WHERE ${mine} AND client_id = oauth_codes.client_id AND user_id = oauth_codes.user_id)`,
+      ).bind(id, user.id, user.role),
+      // Its grants and tokens go with it (ON DELETE CASCADE).
+      env.DB.prepare(`DELETE FROM api_keys WHERE ${mine}`).bind(id, user.id, user.role),
+    ]);
     if (!meta.changes) return fail("This assistant is already disconnected.");
     return ok("Disconnected. The assistant is refused from its next request.");
   },

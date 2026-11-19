@@ -40,7 +40,7 @@ Skipping releases is fine: the same command applies every pending migration, old
 
 | Release | Migration | What it adds |
 |---|---|---|
-| 0.6.0 | `0007_oauth.sql` | Sign-ins for [AI assistants (MCP)](/docs/mcp/): two columns on `api_keys` and three new tables. |
+| 0.6.0 | `0007_oauth.sql`, `0008_oauth_retry.sql` | Sign-ins for [AI assistants (MCP)](/docs/mcp/): two columns on `api_keys`, three new tables, and a column on `oauth_tokens`. |
 | 0.4.0 | `0006_mfa.sql` | [Two-step verification](/docs/guides/two-step/). |
 | 0.3.0 | `0005_api_key_grants.sql` | Per-mailbox and per-domain access for API keys. Existing keys keep their access. |
 | Before 0.3.0 | `0001` to `0004` | The first tables: mail, domains, API keys, webhooks and sender rules. |
@@ -48,11 +48,11 @@ Skipping releases is fine: the same command applies every pending migration, old
 ### From 0.5 to 0.6
 
 1. Pull the release, as above.
-2. Apply `0007_oauth.sql`. With the Deploy button's setup it happens on the push; otherwise run `npx wrangler d1 migrations apply DB --remote`.
+2. Apply `0007_oauth.sql` and `0008_oauth_retry.sql`. With the Deploy button's setup it happens on the push; otherwise run `npx wrangler d1 migrations apply DB --remote`.
 3. If you keep your own `wrangler.jsonc`, add the new `ratelimits` entry from the repository's: it limits how often one address can register an assistant app. It needs nothing created in Cloudflare. Without it, GentleMail still works and logs a warning, and keeps at most 5,000 registrations that never signed in.
 4. No new secret or setting. Assistants connect at your address followed by `/mcp`, and nothing changes until someone connects one.
 
-Until the migration is applied, the API, **API & webhooks** and **Security** fail.
+Until the migrations are applied, the API, **API & webhooks** and **Security** fail.
 
 ## Check the version
 

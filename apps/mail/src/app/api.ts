@@ -236,7 +236,7 @@ export async function listMessages(auth: ApiAuth, q: URLSearchParams, opts: { sk
   // Out-of-range values are brought within 1–100 (0 gives 1); a missing or unreadable one gives 25.
   const raw = q.get("limit")?.trim();
   const asked = raw ? Number(raw) : Number.NaN;
-  const limit = Number.isFinite(asked) ? Math.min(100, Math.max(1, Math.trunc(asked))) : 25;
+  const limit = Number.isNaN(asked) ? 25 : Math.min(100, Math.max(1, Math.trunc(asked)));
 
   const { results } = await env.DB.prepare(
     `SELECT m.*, b.address AS mailbox_address FROM messages m JOIN mailboxes b ON b.id = m.mailbox_id

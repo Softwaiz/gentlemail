@@ -18,6 +18,7 @@ import {
   createCode,
   exchangeCode,
   getClient,
+  isLoopback,
   redirectMatches,
   refreshTokens,
   registerClient,
@@ -150,12 +151,14 @@ type Authorization = {
 };
 
 /**
- * Checks an authorization request. Every problem is shown here, never sent back
- * to the app: anyone can register any redirect URI, so an automatic redirect
- * would let a link on this site bounce people to it (RFC 9700 §4.11). Only the
- * person's own Allow or Cancel goes back to the app.
+ * Checks an authorization request. A problem is shown here, not sent back to
+ * the app: anyone can register any redirect URI, so an automatic redirect would
+ * let a link on this site bounce people to it (RFC 9700 §4.11). Only the
+ * person's own Allow or Cancel goes back to the app. The exception is an app on
+ * this computer (http on localhost), which can't be an open redirect: it is sent
+ * the error, so a command-line app waiting on its port hears of it at once.
  */
-async function readAuthorization(p: URLSearchParams, origin: string): Promise<Authorization | { fatal: string }> {
+async function readAuthorization(p: URLSearchParams, origin: string): Promise<Authorization | { fatal: string } | { redirect: string }> {
   const client = await getClient(p.get("client_id") ?? "");
   if (!client)
     return { fatal: "This app isn't registered on this server, or its registration expired. Remove the server in the app and add it again." };
@@ -165,13 +168,17 @@ async function readAuthorization(p: URLSearchParams, origin: string): Promise<Au
     return { fatal: "The app asked to send you back to an address it didn't register. Nothing was shared." };
 
   const state = p.get("state");
-  const broken = (detail: string) => ({ fatal: `The app's sign-in request is broken (${detail}). Nothing was shared. Tell the app's makers, or try another app.` });
-  if (p.get("response_type") !== "code") return broken("only response_type=code is supported");
+  const local = isLoopback(new URL(redirectUri));
+  const broken = (error: string, detail: string) =>
+    local
+      ? { redirect: redirectWith(redirectUri, origin, state, { error, error_description: `${detail[0].toUpperCase()}${detail.slice(1)}.` }) }
+      : { fatal: `The app's sign-in request is broken (${detail}). Nothing was shared. Tell the app's makers, or try another app.` };
+  if (p.get("response_type") !== "code") return broken("unsupported_response_type", "only response_type=code is supported");
   const challenge = p.get("code_challenge") ?? "";
   if (!/^[A-Za-z0-9_-]{43,128}$/.test(challenge) || p.get("code_challenge_method") !== "S256")
-    return broken("PKCE is required, with code_challenge_method=S256");
+    return broken("invalid_request", "PKCE is required, with code_challenge_method=S256");
   const resource = p.get("resource")?.replace(/\/$/, "");
-  if (resource && resource !== origin && resource !== `${origin}/mcp`) return broken(`resource must be ${origin}/mcp`);
+  if (resource && resource !== origin && resource !== `${origin}/mcp`) return broken("invalid_target", `resource must be ${origin}/mcp`);
 
   const params = new URLSearchParams();
   for (const k of PARAMS) if (p.get(k) != null) params.set(k, p.get(k)!);
@@ -225,6 +232,7 @@ export async function AuthorizePage(ri: RequestInfo) {
   if (denied) return denied;
   const url = new URL(ri.request.url);
   const req = await readAuthorization(url.searchParams, url.origin);
+  if ("redirect" in req) return redirect(req.redirect);
   if ("fatal" in req)
     return (
       <AuthCard title="Can't connect this app" err={req.fatal}>
@@ -293,6 +301,7 @@ export async function authorizeAction(ri: RequestInfo) {
   for (const k of PARAMS) if (form.get(k) != null) p.set(k, String(form.get(k)));
   const origin = originOf(ri.request);
   const req = await readAuthorization(p, origin);
+  if ("redirect" in req) return redirect(req.redirect);
   if ("fatal" in req) return redirect(`/oauth/authorize?${p}`);
 
   if (form.get("decision") !== "allow")

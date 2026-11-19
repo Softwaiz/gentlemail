@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { sha256 } from "./auth";
-import { CONNECTION_USABLE_SQL, type Grant, grantStatements } from "./apikeys";
+import { CONNECTION_USABLE_SQL, type Grant } from "./apikeys";
 import { ACCESS_PREFIX, CODE_PREFIX, REFRESH_PREFIX } from "./token-prefixes";
 import { b64url, newId, now } from "./util";
 
@@ -44,7 +44,7 @@ const oauthError = (error: string, error_description: string, status = 400): OAu
 /* ---------- Redirect URIs ---------- */
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
-const isLoopback = (u: URL) => u.protocol === "http:" && LOOPBACK_HOSTS.has(u.hostname);
+export const isLoopback = (u: URL) => u.protocol === "http:" && LOOPBACK_HOSTS.has(u.hostname);
 // Schemes that could run code or read files if a browser were sent there.
 const UNSAFE_SCHEMES = new Set(["javascript:", "data:", "file:", "blob:", "vbscript:", "about:", "filesystem:", "ws:", "wss:"]);
 
@@ -189,28 +189,18 @@ async function newPair() {
   return { set, accessId: await sha256(access), refreshId: await sha256(refresh) };
 }
 
-/** A new pair in sign-in `family`. */
-async function issueTokens(keyId: string, family: string): Promise<TokenSet> {
-  const { set, accessId, refreshId } = await newPair();
-  const t = now();
-  const insert = "INSERT INTO oauth_tokens (id, key_id, family, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)";
-  await env.DB.batch([
-    env.DB.prepare(insert).bind(accessId, keyId, family, "access", t + ACCESS_TTL, t),
-    env.DB.prepare(insert).bind(refreshId, keyId, family, "refresh", t + REFRESH_TTL, t),
-  ]);
-  return set;
-}
-
 /** grant_type=authorization_code: checks the code, PKCE and redirect URI, then connects the app. */
 export async function exchangeCode(client: OAuthClient, form: FormData): Promise<TokenSet | OAuthError> {
   const code = String(form.get("code") ?? "");
   const verifier = String(form.get("code_verifier") ?? "");
   if (!code || !verifier) return oauthError("invalid_request", "Send code and code_verifier.");
-  // Deleted as it is read, so a code works once even if two requests race.
-  const row = await env.DB.prepare("DELETE FROM oauth_codes WHERE id = ? RETURNING *")
-    .bind(await sha256(code))
-    .first<{ client_id: string; user_id: string; redirect_uri: string | null; code_challenge: string; grants: string; expires_at: number }>();
-  if (!row || row.expires_at < now() || row.client_id !== client.id) return oauthError("invalid_grant", "This code is unknown, used or expired. Sign in again.");
+  // Claimed as it is read (expired at once), so a code works once even if two
+  // requests race. It is deleted below, with the connection made in the same batch.
+  const codeId = await sha256(code);
+  const row = await env.DB.prepare("UPDATE oauth_codes SET expires_at = 0 WHERE id = ? AND expires_at >= ? RETURNING *")
+    .bind(codeId, now())
+    .first<{ client_id: string; user_id: string; redirect_uri: string | null; code_challenge: string; grants: string }>();
+  if (!row || row.client_id !== client.id) return oauthError("invalid_grant", "This code is unknown, used or expired. Sign in again.");
   // RFC 6749 §4.1.3: sent to /oauth/authorize, so it must be sent here too, the same. Left out
   // there, it may still be sent here (many libraries always do): then it's one the app registered.
   const redirectUri = form.get("redirect_uri");
@@ -222,49 +212,100 @@ export async function exchangeCode(client: OAuthClient, form: FormData): Promise
   const grants: Grant[] = JSON.parse(row.grants);
   // One connection per person and app (a unique index): signing in again, from
   // any device, replaces its access and keeps the tokens other devices hold.
+  const existing = await env.DB.prepare("SELECT id FROM api_keys WHERE user_id = ? AND client_id = ?").bind(row.user_id, client.id).first<{ id: string }>();
+  const keyId = existing?.id ?? newId();
+  const family = newId();
   const t = now();
+  const { set, accessId, refreshId } = await newPair();
+  // One batch (a transaction), each step only while the code is still there: a
+  // Disconnect, which deletes the code, comes either before (nothing is made)
+  // or after (it removes all of it), never in between.
+  const codeLive = "EXISTS (SELECT 1 FROM oauth_codes WHERE id = ?)";
+  const token = (id: string, kind: string, ttl: number) =>
+    env.DB.prepare(`INSERT INTO oauth_tokens (id, key_id, family, kind, expires_at, created_at) SELECT ?, ?, ?, ?, ?, ? WHERE ${codeLive}`)
+      .bind(id, keyId, family, kind, t + ttl, t, codeId);
   // Signing in counts as using it: set in the same statement, so the hourly
   // purge can't remove a dormant connection while it's being taken up again.
-  const key = await env.DB.prepare(
-    `INSERT INTO api_keys (id, name, prefix, key_hash, mailbox_id, scopes, created_by, created_at, user_id, client_id, last_used_at)
-     VALUES (?1, ?2, 'oauth', 'oauth:' || ?1, NULL, '', ?3, ?4, ?3, ?5, ?4)
-     ON CONFLICT (user_id, client_id) WHERE client_id IS NOT NULL DO UPDATE SET last_used_at = excluded.last_used_at
-     RETURNING id`,
-  )
-    .bind(newId(), client.name, row.user_id, t, client.id)
-    .first<{ id: string }>();
-  if (!key) return oauthError("server_error", "Couldn't save the connection. Try again.", 500);
-  const keyId = key.id;
-  await env.DB.batch([
-    ...grantStatements(keyId, grants),
-    env.DB.prepare("UPDATE oauth_clients SET used_at = ? WHERE id = ?").bind(t, client.id),
-  ]);
-  return issueTokens(keyId, newId());
+  const connection = existing
+    ? env.DB.prepare(`UPDATE api_keys SET last_used_at = ? WHERE id = ? AND ${codeLive}`).bind(t, keyId, codeId)
+    : env.DB.prepare(
+        `INSERT INTO api_keys (id, name, prefix, key_hash, mailbox_id, scopes, created_by, created_at, user_id, client_id, last_used_at)
+         SELECT ?1, ?2, 'oauth', 'oauth:' || ?1, NULL, '', ?3, ?4, ?3, ?5, ?4 WHERE EXISTS (SELECT 1 FROM oauth_codes WHERE id = ?6)`,
+      ).bind(keyId, client.name, row.user_id, t, client.id, codeId);
+  let results: D1Result[];
+  try {
+    results = await env.DB.batch([
+      connection,
+      env.DB.prepare(`DELETE FROM api_key_grants WHERE key_id = ? AND ${codeLive}`).bind(keyId, codeId),
+      ...grants.map((g) =>
+        env.DB.prepare(`INSERT INTO api_key_grants (key_id, target_type, target_id, can_read, can_send) SELECT ?, ?, ?, ?, ? WHERE ${codeLive}`)
+          .bind(keyId, g.target_type, g.target_id, g.can_read, g.can_send, codeId),
+      ),
+      token(accessId, "access", ACCESS_TTL),
+      token(refreshId, "refresh", REFRESH_TTL),
+      env.DB.prepare(`UPDATE oauth_clients SET used_at = ? WHERE id = ? AND ${codeLive}`).bind(t, client.id, codeId),
+      env.DB.prepare("DELETE FROM oauth_codes WHERE id = ?").bind(codeId),
+    ]);
+  } catch (e) {
+    // Two sign-ins of the same person and app finishing at the same moment: the unique index lets one through.
+    console.error("oauth connection failed", e);
+    return oauthError("server_error", "Couldn't save the connection. Try again.", 500);
+  }
+  if (!results.at(-1)!.meta.changes) return oauthError("invalid_grant", "This sign-in was cancelled. Sign in again.");
+  return set;
 }
 
 /**
  * A refresh token traded in again within this long of its first use is a client
- * retrying (two tabs, an answer lost on the way): it gets a pair too, once. The
- * family then holds two unused refresh tokens, and the first of them used
- * retires the other, so it stays one chain: a copy and its original can't both
- * go on, and the one retired coming back is a reuse that signs the device out.
- * Any later use, or a second retry, is a copy.
+ * retrying (two tabs, an answer lost on the way): it gets back the same pair as
+ * the first time, so the device stays one chain with one pair. Only while that
+ * pair's refresh token is unused: once the device has gone on with it, the old
+ * token coming back is a copy. Any later use is a copy too.
  */
 const REUSE_GRACE = 30 * 1000;
 /** How long a used refresh token is remembered: a copy used later than that is just unknown. */
 const USED_REFRESH_TTL = 7 * 24 * 60 * 60 * 1000;
 
+/*
+ * The answer to a refresh is kept on the used token for a retry, encrypted
+ * (AES-GCM) with a key derived from that token. Only its hash is stored, so the
+ * database alone can't read it: only the token's holder can.
+ */
+const answerKey = async (token: string) =>
+  crypto.subtle.importKey("raw", await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`gentlemail retry:${token}`)), "AES-GCM", false, [
+    "encrypt",
+    "decrypt",
+  ]);
+const fromB64url = (s: string) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+
+async function sealAnswer(token: string, set: TokenSet) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await answerKey(token), new TextEncoder().encode(JSON.stringify(set)));
+  return `${b64url(iv)}.${b64url(new Uint8Array(data))}`;
+}
+
+async function openAnswer(token: string, sealed: string): Promise<TokenSet | null> {
+  try {
+    const [iv, data] = sealed.split(".").map(fromB64url);
+    const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, await answerKey(token), data);
+    return JSON.parse(new TextDecoder().decode(plain));
+  } catch {
+    return null;
+  }
+}
+
 /**
  * grant_type=refresh_token: a new pair in the same family; the token used is
- * marked used, not deleted. If it comes back after the grace period, someone
- * has a copy: the whole family is signed out (OAuth 2.1 §4.3.1), and its owner
- * signs in again. A connection that can't reach any mailbox any more, or whose
- * person must first set up required two-step verification, can't refresh
- * either, so its app signs in again rather than retrying forever; its token
- * stays valid in case that changes.
+ * marked used, not deleted. If it comes back other than as a retry (above),
+ * someone has a copy: the whole family is signed out (OAuth 2.1 §4.3.1), and
+ * its owner signs in again. A connection that can't reach any mailbox any more,
+ * or whose person must first set up required two-step verification, can't
+ * refresh either, so its app signs in again rather than retrying forever; its
+ * token stays valid in case that changes.
  *
- * One batch (a transaction): a second request with the same token sees either
- * nothing done or everything done, never a used token without its new pair.
+ * The first use is one batch (a transaction): a second request with the same
+ * token sees either nothing done or everything done, never a used token
+ * without its answer.
  */
 export async function refreshTokens(client: OAuthClient, form: FormData): Promise<TokenSet | OAuthError> {
   const token = String(form.get("refresh_token") ?? "");
@@ -272,39 +313,55 @@ export async function refreshTokens(client: OAuthClient, form: FormData): Promis
   if (!token.startsWith(REFRESH_PREFIX)) return unknown;
   const id = await sha256(token);
   const { set, accessId, refreshId } = await newPair();
+  const sealed = await sealAnswer(token, set);
   const t = now();
-  // A new token in the used one's family: ?1 now, ?2 the token used, ?3 the client, ?4 the grace; ?5–?7 the new token.
+  const usable = `key_id IN (SELECT k.id FROM api_keys k WHERE k.client_id = ?3 AND k.revoked_at IS NULL AND ${CONNECTION_USABLE_SQL})`;
+  // A new token in the used one's family: ?1 now, ?2 the token used, ?3 the client; ?4–?6 the new token.
   const insert = (tokenId: string, kind: string, ttl: number) =>
     env.DB.prepare(
       `INSERT INTO oauth_tokens (id, key_id, family, kind, expires_at, created_at)
-       SELECT ?5, key_id, family, ?6, ?1 + ?7, ?1 FROM oauth_tokens
-       WHERE id = ?2 AND kind = 'refresh' AND expires_at > ?1 AND (used_at IS NULL OR used_at >= ?1 - ?4)
-       AND key_id IN (SELECT k.id FROM api_keys k WHERE k.client_id = ?3 AND k.revoked_at IS NULL AND ${CONNECTION_USABLE_SQL})`,
-    ).bind(t, id, client.id, REUSE_GRACE, tokenId, kind, ttl);
-  // Only on a first use (the token isn't marked yet), and only if the new pair went in.
-  const firstUse = `(SELECT used_at FROM oauth_tokens WHERE id = ?2) IS NULL AND family = (SELECT family FROM oauth_tokens WHERE id = ?3)`;
+       SELECT ?4, key_id, family, ?5, ?1 + ?6, ?1 FROM oauth_tokens
+       WHERE id = ?2 AND kind = 'refresh' AND expires_at > ?1 AND used_at IS NULL AND ${usable}`,
+    ).bind(t, id, client.id, tokenId, kind, ttl);
   const [, issued] = await env.DB.batch([
     insert(accessId, "access", ACCESS_TTL),
     insert(refreshId, "refresh", REFRESH_TTL),
-    // The family's other unused refresh token (a retry's twin) is retired, and its older access tokens go.
+    // The family's older access tokens go: this device has a new one.
     env.DB.prepare(
-      `UPDATE oauth_tokens SET used_at = ?1 - ?4 - 1 WHERE kind = 'refresh' AND used_at IS NULL AND id NOT IN (?2, ?3) AND ${firstUse}`,
-    ).bind(t, id, refreshId, REUSE_GRACE),
-    env.DB.prepare(`DELETE FROM oauth_tokens WHERE kind = 'access' AND id != ?1 AND ${firstUse}`).bind(accessId, id, refreshId),
-    // A retry moves used_at out of the window, so a second retry counts as a copy.
-    env.DB.prepare(
-      `UPDATE oauth_tokens SET used_at = CASE WHEN used_at IS NULL THEN ?1 ELSE ?1 - ?3 - 1 END
-       WHERE id = ?2 AND EXISTS (SELECT 1 FROM oauth_tokens WHERE id = ?4)`,
-    ).bind(t, id, REUSE_GRACE, refreshId),
+      `DELETE FROM oauth_tokens WHERE kind = 'access' AND id != ?1 AND family = (SELECT family FROM oauth_tokens WHERE id = ?2)
+       AND (SELECT used_at FROM oauth_tokens WHERE id = ?3) IS NULL`,
+    ).bind(accessId, refreshId, id),
+    env.DB.prepare("UPDATE oauth_tokens SET used_at = ?, answer = ? WHERE id = ? AND EXISTS (SELECT 1 FROM oauth_tokens WHERE id = ?)").bind(
+      t,
+      sealed,
+      id,
+      refreshId,
+    ),
   ]);
   if (issued.meta.changes) return set;
-  await env.DB.prepare(
-    `DELETE FROM oauth_tokens WHERE family IN (
-       SELECT family FROM oauth_tokens WHERE id = ? AND kind = 'refresh' AND used_at < ?
-       AND key_id IN (SELECT id FROM api_keys WHERE client_id = ?))`,
+
+  // Used already. A retry gets the same answer, while the device hasn't gone on with it.
+  const used = await env.DB.prepare(
+    `SELECT family, used_at, answer, ${usable} AS usable FROM oauth_tokens WHERE id = ?2 AND kind = 'refresh' AND used_at IS NOT NULL
+     AND key_id IN (SELECT id FROM api_keys WHERE client_id = ?3)`,
   )
-    .bind(id, t - REUSE_GRACE, client.id)
-    .run();
+    .bind(t, id, client.id)
+    .first<{ family: string; used_at: number; answer: string | null; usable: number }>();
+  if (!used) return unknown;
+  if (used.used_at >= t - REUSE_GRACE && used.answer) {
+    const first = await openAnswer(token, used.answer);
+    const live =
+      first &&
+      (await env.DB.prepare(
+        `SELECT 1 FROM oauth_tokens r JOIN oauth_tokens a ON a.id = ?2 AND a.kind = 'access' AND a.family = r.family
+         WHERE r.id = ?1 AND r.kind = 'refresh' AND r.used_at IS NULL`,
+      )
+        .bind(await sha256(first.refresh_token), await sha256(first.access_token))
+        .first());
+    if (live) return used.usable ? { ...first!, expires_in: Math.max(1, Math.floor((used.used_at + ACCESS_TTL - t) / 1000)) } : unknown;
+  }
+  // Someone has a copy: the device is signed out.
+  await env.DB.prepare("DELETE FROM oauth_tokens WHERE family = ?").bind(used.family).run();
   return unknown;
 }
 
@@ -343,6 +400,8 @@ export async function purgeExpiredOAuth() {
     env.DB.prepare("DELETE FROM oauth_codes WHERE expires_at < ?").bind(t),
     // Used refresh tokens are kept a week, to recognise a copy coming back.
     env.DB.prepare("DELETE FROM oauth_tokens WHERE expires_at < ? OR used_at < ?").bind(t, t - USED_REFRESH_TTL),
+    // A refresh's answer is only for a retry, within REUSE_GRACE.
+    env.DB.prepare("UPDATE oauth_tokens SET answer = NULL WHERE answer IS NOT NULL AND used_at < ?").bind(t - REUSE_GRACE),
     // Not one being created right now (exchangeCode adds its tokens just after).
     env.DB.prepare(
       `DELETE FROM api_keys WHERE user_id IS NOT NULL AND created_at < ?1 AND (last_used_at IS NULL OR last_used_at < ?1)

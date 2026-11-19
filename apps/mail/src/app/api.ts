@@ -289,7 +289,8 @@ const ACTIONS: Record<string, string> = {
 
 export const MESSAGE_ACTIONS = Object.keys(ACTIONS);
 
-export const messageActionHandler = withKey("organize", async ({ params, request }, auth) => {
+// Any key: actOnMessage() answers with what is missing (organize_required, forbidden or not found).
+export const messageActionHandler = withKey(null, async ({ params, request }, auth) => {
   const b = await readJson(request);
   return actOnMessage(auth, params.id, typeof b?.action === "string" ? b.action : "");
 });
@@ -297,9 +298,11 @@ export const messageActionHandler = withKey("organize", async ({ params, request
 export async function actOnMessage(auth: ApiAuth, id: string, action: string) {
   const msg = await messageFor(auth, id, "organize");
   if (!msg) {
-    // One it can see but not file: say what's missing, as a reply does for read.
+    // One it can see but not file: say what's missing, as a reply does for read. This is
+    // what a key from before Organize existed gets, so it's checked before "no organize at all".
     const seen = await messageFor(auth, id, "read");
     if (seen) return apiError(403, "organize_required", `Marking and moving messages needs the "organize" permission on ${seen.mailbox_address}.`);
+    if (!auth.can.organize) return apiError(403, "forbidden", 'This key has no "organize" permission on any mailbox.');
     return apiError(404, "not_found", "No such message.");
   }
   if (!ACTIONS[action]) return apiError(422, "invalid_action", `action must be one of: ${Object.keys(ACTIONS).join(", ")}.`);

@@ -8,8 +8,8 @@ import { b64url, newId, now } from "./util";
  * The OAuth 2.1 authorization server behind /mcp, kept in D1.
  *
  * An assistant registers itself (Dynamic Client Registration), sends the person
- * to /oauth/authorize, where they sign in and choose what it may read and send,
- * then trades the code for tokens (PKCE, S256 only). What it gets is a
+ * to /oauth/authorize, where they sign in and choose what it may read, organize
+ * and send, then trades the code for tokens (PKCE, S256 only). What it gets is a
  * connection: an api_keys row with user_id set, so the same grants and checks
  * as API keys apply, limited to what that person can open (see authenticate()).
  *

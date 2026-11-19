@@ -36,7 +36,6 @@ const PERMS: { perm: Perm; label: string }[] = [
   { perm: "send", label: "Send" },
 ];
 const NONE: Record<Perm, boolean> = { read: false, organize: false, send: false };
-/** Narrower on phones, where a name may wrap rather than be cut off (see row()). */
 /** An address may wrap after its "@" (on phones) rather than mid-word. */
 const breakAfterAt = (text: string) => {
   const at = text.indexOf("@");
@@ -48,6 +47,7 @@ const breakAfterAt = (text: string) => {
     </>
   );
 };
+/** Narrower on phones, where a name may wrap rather than be cut off (see row()). */
 const COLUMNS = "grid-cols-[minmax(0,1fr)_repeat(3,52px)] sm:grid-cols-[minmax(0,1fr)_repeat(3,64px)]";
 
 /**

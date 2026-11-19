@@ -244,15 +244,13 @@ describe("API key access", () => {
           assert.equal(one.status, read ? 200 : deniedRead(key, 404), "get one message");
           if (read) assert.equal(one.data.data.mailbox.id, mb.id);
 
-          // Organize, not read, decides. No organize grant at all: 403 for the key; organize elsewhere:
-          // 403 organize_required when it can read this message, otherwise "not found".
-          const star = await call(key, "POST", `/api/v1/messages/${msgOf(mb.id)}`, { action: "star" });
-          const refused = !anyGrant(key, "organize") ? 403 : read ? 403 : 404;
-          assert.equal(star.status, organize ? 200 : refused, "star it");
-          if (!organize && anyGrant(key, "organize") && read) assert.equal(star.data.error.code, "organize_required");
-          for (const action of ["archive", "trash"]) {
-            const moved = await call(key, "POST", `/api/v1/messages/${msgOf(mb.id)}`, { action });
-            assert.equal(moved.status, organize ? 200 : refused, action);
+          // Organize, not read, decides. Refused: organize_required when it can read this message
+          // (a key from before Organize existed), forbidden with no organize anywhere, else not found.
+          const refused = read ? [403, "organize_required"] : anyGrant(key, "organize") ? [404, "not_found"] : [403, "forbidden"];
+          for (const action of ["star", "archive", "trash"]) {
+            const res = await call(key, "POST", `/api/v1/messages/${msgOf(mb.id)}`, { action });
+            if (organize) assert.equal(res.status, 200, action);
+            else assert.deepEqual([res.status, res.data.error?.code], refused, action);
           }
           // Whatever happened, check it through a key that sees everything, then undo.
           const seen = await call("readAll", "GET", `/api/v1/messages/${msgOf(mb.id)}`);

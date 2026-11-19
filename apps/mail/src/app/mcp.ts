@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
 import { appName } from "@/app/components/brand";
 import { json } from "@/app/http";
-import { MESSAGE_ACTIONS, actOnMessage, getMessage, listMailboxes, listMessages, messageFor, readableBinds, readableSql, sendMessage } from "@/app/api";
+import { MESSAGE_ACTIONS, actOnMessage, getMessage, listMailboxes, listMessages, messageFor, readableSql, sendMessage } from "@/app/api";
 import { type ApiAuth, authenticate } from "@/lib/apikeys";
 import { type MessageRow, getHtmlBody, listAttachments, replyRecipients } from "@/lib/db";
 import { messageJson } from "@/lib/webhooks";
@@ -102,7 +102,8 @@ const TOOLS: Tool[] = [
     name: "search_messages",
     title: "Search messages",
     description:
-      "List or search messages, newest first. Without `query`, lists a folder (inbox by default). " +
+      "List or search messages, newest first. Without `query`, lists a folder (inbox by default); with one, searches " +
+      "every folder but spam and trash unless `folder` says otherwise. " +
       "Returns summaries; use get_message or get_thread for the full text. " +
       UNTRUSTED,
     inputSchema: {
@@ -110,7 +111,11 @@ const TOOLS: Tool[] = [
       properties: {
         query: { type: "string", description: "Words to find in the subject, sender, recipients or text." },
         mailbox: { type: "string", description: "Only this mailbox (its address). Default: every readable mailbox." },
-        folder: { type: "string", enum: FOLDER_ENUM, description: "Default inbox; with a query, default all." },
+        folder: {
+          type: "string",
+          enum: FOLDER_ENUM,
+          description: "Default inbox; with a query, every folder but spam and trash. `all` includes spam and trash.",
+        },
         unread: { type: "boolean", description: "Only unread messages." },
         since: { type: "string", description: "Only messages after this ISO date, e.g. 2026-11-01." },
         limit: { type: "integer", minimum: 1, maximum: 100, description: "Default 20." },
@@ -124,11 +129,12 @@ const TOOLS: Tool[] = [
       const query = nonEmpty(a.query);
       if (query) q.set("q", query);
       if (nonEmpty(a.mailbox)) q.set("mailbox", nonEmpty(a.mailbox)!);
-      q.set("folder", str(a.folder) ?? (query ? "all" : "inbox"));
+      const folder = str(a.folder);
+      q.set("folder", folder ?? (query ? "all" : "inbox"));
       if (a.unread === true) q.set("unread", "true");
       if (nonEmpty(a.since)) q.set("since", nonEmpty(a.since)!);
       q.set("limit", String(typeof a.limit === "number" ? a.limit : 20));
-      return fromApi(await listMessages(auth, q), (b) => ({ messages: b.data.map(summary), note: UNTRUSTED }));
+      return fromApi(await listMessages(auth, q, { skipJunk: !folder }), (b) => ({ messages: b.data.map(summary), note: UNTRUSTED }));
     },
   },
   {
@@ -157,7 +163,10 @@ const TOOLS: Tool[] = [
   {
     name: "get_thread",
     title: "Read a conversation",
-    description: "Every message of a conversation, oldest first, with their text. " + UNTRUSTED,
+    description:
+      `The messages of a conversation, oldest first, with their text. Past ${THREAD_LIMIT} messages, it gives the first one ` +
+      "and the newest ones, and `left_out` says how many in between it skipped (read those with get_message). " +
+      UNTRUSTED,
     inputSchema: {
       type: "object",
       properties: { thread_id: { type: "string", description: "thread_id, from search_messages or get_message." } },
@@ -169,25 +178,40 @@ const TOOLS: Tool[] = [
     run: async (auth, a) => {
       const id = nonEmpty(a.thread_id);
       if (!id) return toolError("Give the thread_id.");
-      const { results } = await env.DB.prepare(
-        `SELECT m.*, b.address AS mailbox_address FROM messages m JOIN mailboxes b ON b.id = m.mailbox_id
-         WHERE m.thread_id = ? AND ${readableSql(auth)} ORDER BY m.date DESC LIMIT ?`,
-      )
-        .bind(id, ...readableBinds(auth), THREAD_LIMIT)
-        .all<MessageRow & { mailbox_address: string }>();
-      const readable = results.reverse();
-      if (!readable.length) return toolError("No such conversation.");
+      // The first message (what was asked) and the newest ones, and how many there are.
+      const readable = readableSql(auth);
+      const from = `FROM messages m JOIN mailboxes b ON b.id = m.mailbox_id WHERE m.thread_id = ? AND ${readable.sql}`;
+      const select = (order: string, limit: number) =>
+        env.DB.prepare(`SELECT m.*, b.address AS mailbox_address ${from} ORDER BY m.date ${order}, m.id ${order} LIMIT ?`).bind(id, ...readable.binds, limit);
+      const [first, newest, count] = await env.DB.batch<any>([
+        select("ASC", 1),
+        select("DESC", THREAD_LIMIT - 1),
+        env.DB.prepare(`SELECT COUNT(*) AS n ${from}`).bind(id, ...readable.binds),
+      ]);
+      const rows = [...(newest.results as (MessageRow & { mailbox_address: string })[])].reverse();
+      const oldest = first.results[0] as (MessageRow & { mailbox_address: string }) | undefined;
+      if (!oldest) return toolError("No such conversation.");
+      if (rows[0]?.id !== oldest.id) rows.unshift(oldest);
+      const leftOut = (count.results[0] as { n: number }).n - rows.length;
       // The whole thread fits TEXT_LIMIT: at most 25 messages, so each still gets 1,200 characters or more.
-      const perMessage = Math.floor(TEXT_LIMIT / readable.length);
+      const perMessage = Math.floor(TEXT_LIMIT / rows.length);
       // Each message as get_message gives it. Bodies may be in R2: fetched together.
-      const atts = await listAttachments(readable.map((m) => m.id));
+      const atts = await listAttachments(rows.map((m) => m.id));
       const messages = await Promise.all(
-        readable.map(async (m) => {
+        rows.map(async (m) => {
           const data = messageJson(m, m.mailbox_address, atts.filter((x) => x.message_id === m.id));
           return { ...summary(data), reply_to: data.reply_to, text: cut(await bodyText(m), perMessage) };
         }),
       );
-      return result({ thread_id: id, messages, note: UNTRUSTED });
+      if (!leftOut) return result({ thread_id: id, messages, note: UNTRUSTED });
+      // Said where the gap is too, so it isn't read as one conversation without it.
+      const [head, ...rest] = messages;
+      return result({
+        thread_id: id,
+        left_out: leftOut,
+        messages: [head, { left_out: `${leftOut} messages between these two are not shown.` }, ...rest],
+        note: `${leftOut} messages in the middle are left out; search_messages and get_message read them. ${UNTRUSTED}`,
+      });
     },
   },
   {
@@ -247,15 +271,11 @@ const TOOLS: Tool[] = [
       const { to, cc } = replyRecipients(msg, msg.mailbox_address, a.reply_all === true);
       if (!to.length) return toolError("This message has no one to reply to.");
       return fromApi(
-        await sendMessage(auth, {
-          from: msg.mailbox_address,
-          reply_to_message_id: id,
-          to,
-          cc,
-          text: str(a.text) ?? "",
-          quote: true,
-          signature: a.signature !== false,
-        }),
+        await sendMessage(
+          auth,
+          { from: msg.mailbox_address, reply_to_message_id: id, to, cc, text: str(a.text) ?? "", quote: true, signature: a.signature !== false },
+          msg,
+        ),
       );
     },
   },

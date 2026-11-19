@@ -1,6 +1,10 @@
 export type Addr = { name: string; address: string };
 
 export const newId = () => crypto.randomUUID();
+
+/** A JSON response. The one helper for it, on every route. */
+export const json = (body: unknown, status = 200, headers?: HeadersInit) =>
+  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headers } });
 export const now = () => Date.now();
 /** Base64url without padding (tokens, PKCE). */
 export const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");

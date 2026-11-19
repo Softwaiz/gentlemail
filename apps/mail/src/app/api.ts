@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
-import { type ApiAuth, GRANT_COVERS_SQL, type Scope, apiError, apiJson, authenticate, can, limitSql } from "@/lib/apikeys";
+import { type ApiAuth, type Scope, apiError, apiJson, authenticate, can, coveredMailboxes } from "@/lib/apikeys";
 import { type Mailbox, type MessageRow, getHtmlBody, isFolder, listAttachments, replyRecipients, searchSql } from "@/lib/db";
 import { SendError, type OutgoingFile, sendMail } from "@/lib/outbound";
 import { type Addr, htmlToText, isEmail, parseAddressList } from "@/lib/util";
@@ -80,14 +80,14 @@ export async function messageFor(auth: ApiAuth, id: string, scope: Scope) {
 
 /** The mailboxes this key can do something on, with what it can do there. */
 async function usableMailboxes(auth: ApiAuth) {
-  const limit = limitSql(auth);
+  const covered = coveredMailboxes(auth);
   const { results } = await env.DB.prepare(
     `SELECT b.id, b.address, b.display_name, b.active, MAX(g.can_read) AS can_read, MAX(g.can_send) AS can_send
-     FROM mailboxes b JOIN api_key_grants g ON g.key_id = ? AND ${GRANT_COVERS_SQL}${limit.sql}
+     FROM ${covered.sql}
      GROUP BY b.id HAVING MAX(g.can_read) = 1 OR MAX(g.can_send) = 1
      ORDER BY b.address`,
   )
-    .bind(auth.key.id, ...limit.binds)
+    .bind(...covered.binds)
     .all<{ id: string; address: string; display_name: string; active: number; can_read: number; can_send: number }>();
   return results;
 }
@@ -96,7 +96,8 @@ async function usableMailboxes(auth: ApiAuth) {
 
 export const sendHandler = withKey("send", async ({ request }, auth) => sendMessage(auth, await readJson(request)));
 
-export async function sendMessage(auth: ApiAuth, b: Record<string, unknown> | null) {
+/** `loaded`: the message being answered, when the caller already fetched it with messageFor(auth, id, "read"). */
+export async function sendMessage(auth: ApiAuth, b: Record<string, unknown> | null, loaded?: MessageRow & { mailbox_address: string }) {
   if (!b) return apiError(400, "invalid_json", "Send a JSON object body.");
 
   if (typeof b.from !== "string") return apiError(422, "invalid_from", '"from" must be the address of one of your mailboxes.');
@@ -110,7 +111,8 @@ export async function sendMessage(auth: ApiAuth, b: Record<string, unknown> | nu
   if (b.reply_to_message_id != null) {
     if (!can(auth, mailbox, "read"))
       return apiError(403, "read_required", `Replying needs the "read" permission on ${mailbox.address}.`);
-    original = await messageFor(auth, String(b.reply_to_message_id), "read");
+    const id = String(b.reply_to_message_id);
+    original = loaded?.id === id ? loaded : await messageFor(auth, id, "read");
     if (!original || original.mailbox_id !== mailbox.id)
       return apiError(404, "original_not_found", "reply_to_message_id isn't a message in this mailbox.");
   }
@@ -188,12 +190,13 @@ export async function listMailboxes(auth: ApiAuth) {
 export const listHandler = withKey("read", async ({ request }, auth) => listMessages(auth, new URL(request.url).searchParams));
 
 /** SQL condition: message `m` is in a mailbox this key may read (no limit on how many). */
-export const readableSql = (auth: ApiAuth) =>
-  `m.mailbox_id IN (SELECT b.id FROM mailboxes b JOIN api_key_grants g ON g.key_id = ? AND g.can_read = 1 AND ${GRANT_COVERS_SQL}${limitSql(auth).sql})`;
-export const readableBinds = (auth: ApiAuth) => [auth.key.id, ...limitSql(auth).binds];
+export function readableSql(auth: ApiAuth): { sql: string; binds: unknown[] } {
+  const covered = coveredMailboxes(auth);
+  return { sql: `m.mailbox_id IN (SELECT b.id FROM ${covered.sql} WHERE g.can_read = 1)`, binds: covered.binds };
+}
 
-
-export async function listMessages(auth: ApiAuth, q: URLSearchParams) {
+/** `skipJunk`: with folder=all, leave out spam and trash (the MCP search's default). */
+export async function listMessages(auth: ApiAuth, q: URLSearchParams, opts: { skipJunk?: boolean } = {}) {
   const where: string[] = [];
   const binds: unknown[] = [];
 
@@ -205,15 +208,16 @@ export async function listMessages(auth: ApiAuth, q: URLSearchParams) {
     binds.push(mb.id);
   } else {
     // Only the mailboxes this key may read, worked out in SQL (no limit on how many).
-    where.push(readableSql(auth));
-    binds.push(...readableBinds(auth));
+    const readable = readableSql(auth);
+    where.push(readable.sql);
+    binds.push(...readable.binds);
   }
   const folder = q.get("folder") ?? "inbox";
   if (folder !== "all") {
     if (!isFolder(folder)) return apiError(422, "invalid_folder", "folder must be inbox, sent, archive, spam, trash or all.");
     where.push("m.folder = ?");
     binds.push(folder);
-  }
+  } else if (opts.skipJunk) where.push("m.folder NOT IN ('spam', 'trash')");
   if (q.get("unread") === "true") where.push("m.is_read = 0");
   // The webmail's search.
   const search = (q.get("q") ?? "").trim().slice(0, 200);

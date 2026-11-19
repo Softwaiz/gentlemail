@@ -347,7 +347,28 @@ describe("consent screen", () => {
       headers: { Cookie: cookie("uMember"), "Content-Type": "application/x-www-form-urlencoded" },
       body: form({ ...Object.fromEntries(params), decision: "allow", read: "mailbox:mB1" }), // not theirs: dropped
     });
-    assert.match(res.headers.get("location"), /^\/oauth\/authorize\?.*err=/);
+    const location = res.headers.get("location");
+    assert.match(location, /^\/oauth\/authorize\?.*err=nothing_ticked/);
+    const html = await (await request(location, { headers: { Cookie: cookie("uMember") } })).text();
+    assert.match(html, /Tick Read or Send on at least one line/);
+  });
+
+  test("shows only its own error messages, never text from the link", async () => {
+    const { body: client } = await register();
+    const params = authorizeParams(client, pkce().challenge, { err: "GentleMail has verified this app." });
+    const res = await request(`/oauth/authorize?${params}`, { headers: { Cookie: cookie("uMember") } });
+    assert.equal(res.status, 200);
+    assert.doesNotMatch(await res.text(), /verified this app/);
+  });
+
+  test("an app's own scheme is shown whole, never as a site's address", async () => {
+    const { body: client } = await register(["claude.ai:cb"], { client_name: "Claude" });
+    const params = authorizeParams(client, pkce().challenge, { redirect_uri: "claude.ai:cb" });
+    const html = await (await request(`/oauth/authorize?${params}`, { headers: { Cookie: cookie("uMember") } })).text();
+    assert.match(html, />claude\.ai:cb</);
+    assert.doesNotMatch(html, /claude\.ai:\/\//);
+    assert.match(html, /Not a website/);
+    assert.doesNotMatch(html, /for Claude it is/);
   });
 });
 
@@ -436,16 +457,37 @@ describe("tokens", () => {
     const c = await connect("uMember", { read: ["mailbox:mA1"] });
     const next = await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id });
     assert.equal(next.status, 200);
-    // Right away, it's a retry whose first answer was lost: it gets a pair too, and the first stays valid.
+    // Right away, it's a retry whose first answer was lost: it gets a pair, and the first answer stops working.
     const retry = await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id });
     assert.equal(retry.status, 200);
     assert.equal((await rpc(retry.body.access_token, "tools/list")).status, 200);
-    assert.equal((await rpc(next.body.access_token, "tools/list")).status, 200);
+    assert.equal((await rpc(next.body.access_token, "tools/list")).status, 401);
     // Only once: a second retry is a copy, and the device's new tokens stop working too.
     assert.equal((await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
-    assert.equal((await rpc(next.body.access_token, "tools/list")).status, 401);
-    assert.equal((await token({ grant_type: "refresh_token", refresh_token: next.body.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
+    assert.equal((await token({ grant_type: "refresh_token", refresh_token: retry.body.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
     assert.equal((await rpc(retry.body.access_token, "tools/list")).status, 401);
+  });
+
+  test("a copy used within the retry window doesn't start a chain of its own", async () => {
+    const c = await connect("uMember", { read: ["mailbox:mA1"] });
+    const mine = await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id });
+    // Someone with a copy of the old token trades it in seconds later, as a retry would.
+    const copy = await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id });
+    assert.equal(copy.status, 200);
+    // The real device's next refresh is then a reuse: the whole device is signed out, the copy's chain with it.
+    assert.equal((await token({ grant_type: "refresh_token", refresh_token: mine.body.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
+    assert.equal((await rpc(copy.body.access_token, "tools/list")).status, 401);
+    assert.equal((await token({ grant_type: "refresh_token", refresh_token: copy.body.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
+  });
+
+  test("a retry after the first answer was already used is a copy", async () => {
+    const c = await connect("uMember", { read: ["mailbox:mA1"] });
+    const first = await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id });
+    const second = await token({ grant_type: "refresh_token", refresh_token: first.body.refresh_token, client_id: c.client.client_id });
+    assert.equal(second.status, 200);
+    // The first answer arrived and is in use, so the old token coming back is no retry.
+    assert.equal((await token({ grant_type: "refresh_token", refresh_token: c.refresh_token, client_id: c.client.client_id })).body.error, "invalid_grant");
+    assert.equal((await rpc(second.body.access_token, "tools/list")).status, 401);
   });
 
   test("tokens from signing in don't work on the HTTP API", async () => {
@@ -507,6 +549,17 @@ describe("a member's assistant", () => {
     assert.deepEqual((await tool(c.access_token, "search_messages", { query: "copied@elsewhere" })).messages.map((m) => m.id), ["m3"]);
   });
 
+  test("a search leaves out spam and trash unless asked", async () => {
+    await db.prepare("UPDATE messages SET folder = 'trash' WHERE id = 'm2'").run();
+    try {
+      assert.deepEqual((await tool(c.access_token, "search_messages", { query: "invoice 42" })).messages.map((m) => m.id), ["m1"]);
+      assert.deepEqual((await tool(c.access_token, "search_messages", { query: "invoice 42", folder: "all" })).messages.map((m) => m.id).sort(), ["m1", "m2"]);
+      assert.deepEqual((await tool(c.access_token, "search_messages", { query: "invoice 42", folder: "trash" })).messages.map((m) => m.id), ["m2"]);
+    } finally {
+      await db.prepare("UPDATE messages SET folder = 'inbox' WHERE id = 'm2'").run();
+    }
+  });
+
   test("reads a message as text, HTML-only ones too", async () => {
     const m = await tool(c.access_token, "get_message", { id: "m3" });
     assert.match(m.text, /Only HTML here/);
@@ -566,6 +619,27 @@ describe("a member's assistant", () => {
   test("an unknown tool is a JSON-RPC error", async () => {
     const res = await rpc(c.access_token, "tools/call", { name: "delete_everything", arguments: {} });
     assert.equal(res.body.error.code, -32602);
+  });
+
+  test("a long conversation keeps its first message and says what it left out", async () => {
+    const t0 = Date.now() - 10_000_000;
+    const insert = db.prepare(
+      `INSERT INTO messages (id, mailbox_id, thread_id, folder, direction, from_addr, from_name, to_json, subject, snippet, text_body, is_read, date, created_at)
+       VALUES (?, 'mA1', 'tL', 'inbox', 'in', 'sender@elsewhere.test', 'Sender', '[]', 'Long', 'hi', ?, 0, ?, ?)`,
+    );
+    await db.batch(Array.from({ length: 40 }, (_, i) => insert.bind(`ml${String(i).padStart(2, "0")}`, i ? `Reply ${i}` : "The original request", t0 + i * 1000, t0)));
+    const t = await tool(c.access_token, "get_thread", { thread_id: "tL" });
+    assert.equal(t.left_out, 15);
+    const ids = t.messages.filter((m) => m.id).map((m) => m.id);
+    assert.equal(ids.length, 25);
+    assert.equal(ids[0], "ml00");
+    assert.equal(ids[1], "ml16");
+    assert.equal(ids.at(-1), "ml39");
+    assert.match(t.messages[0].text, /original request/);
+    assert.match(t.messages[1].left_out, /15 messages/);
+    assert.match(t.note, /15 messages in the middle/);
+    // A short one says nothing about it.
+    assert.equal((await tool(c.access_token, "get_thread", { thread_id: "tA" })).left_out, undefined);
   });
 
   test("reads its part of a conversation, however many newer messages it can't see", async () => {
@@ -753,6 +827,13 @@ describe("assistants in a browser", () => {
     const unauth = await request("/mcp", { method: "POST", headers: { ...crossSite, "Content-Type": "application/json" }, body: "{}" });
     assert.equal(unauth.status, 401);
     assert.match(unauth.headers.get("access-control-expose-headers"), /WWW-Authenticate/);
+    // With a trailing slash too: the same endpoint, not a cross-site form post.
+    const slash = await request("/mcp/", {
+      method: "POST",
+      headers: { ...crossSite, Authorization: `Bearer ${access_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    });
+    assert.equal(slash.status, 200);
   });
 
   test("still can't post the consent form from another site", async () => {

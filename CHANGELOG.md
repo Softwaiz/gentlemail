@@ -75,8 +75,6 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 - Opening a conversation marks it read through a server action once it's on screen, instead of while the page loads. ([#7](https://github.com/Softwaiz/gentlemail/pull/7))
 
 ### Fixed
-- The webmail's search also looks in Cc, as the API's does, and finds `%` and `_` as typed instead of treating them as wildcards. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
-- Signing in with a recovery code shows how many are left, then offers to continue to the page you were opening, instead of dropping it. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 - Conversations of more than 100 messages open again, and bulk actions (archive, trash, mark read…) work on selections holding more than 100 messages. ([#7](https://github.com/Softwaiz/gentlemail/pull/7))
 - An incoming reply with a very long `References` header (a long email chain) is stored instead of failing. ([#7](https://github.com/Softwaiz/gentlemail/pull/7))
 - Command-line deploy instructions: the first deploy creates the database before migrations run, and `deploy` needs a `build` first. ([#5](https://github.com/Softwaiz/gentlemail/pull/5))
@@ -90,8 +88,6 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 - "Not found" and "Access restricted" pages with the right HTTP status (404 / 403): for an unknown page, mailbox, conversation, domain or webhook, and for a mailbox or admin page you aren't allowed to open. They show inside the app, with a way to sign in as someone else. ([#4](https://github.com/Softwaiz/gentlemail/pull/4))
 
 ### Fixed
-- The webmail's search also looks in Cc, as the API's does, and finds `%` and `_` as typed instead of treating them as wildcards. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
-- Signing in with a recovery code shows how many are left, then offers to continue to the page you were opening, instead of dropping it. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 - Deleting a mailbox returns to the mailbox list instead of showing "Not found". ([#4](https://github.com/Softwaiz/gentlemail/pull/4))
 - Confirm buttons such as "Delete forever" use the destructive colour, and their text stays readable on hover. ([#4](https://github.com/Softwaiz/gentlemail/pull/4))
 

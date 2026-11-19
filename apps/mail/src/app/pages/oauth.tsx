@@ -9,6 +9,7 @@ import { grantsFromForm } from "@/lib/apikeys";
 import type { User } from "@/lib/auth";
 import { listMailboxAddressesForUser } from "@/lib/db";
 import {
+  AUTH_METHODS,
   type OAuthClient,
   type OAuthError,
   SCOPE,
@@ -57,7 +58,6 @@ export const protectedResourceMetadata = ({ request }: RequestInfo) => {
 /** RFC 8414. */
 export const authorizationServerMetadata = ({ request }: RequestInfo) => {
   const origin = originOf(request);
-  const authMethods = ["none", "client_secret_post", "client_secret_basic"];
   return discovery({
     issuer: origin,
     authorization_endpoint: `${origin}/oauth/authorize`,
@@ -68,8 +68,8 @@ export const authorizationServerMetadata = ({ request }: RequestInfo) => {
     response_modes_supported: ["query"],
     grant_types_supported: ["authorization_code", "refresh_token"],
     code_challenge_methods_supported: ["S256"],
-    token_endpoint_auth_methods_supported: authMethods,
-    revocation_endpoint_auth_methods_supported: authMethods,
+    token_endpoint_auth_methods_supported: AUTH_METHODS,
+    revocation_endpoint_auth_methods_supported: AUTH_METHODS,
     scopes_supported: [SCOPE],
     authorization_response_iss_parameter_supported: true,
     service_documentation: DOCS,
@@ -200,13 +200,23 @@ async function targetsFor(user: User) {
   return { targets, allowed, allowAll: user.role === "admin" };
 }
 
-/** Where the answer goes: the site, or which kind of app. */
-function destination(uri: string): { where: string; note: string } {
+/**
+ * Where the answer goes: the site, or which kind of app. An app's own scheme
+ * is shown whole, as it was registered (without its query), never shaped like a
+ * site's address: "claude.ai:cb" must not read as claude.ai.
+ */
+function destination(uri: string): { where: string; note: string; site: boolean } {
   const u = new URL(uri);
-  if (u.protocol === "http:") return { where: u.host, note: "An app on this computer." };
-  if (u.protocol === "https:") return { where: u.hostname, note: "A website." };
-  return { where: `${u.protocol}//`, note: "An app installed on this device." };
+  if (u.protocol === "http:") return { where: u.host, note: "An app on this computer, not a website.", site: false };
+  if (u.protocol === "https:") return { where: u.hostname, note: "A website.", site: true };
+  const where = uri.split(/[?#]/)[0];
+  return { where, note: `Not a website: an app installed on this device, which opens links starting with ${u.protocol}`, site: false };
 }
+
+/** The consent screen's errors, by code: its ?err= is never shown as written, so a link can't put words on it. */
+const CONSENT_ERRORS: Record<string, string> = {
+  nothing_ticked: "Tick Read or Send on at least one line, or choose Cancel.",
+};
 
 export async function AuthorizePage(ri: RequestInfo) {
   const denied = requireUser(ri);
@@ -231,7 +241,7 @@ export async function AuthorizePage(ri: RequestInfo) {
 
   const user = ri.ctx.user!;
   const { targets, allowAll } = await targetsFor(user);
-  const err = url.searchParams.get("err");
+  const err = CONSENT_ERRORS[url.searchParams.get("err") ?? ""] ?? null;
   const strong = "font-medium text-foreground";
 
   const dest = destination(req.redirectUri);
@@ -248,8 +258,8 @@ export async function AuthorizePage(ri: RequestInfo) {
         <div className="text-xs text-muted-foreground">If you allow it, access is given to</div>
         <div className="mt-1 break-all font-mono text-base font-semibold text-foreground">{dest.where}</div>
         <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          {dest.note} The app picks its own name, so check this address instead: for Claude it is claude.ai. If you didn't just start
-          connecting an assistant yourself, choose Cancel.
+          {dest.note} The app picks its own name, so check this address instead{dest.site ? ": for Claude it is the website claude.ai" : ""}. If
+          you didn't just start connecting an assistant yourself, choose Cancel.
         </div>
       </div>
       <form method="post" className="mt-4 grid gap-4">
@@ -291,7 +301,7 @@ export async function authorizeAction(ri: RequestInfo) {
   const user = ri.ctx.user!;
   const grants = await grantsFromForm(form, (await targetsFor(user)).allowed);
   if (!grants.some((g) => g.can_read || g.can_send))
-    return redirect(withFlash(`/oauth/authorize?${req.params}`, "err", "Tick Read or Send on at least one line, or choose Cancel."));
+    return redirect(withFlash(`/oauth/authorize?${req.params}`, "err", "nothing_ticked"));
 
   const code = await createCode({ clientId: req.client.id, userId: user.id, redirectUri: req.requested, challenge: req.challenge, grants });
   return redirect(redirectWith(req.redirectUri, origin, req.state, { code }));

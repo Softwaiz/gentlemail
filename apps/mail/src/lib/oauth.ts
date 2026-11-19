@@ -96,7 +96,8 @@ export const clientRedirectUris = (c: OAuthClient): string[] => {
 
 /* ---------- Clients ---------- */
 
-const AUTH_METHODS = new Set(["none", "client_secret_post", "client_secret_basic"]);
+/** How a client may authenticate at the token and revocation endpoints (also listed in the server metadata). */
+export const AUTH_METHODS = ["none", "client_secret_post", "client_secret_basic"];
 
 /**
  * POST /oauth/register (RFC 7591). Open to anyone: it only lets an app ask; the
@@ -111,7 +112,7 @@ export async function registerClient(body: Record<string, unknown>) {
     if (problem) return oauthError("invalid_redirect_uri", problem);
   }
   const method = typeof body.token_endpoint_auth_method === "string" ? body.token_endpoint_auth_method : "none";
-  if (!AUTH_METHODS.has(method)) return oauthError("invalid_client_metadata", "token_endpoint_auth_method must be none, client_secret_post or client_secret_basic.");
+  if (!AUTH_METHODS.includes(method)) return oauthError("invalid_client_metadata", "token_endpoint_auth_method must be none, client_secret_post or client_secret_basic.");
   const grantTypes = Array.isArray(body.grant_types) ? body.grant_types : ["authorization_code", "refresh_token"];
   if (!grantTypes.includes("authorization_code")) return oauthError("invalid_client_metadata", "grant_types must include authorization_code.");
 
@@ -180,11 +181,13 @@ async function s256(verifier: string) {
   return b64url(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))));
 }
 
-/** A new pair in sign-in `family`. */
-async function issueTokens(keyId: string, family: string): Promise<TokenSet> {
+/**
+ * A new pair in sign-in `family`, created at `t`. A refresh gives its pair the
+ * time the used token was marked used, so a retry can find that first answer.
+ */
+async function issueTokens(keyId: string, family: string, t = now()): Promise<TokenSet> {
   const access = randomToken(ACCESS_PREFIX);
   const refresh = randomToken(REFRESH_PREFIX);
-  const t = now();
   const insert = "INSERT INTO oauth_tokens (id, key_id, family, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)";
   await env.DB.batch([
     env.DB.prepare(insert).bind(await sha256(access), keyId, family, "access", t + ACCESS_TTL, t),
@@ -236,8 +239,10 @@ export async function exchangeCode(client: OAuthClient, form: FormData): Promise
 
 /**
  * A refresh token traded in again within this long of its first use is a client
- * retrying (two tabs, an answer lost on the way): it gets a pair of its own,
- * once. Any later use, or a second retry, is a copy.
+ * retrying (two tabs, an answer lost on the way): it gets a new pair, once, and
+ * the first answer's pair stops working, so the family stays one chain. If that
+ * first answer did arrive (the retry was a copy), its refresh token coming back
+ * is a reuse and signs the device out. Any later use, or a second retry, is a copy.
  */
 const REUSE_GRACE = 30 * 1000;
 /** How long a used refresh token is remembered: a copy used later than that is just unknown. */
@@ -258,20 +263,38 @@ export async function refreshTokens(client: OAuthClient, form: FormData): Promis
   if (!token.startsWith(REFRESH_PREFIX)) return unknown;
   const id = await sha256(token);
   const t = now();
-  // A retry moves used_at back out of the window, so a second retry counts as a copy.
+  // A retry moves used_at back out of the window, so a second retry counts as a
+  // copy. It moves by REUSE_GRACE + 1 from the first use, so the first use's
+  // time (which its pair was created with) can be read back from it.
   const row = await env.DB.prepare(
-    `UPDATE oauth_tokens SET used_at = CASE WHEN used_at IS NULL THEN ?1 ELSE ?1 - ?4 - 1 END
+    `UPDATE oauth_tokens SET used_at = CASE WHEN used_at IS NULL THEN ?1 ELSE used_at - ?4 - 1 END
      WHERE id = ?2 AND kind = 'refresh' AND expires_at > ?1 AND (used_at IS NULL OR used_at >= ?1 - ?4)
      AND key_id IN (SELECT k.id FROM api_keys k WHERE k.client_id = ?3 AND k.revoked_at IS NULL AND ${CONNECTION_USABLE_SQL})
-     RETURNING key_id, family, used_at = ?1 AS first`,
+     RETURNING key_id, family, used_at = ?1 AS first, used_at + ?4 + 1 AS first_use`,
   )
     .bind(t, id, client.id, REUSE_GRACE)
-    .first<{ key_id: string; family: string; first: number }>();
+    .first<{ key_id: string; family: string; first: number; first_use: number }>();
   if (row) {
-    // The family's older access tokens go: this device has a new one. Not on a
-    // retry, whose first answer may be in use.
-    if (row.first) await env.DB.prepare("DELETE FROM oauth_tokens WHERE family = ? AND kind = 'access'").bind(row.family).run();
-    return issueTokens(row.key_id, row.family);
+    if (row.first) {
+      // The family's older access tokens go: this device has a new one.
+      await env.DB.prepare("DELETE FROM oauth_tokens WHERE family = ? AND kind = 'access'").bind(row.family).run();
+      return issueTokens(row.key_id, row.family, t);
+    }
+    // A retry: the first answer's refresh token is marked used outside the
+    // window, so using it later is caught as a copy, and its access token goes.
+    // If that refresh token was already used, the first answer arrived and is
+    // in use: this is a copy, and the device is signed out.
+    const [superseded] = await env.DB.batch([
+      env.DB.prepare("UPDATE oauth_tokens SET used_at = ? WHERE family = ? AND kind = 'refresh' AND created_at = ? AND used_at IS NULL").bind(
+        t - REUSE_GRACE - 1,
+        row.family,
+        row.first_use,
+      ),
+      env.DB.prepare("DELETE FROM oauth_tokens WHERE family = ? AND kind = 'access' AND created_at = ?").bind(row.family, row.first_use),
+    ]);
+    if (superseded.meta.changes) return issueTokens(row.key_id, row.family);
+    await env.DB.prepare("DELETE FROM oauth_tokens WHERE family = ?").bind(row.family).run();
+    return unknown;
   }
   await env.DB.prepare(
     `DELETE FROM oauth_tokens WHERE family IN (

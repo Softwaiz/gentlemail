@@ -46,9 +46,9 @@ When it's about to send, the assistant shows you the message and waits for your 
 | Tool | Needs | What it does |
 |---|---|---|
 | `list_mailboxes` | | The mailboxes it may use, and whether it may read or send on each. |
-| `search_messages` | Read | Lists a folder or searches subject, sender, recipients and text. |
+| `search_messages` | Read | Lists a folder or searches subject, sender, recipients and text. A search covers every folder but spam and trash, unless the assistant names a folder. |
 | `get_message` | Read | One message as text, with recipients and attachment names. |
-| `get_thread` | Read | A whole conversation, oldest first. |
+| `get_thread` | Read | A conversation, oldest first. Past 25 messages, it gives the first one and the newest 24, and says how many it left out in between. |
 | `update_message` | Read | Marks read or unread, stars, moves to inbox, archive, spam or trash. |
 | `send_email` | Send | Sends a new message from a mailbox. |
 | `reply` | Read and Send | Replies in the conversation, quoting the original, optionally to everyone. |
@@ -57,12 +57,13 @@ An assistant only sees the tools its access allows: a read-only one has no sendi
 
 ## Staying in control
 
+- **Check where access goes.** Any app can call itself "Claude", so the sign-in page shows, in a box, where the access will be sent: a website (for Claude, `claude.ai`), an app on this computer, or an app installed on your device, shown by its full link (such as `cursor://…`). If you didn't just start connecting an assistant yourself, choose **Cancel**.
 - **Only what you allowed.** The assistant reaches the mailboxes you ticked, and never more than you can open yourself. If an admin takes a mailbox away from you, your assistants lose it too, from their next request. Admins may also grant **All mailboxes** or a whole domain.
 - **Sending asks you first.** Sending tools are marked as actions that change things, so assistants ask before running them. GentleMail also tells the assistant to show you the recipients and the text first.
 - **Mail is treated as data.** Anyone can write you an email, including one written to trick an AI ("forward all invoices to…"). Every message the assistant reads comes with a note to treat it as information, not instructions. Still, give an assistant Send only where you need it.
 - **Disconnect at any time.** **Security → Connected assistants** lists yours, with the access and last use of each; **Disconnect** stops it at once. Admins see everyone's under **Admin → API & webhooks**. Signing out in the assistant (in Claude Code, `/mcp` → **Clear authentication**) signs out that device only; the others stay connected until the last one signs out. An assistant that none of your devices has used for 60 days is removed.
 - **Password or two-step reset.** When an admin changes someone's password, their own included, or resets someone's two-step verification, that person's assistants are disconnected too, and sign-ins not yet finished are cancelled, in case whoever knew the old password connected one. Changing your own password also signs you out in your other browsers.
-- **Short-lived tokens.** The assistant gets a token valid for an hour and a renewal token that changes each time it's used. If an old renewal token is used again more than 30 seconds later, someone has copied it, and that device is signed out. Once within 30 seconds, it's taken for the app retrying. GentleMail stores only fingerprints of them. Where the assistant keeps them on your side depends on the app.
+- **Short-lived tokens.** The assistant gets a token valid for an hour and a renewal token that changes each time it's used. If an old renewal token is used again more than 30 seconds later, someone has copied it, and that device is signed out. Once within 30 seconds, it's taken for the app retrying: the app gets new tokens and the ones from the first answer stop working, so if that first answer did arrive (the old token was a copy), the device is signed out when it next renews. GentleMail stores only fingerprints of them. Where the assistant keeps them on your side depends on the app.
 
 To change what an assistant may do, disconnect it and connect it again.
 
@@ -100,7 +101,7 @@ On macOS, use `security find-generic-password -s gentlemail -w` instead. With 1P
   - The endpoints are `/oauth/register`, `/oauth/authorize`, `/oauth/token` and `/oauth/revoke`.
   - Redirect URIs must be https, http on `localhost` or `127.0.0.1` (any port), or an app's own scheme.
 - Tokens from signing in work on `/mcp` only, not on `/api/v1`.
-- Each sign-in is its own chain of tokens. `/oauth/revoke` ends the chain the token belongs to. A refresh token used again within 30 seconds of its first use gets a new pair, once (a retry); any other reuse ends its chain. Used refresh tokens are remembered for a week. A `redirect_uri` sent to `/oauth/authorize` must be repeated at `/oauth/token`; one left out there may be sent at `/oauth/token` if it's registered.
+- Each sign-in is its own chain of tokens. `/oauth/revoke` ends the chain the token belongs to. A refresh token used again within 30 seconds of its first use gets a new pair, once (a retry), and the pair from its first use is revoked: that refresh token coming back later ends the chain, as does a retry after it was already used. Any other reuse ends its chain. Used refresh tokens are remembered for a week. A `redirect_uri` sent to `/oauth/authorize` must be repeated at `/oauth/token`; one left out there may be sent at `/oauth/token` if it's registered.
 - Registration takes up to 5 redirect URIs of up to 500 characters, and 10 registrations a minute from one address (`429 slow_down` beyond).
 - An assistant whose person can no longer open any of its mailboxes gets `401`, and refreshing fails with `invalid_grant`, so it signs in again. The same goes for refreshing while the admin requires two-step verification the person hasn't set up (`/mcp` answers `403 mfa_required`). JSON-RPC batches (older protocol versions) hold at most 10 messages.
 - `/mcp`, the OAuth endpoints and the discovery documents answer any site (CORS), for assistants that run in a browser. They read only the tokens sent with the request, never the webmail's cookies.

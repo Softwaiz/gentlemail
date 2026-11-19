@@ -1,7 +1,7 @@
 import { env, waitUntil } from "cloudflare:workers";
 import { sha256 } from "./auth";
 import { ACCESS_PREFIX } from "./token-prefixes";
-import { b64url, domainOf, newId, now } from "./util";
+import { b64url, domainOf, json, newId, now } from "./util";
 
 /*
  * API keys. A key holds grants; each grant gives read and/or send on every
@@ -151,10 +151,8 @@ export type ApiAuth = {
 };
 export type Perm = { read: boolean; send: boolean };
 
-const json = (status: number, body: unknown) =>
-  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-export const apiError = (status: number, code: string, message: string) => json(status, { error: { code, message } });
-export const apiJson = (body: unknown, status = 200) => json(status, body);
+export const apiError = (status: number, code: string, message: string) => json({ error: { code, message } }, status);
+export const apiJson = (body: unknown, status = 200) => json(body, status);
 
 /**
  * An assistant's token: its connection, and whether it acts for an admin.
@@ -176,16 +174,21 @@ async function connectionFor(token: string): Promise<{ key: ApiKeyRow; admin: bo
   return { key, admin: user_role === "admin" };
 }
 
-/** The mailboxes a person can open (SQL, one bind: their user id). */
-const MEMBER_MAILBOXES_SQL = "SELECT mailbox_id FROM mailbox_members WHERE user_id = ?";
+/** The mailboxes a person can open (SQL; `user` is a bind or a column). */
+const memberMailboxesSql = (user = "?") => `SELECT mailbox_id FROM mailbox_members WHERE user_id = ${user}`;
 
 /**
- * SQL to add after GRANT_COVERS_SQL (mailbox `b`): keeps an assistant to the
- * mailboxes its person can open, as `limit` does in permFor().
+ * SQL for a FROM clause: mailboxes `b`, each with the grants `g` of key `key`
+ * that cover it; with `user`, only the mailboxes that person can open, as
+ * `limit` does in permFor(). Every query of what a key or an assistant reaches
+ * goes through here (`key` and `user` are binds or columns).
  */
-export function limitSql(auth: Pick<ApiAuth, "limit" | "key">): { sql: string; binds: unknown[] } {
-  if (!auth.limit) return { sql: "", binds: [] };
-  return { sql: ` AND b.id IN (${MEMBER_MAILBOXES_SQL})`, binds: [auth.key.user_id] };
+const coveredSql = (key: string, user: string | null) =>
+  `mailboxes b JOIN api_key_grants g ON g.key_id = ${key} AND ${GRANT_COVERS_SQL}${user ? ` AND b.id IN (${memberMailboxesSql(user)})` : ""}`;
+
+/** coveredSql() for this key or assistant, with its binds. */
+export function coveredMailboxes(auth: Pick<ApiAuth, "limit" | "key">): { sql: string; binds: unknown[] } {
+  return auth.limit ? { sql: coveredSql("?", "?"), binds: [auth.key.id, auth.key.user_id] } : { sql: coveredSql("?", null), binds: [auth.key.id] };
 }
 
 /**
@@ -193,9 +196,9 @@ export function limitSql(auth: Pick<ApiAuth, "limit" | "key">): { sql: string; b
  * can open (any, for an admin). The same rule authenticate() applies; a
  * connection without it can't refresh its tokens, so its app signs in again.
  */
-export const CONNECTION_REACHES_SQL = `EXISTS (SELECT 1 FROM api_key_grants g WHERE g.key_id = k.id AND (g.can_read = 1 OR g.can_send = 1)
-  AND ((SELECT role FROM users WHERE id = k.user_id) = 'admin' OR EXISTS (
-    SELECT 1 FROM mailbox_members mm JOIN mailboxes b ON b.id = mm.mailbox_id WHERE mm.user_id = k.user_id AND ${GRANT_COVERS_SQL})))`;
+export const CONNECTION_REACHES_SQL = `CASE WHEN (SELECT role FROM users WHERE id = k.user_id) = 'admin'
+  THEN EXISTS (SELECT 1 FROM api_key_grants g WHERE g.key_id = k.id AND (g.can_read = 1 OR g.can_send = 1))
+  ELSE EXISTS (SELECT 1 FROM ${coveredSql("k.id", "k.user_id")} WHERE g.can_read = 1 OR g.can_send = 1) END`;
 
 /**
  * SQL condition: connection `k` may be used now: it reaches a mailbox, and its
@@ -250,11 +253,10 @@ export async function authenticate(request: Request, scope: Scope | null, opts: 
     limited
       ? [
           grantsQuery,
-          env.DB.prepare(MEMBER_MAILBOXES_SQL).bind(key.user_id),
+          env.DB.prepare(memberMailboxesSql()).bind(key.user_id),
           // An assistant: what its grants allow on the mailboxes its person can still open.
           env.DB.prepare(
-            `SELECT MAX(g.can_read) AS r, MAX(g.can_send) AS s FROM mailboxes b
-             JOIN api_key_grants g ON g.key_id = ? AND ${GRANT_COVERS_SQL} AND b.id IN (${MEMBER_MAILBOXES_SQL})`,
+            `SELECT MAX(g.can_read) AS r, MAX(g.can_send) AS s FROM ${coveredSql("?", "?")}`,
           ).bind(key.id, key.user_id),
         ]
       : [grantsQuery],

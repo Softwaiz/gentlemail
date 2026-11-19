@@ -15,8 +15,7 @@ export const withFlash = (path: string, kind: "msg" | "err", text: string) => {
 
 export const field = (form: FormData, name: string) => String(form.get(name) ?? "").trim();
 
-export const json = (body: unknown, status = 200, headers?: HeadersInit) =>
-  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headers } });
+export { json } from "@/lib/util";
 
 /**
  * A path on this site to go back to after signing in; anything else becomes "/".
@@ -47,10 +46,12 @@ const CORS_HEADERS = {
   "Access-Control-Max-Age": "86400",
 };
 const corsPaths = new Set<string>();
+/** "/mcp/" and "/mcp" are the same route: compared without trailing slashes. */
+const corsKey = (path: string) => path.replace(/\/+$/, "") || "/";
 
 /** Wraps a token endpoint: answers the preflight, adds CORS headers, allows only `methods` (others get 405). */
 export function cors(path: string, methods: string[], handler: (ri: RequestInfo) => Response | Promise<Response>) {
-  corsPaths.add(path);
+  corsPaths.add(corsKey(path));
   const allow = [...methods, "OPTIONS"].join(", ");
   return async (ri: RequestInfo) => {
     const headers = { ...CORS_HEADERS, "Access-Control-Allow-Methods": allow };
@@ -65,7 +66,7 @@ export function cors(path: string, methods: string[], handler: (ri: RequestInfo)
 /** Reject cross-site form posts (CSRF). */
 export function checkOrigin({ request }: RequestInfo) {
   if (request.method === "GET" || request.method === "HEAD") return;
-  if (corsPaths.has(new URL(request.url).pathname)) return;
+  if (corsPaths.has(corsKey(new URL(request.url).pathname))) return;
   const blocked = () => new Response("Cross-origin request blocked", { status: 403 });
   // Modern browsers: trust Sec-Fetch-Site when present.
   const site = request.headers.get("Sec-Fetch-Site");

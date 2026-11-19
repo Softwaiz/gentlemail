@@ -33,7 +33,7 @@ The answer is `201 Created`.
 | `subject` | string | Subject line. Defaults to `Re:` the original when replying. |
 | `text`, `html` | string | At least one. With only HTML, a plain-text version is made for you. |
 | `attachments` | array | Each item: `{ "filename", "content" (base64), "content_type"? }`. Up to 25 MB in all. |
-| `reply_to_message_id` | string | ID of a message in this mailbox. Threads the reply, and `to` defaults to its sender. Needs **Read** on the mailbox too. |
+| `reply_to_message_id` | string | ID of a message in this mailbox. Threads the reply, and `to` defaults to its sender (its recipients, for a message sent from this mailbox). Needs **Read** on the mailbox too. |
 | `quote` | boolean | With a reply, quote the original below your text. |
 | `signature` | boolean | Append the mailbox's signature. |
 

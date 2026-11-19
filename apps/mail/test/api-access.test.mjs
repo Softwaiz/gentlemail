@@ -1,21 +1,16 @@
 /*
  * API keys reach exactly the mailboxes they are allowed to, on every endpoint.
  *
- * Runs the built Worker (dist/, from `vite build`) in Miniflare (workerd, the Workers
- * runtime) with an in-memory D1 database and R2 bucket, applies the migrations, seeds
- * domains, mailboxes, messages, attachments and keys,
- * then calls the HTTP API with each key. What each key may do on each mailbox is written
- * out by hand in KEYS below: the test states the rules, it doesn't reuse the app's code
- * to work them out.
+ * Runs the built Worker in Miniflare (see harness.mjs), seeds domains, mailboxes,
+ * messages, attachments and keys, then calls the HTTP API with each key. What each
+ * key may do on each mailbox is written out by hand in KEYS below: the test states
+ * the rules, it doesn't reuse the app's code to work them out.
  *
  * Run from apps/mail: pnpm test (builds first).
  */
 import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { Miniflare } from "miniflare";
+import { q, sha256, startWorker } from "./harness.mjs";
 
 /* ---------- The world ---------- */
 
@@ -105,30 +100,11 @@ const KEYS = {
 };
 
 const secretOf = (name) => `gm_test_${name}_${"x".repeat(24)}`;
-const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
 /* ---------- Server ---------- */
 
-const APP = new URL("..", import.meta.url).pathname;
-const BASE = "http://gentlemail.test";
 let mf;
-
-/** The migrations, one statement at a time (they hold no triggers, so ";" at a line end ends a statement). */
-function migrationStatements() {
-  const dir = join(APP, "migrations");
-  return readdirSync(dir)
-    .filter((f) => f.endsWith(".sql"))
-    .sort()
-    .flatMap((f) =>
-      readFileSync(join(dir, f), "utf8")
-        .replace(/--.*$/gm, "")
-        .split(/;\s*$/m)
-        .map((st) => st.trim())
-        .filter(Boolean),
-    );
-}
-
-const q = (v) => (v === null ? "NULL" : typeof v === "number" ? String(v) : `'${String(v).replaceAll("'", "''")}'`);
+let request;
 
 function seedSql() {
   const t = Date.now();
@@ -158,28 +134,12 @@ function seedSql() {
 }
 
 before(async () => {
-  // The Worker as built for production, in workerd (the Workers runtime), with in-memory D1 and R2.
-  const config = JSON.parse(readFileSync(join(APP, "dist/worker/wrangler.json"), "utf8"));
-  mf = new Miniflare({
-    scriptPath: join(APP, "dist/worker", config.main),
-    modules: true,
-    modulesRules: [{ type: "ESModule", include: ["**/*.js", "**/*.mjs"] }],
-    compatibilityDate: config.compatibility_date,
-    compatibilityFlags: config.compatibility_flags,
-    bindings: { ...config.vars, PUBLIC_URL: BASE },
-    d1Databases: { DB: "test" },
-    r2Buckets: { MAIL_BUCKET: "test" },
-    email: { send_email: [{ name: "EMAIL" }] },
-  });
-  const db = await mf.getD1Database("DB");
-  await db.batch([...migrationStatements(), ...seedSql().split(/;\n/)].filter((st) => st.trim()).map((st) => db.prepare(st)));
+  ({ mf, request } = await startWorker(seedSql()));
   const bucket = await mf.getR2Bucket("MAIL_BUCKET");
   for (const m of MAILBOXES) await bucket.put(`att/${m.id}`, attBytes(m.id));
 });
 
 after(() => mf?.dispose());
-
-const request = (path, init) => mf.dispatchFetch(BASE + path, init);
 
 /* ---------- Calls ---------- */
 

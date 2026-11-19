@@ -12,6 +12,7 @@ One deployment serves any number of domains, mailboxes and people for the $5/mon
 - **Inbox and outbox**: a real webmail for people (conversations, search, attachments, spam folder, blocking) and a REST API for code.
 - **Many domains, one deployment**: add domains and mailboxes in Admin, and choose which people can open which mailboxes.
 - **Webhooks**: signed `message.received` and `message.sent` events with retries, to automate invoices, support alerts and more.
+- **AI assistants (MCP)**: connect Claude, ChatGPT or Cursor by signing in; they search, read and answer mail in the mailboxes you tick, and ask before sending.
 - **Your infrastructure**: mail is stored in your own D1 database and R2 bucket, and sent with Cloudflare Email Service.
 
 <p align="center"><img src=".github/assets/inbox.png" alt="The GentleMail inbox: a mailbox switcher, folders and a list of conversations"></p>

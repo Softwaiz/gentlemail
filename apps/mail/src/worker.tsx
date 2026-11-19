@@ -4,7 +4,7 @@ import { defineApp, type RequestInfo } from "rwsdk/worker";
 
 import { Document } from "@/app/document";
 import { setCommonHeaders } from "@/app/headers";
-import { checkOrigin, redirect, requireSignedIn, requireUser } from "@/app/http";
+import { checkOrigin, cors, redirect, requireSignedIn, requireUser } from "@/app/http";
 import { pageNotFound, requireAdmin, requireFolder, requireMailbox, requireRecord, requireThread } from "@/app/access";
 import { AdminMailboxPage, AdminPage } from "@/app/pages/admin";
 import { AdminDomainPage } from "@/app/pages/domains";
@@ -29,6 +29,17 @@ import {
   sendHandler,
 } from "@/app/api";
 import { DevelopersPage, WebhookPage } from "@/app/pages/developers";
+import { mcpHandler } from "@/app/mcp";
+import {
+  AuthorizePage,
+  authorizationServerMetadata,
+  authorizeAction,
+  protectedResourceMetadata,
+  registerHandler,
+  revokeHandler,
+  tokenHandler,
+} from "@/app/pages/oauth";
+import { purgeExpiredOAuth } from "@/lib/oauth";
 
 export type AppContext = { user: User | null };
 
@@ -57,11 +68,21 @@ const app = defineApp([
   route("/api/v1/messages/:id", { get: messageHandler, post: messageActionHandler }),
   route("/api/v1/attachments/:id", { get: attachmentApiHandler }),
   route("/api/*", apiNotFound),
+  // MCP for AI assistants (src/app/mcp.ts), and OAuth so they connect by signing in (src/app/pages/oauth.tsx).
+  // These answer browser-based assistants too (CORS); they read tokens, never cookies.
+  route("/mcp", cors("/mcp", ["GET", "POST"], mcpHandler)),
+  route("/.well-known/oauth-protected-resource", cors("/.well-known/oauth-protected-resource", ["GET", "HEAD"], protectedResourceMetadata)),
+  route("/.well-known/oauth-protected-resource/mcp", cors("/.well-known/oauth-protected-resource/mcp", ["GET", "HEAD"], protectedResourceMetadata)),
+  route("/.well-known/oauth-authorization-server", cors("/.well-known/oauth-authorization-server", ["GET", "HEAD"], authorizationServerMetadata)),
+  route("/oauth/register", cors("/oauth/register", ["POST"], registerHandler)),
+  route("/oauth/token", cors("/oauth/token", ["POST"], tokenHandler)),
+  route("/oauth/revoke", cors("/oauth/revoke", ["POST"], revokeHandler)),
 
   render(Document, [
     route("/setup", { get: SetupPage, post: setupAction }),
     route("/login", { get: LoginPage, post: loginAction }),
     route("/login/verify", { get: LoginVerifyPage, post: loginVerifyAction }),
+    route("/oauth/authorize", { get: AuthorizePage, post: authorizeAction }),
     // Open even when two-step is required and not set up yet: it's where it gets set up.
     route("/account/security", [requireSignedIn, SecurityPage]),
     route("/", [requireUser, home]),
@@ -113,10 +134,13 @@ export default class MailWorker extends WorkerEntrypoint<Env> {
     }
   }
 
-  /** Cron (every minute): retry due webhook deliveries; once an hour, purge old spam. */
+  /** Cron (every minute): retry due webhook deliveries; once an hour, purge old spam and expired sign-in tokens. */
   async scheduled(controller: ScheduledController) {
     await retryDueDeliveries();
-    if (new Date(controller.scheduledTime).getUTCMinutes() === 0) await purgeOldSpam();
+    if (new Date(controller.scheduledTime).getUTCMinutes() === 0) {
+      await purgeOldSpam();
+      await purgeExpiredOAuth();
+    }
   }
 
   override async fetch(request: Request) {

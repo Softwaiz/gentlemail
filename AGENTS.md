@@ -31,11 +31,11 @@ Merging to `main` deploys, so a release is cut in a pull request and deployed by
 - **Data access is plain SQL** through the D1 binding with bound parameters (`env.DB.prepare("… WHERE id = ?").bind(id)`). No ORM.
 - **D1 accepts at most 100 bound values per query.** Never build `IN (?, ?, …)` from a list that can grow; split it with `chunks()` from `src/lib/util.ts`, or express the filter as a join or subquery.
 - **Schema changes are new numbered files in `apps/mail/migrations/`** (`npx wrangler d1 migrations create DB name`). Never edit a migration that has been released. Deploys apply pending migrations.
-- **The browser changes data only through server functions**: `serverAction` for writes and `serverQuery` for reads, in `src/app/actions/`. Each one checks access itself (`signedIn`, `adminOnly`, mailbox access). Page renders only read. Plain routes are kept for sign-in, file downloads and the public `/api/v1`.
+- **The browser changes data only through server functions**: `serverAction` for writes and `serverQuery` for reads, in `src/app/actions/`. Each one checks access itself (`signedIn`, `adminOnly`, mailbox access). Page renders only read. Plain routes are kept for sign-in, file downloads and the public `/api/v1`. Sign-in includes the OAuth endpoints for AI assistants and their consent form (`/oauth/*`), whose answer is a redirect to the app.
 - **Access is checked on the server, every time**, whatever page a form was posted from.
 - **No secrets, account IDs or deployment-specific domains in this repository.** `apps/mail/wrangler.jsonc` stays a template, and `.dev.vars` is never committed.
 
 ## Before opening a pull request
 From `apps/mail`: `npx tsc --noEmit`, `npm run build` and `npm test` pass, and the change is tried locally (`npm run db:migrate:local`, `npm run dev`). If you changed `apps/docs`, its `npm run build` passes too.
 
-`npm test` runs the built Worker locally against a throwaway database and checks that API keys reach exactly the mailboxes their grants allow, on every `/api/v1` endpoint. A change to API keys or the API adds its cases there (`apps/mail/test/api-access.test.mjs`).
+`npm test` runs the built Worker locally against a throwaway database and checks that API keys reach exactly the mailboxes their grants allow, on every `/api/v1` endpoint. A change to API keys or the API adds its cases there (`apps/mail/test/api-access.test.mjs`). It also runs the MCP endpoint and its OAuth sign-in end to end (`apps/mail/test/mcp.test.mjs`): a change to either adds its cases there.

@@ -13,7 +13,7 @@ import { Textarea } from "@/app/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { missing } from "@/app/pages/errors";
 import type { SenderRule } from "@/lib/spam";
-import { type Mailbox, type MessageRow, getHtmlBody, getMailboxForUser, listAttachments, parseAddrs } from "@/lib/db";
+import { type Mailbox, type MessageRow, getHtmlBody, getMailboxForUser, listAttachments, replyRecipients } from "@/lib/db";
 import { type Addr, formatAddr, formatBytes, formatDate, htmlToText } from "@/lib/util";
 
 async function loadOriginal(mailbox: Mailbox, id: string | null) {
@@ -24,15 +24,6 @@ async function loadOriginal(mailbox: Mailbox, id: string | null) {
 }
 
 const prefix = (p: string, s: string) => (s.toLowerCase().startsWith(p.toLowerCase()) ? s : `${p} ${s}`);
-const uniq = (list: Addr[], exclude: string) => {
-  const seen = new Set([exclude.toLowerCase()]);
-  return list.filter((a) => {
-    const k = a.address.toLowerCase();
-    if (!a.address || seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
-};
 
 export async function ComposePage(ri: RequestInfo) {
   const { params, ctx, request } = ri;
@@ -50,19 +41,9 @@ export async function ComposePage(ri: RequestInfo) {
   let cc = "";
   let subject = "";
   if (original && mode === "reply") {
-    const replyTarget =
-      original.direction === "out"
-        ? parseAddrs(original.to_json)
-        : [{ name: original.from_name, address: original.reply_to || original.from_addr }];
-    to = uniq(replyTarget, mailbox.address).map(formatAddr).join(", ");
-    if (replyAll) {
-      const already = new Set(replyTarget.map((r) => r.address.toLowerCase()));
-      const others = uniq(
-        [...parseAddrs(original.to_json), ...parseAddrs(original.cc_json)].filter((a) => !already.has(a.address.toLowerCase())),
-        mailbox.address,
-      );
-      cc = others.map(formatAddr).join(", ");
-    }
+    const r = replyRecipients(original, mailbox.address, replyAll);
+    to = r.to.map(formatAddr).join(", ");
+    cc = r.cc.map(formatAddr).join(", ");
     subject = prefix("Re:", original.subject);
   } else if (original && mode === "forward") {
     subject = prefix("Fwd:", original.subject);

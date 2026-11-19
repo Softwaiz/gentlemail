@@ -43,6 +43,7 @@ export function MfaPanel({
   required,
   email,
   host,
+  next,
 }: {
   enabled: boolean;
   enabledAt: string | null;
@@ -50,6 +51,8 @@ export function MfaPanel({
   required: boolean;
   email: string;
   host: string;
+  /** A page to go back to once the recovery codes are saved (two-step was required to open it). */
+  next?: string;
 }) {
   const [setup, setSetup] = useState<Setup | null>(null);
   const [codes, setCodes] = useState<string[] | null>(null);
@@ -62,7 +65,7 @@ export function MfaPanel({
     },
   });
 
-  if (codes) return <RecoveryCodes codes={codes} email={email} host={host} onDone={() => setCodes(null)} />;
+  if (codes) return <RecoveryCodes codes={codes} email={email} host={host} onDone={() => (next ? window.location.assign(next) : setCodes(null))} />;
 
   if (enabled) {
     return (

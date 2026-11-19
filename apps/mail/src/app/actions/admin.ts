@@ -3,8 +3,8 @@
 import { env } from "cloudflare:workers";
 import { requestInfo, serverAction } from "rwsdk/worker";
 import { type ActionResult, adminOnly, fail, ok, text } from "@/app/actions/guards";
-import { createApiKey, grantsFromForm, setApiKeyGrants } from "@/lib/apikeys";
-import { createUser, hashPassword } from "@/lib/auth";
+import { createApiKey, endConnections, grantsFromForm, setApiKeyGrants } from "@/lib/apikeys";
+import { createUser, currentSessionId, hashPassword } from "@/lib/auth";
 import { type Domain, type Mailbox, isDomainActive } from "@/lib/db";
 import { isEmail, newId, now } from "@/lib/util";
 import { type DeliveryRow, EVENTS, type WebhookRow, attemptDelivery, newSecret, sendTestEvent } from "@/lib/webhooks";
@@ -190,7 +190,11 @@ export const updateUserAction = serverAction([
     const stmts = [env.DB.prepare("UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?").bind(text(form, "name"), email, role, id)];
     if (password) {
       stmts.push(env.DB.prepare("UPDATE users SET password_hash = ? WHERE id = ?").bind(await hashPassword(password), id));
-      if (!isSelf) stmts.push(env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id)); // sign them out elsewhere
+      // Whoever knew the old password may be signed in or have connected an assistant: both end.
+      // Your own password: every session but this one.
+      stmts.push(...endConnections(id));
+      const keep = isSelf ? await currentSessionId(requestInfo.request) : null;
+      stmts.push(env.DB.prepare("DELETE FROM sessions WHERE user_id = ? AND id IS NOT ?").bind(id, keep));
     }
     if (role === "member") stmts.push(...accessStatements(id, form.getAll("mailboxes").map(String)));
     try {
@@ -230,7 +234,7 @@ export const createKeyAction = serverAction([
 export const updateKeyAccessAction = serverAction([
   adminOnly,
   async (id: string, form: FormData): Promise<ActionResult> => {
-    const key = await env.DB.prepare("SELECT id FROM api_keys WHERE id = ? AND revoked_at IS NULL").bind(id).first();
+    const key = await env.DB.prepare("SELECT id FROM api_keys WHERE id = ? AND revoked_at IS NULL AND user_id IS NULL").bind(id).first();
     if (!key) return fail("This key no longer exists or was revoked.");
     const grants = await grantsFromForm(form);
     if (!grants.length) return fail("Tick Read or Send on at least one line, or revoke the key instead.");
@@ -242,7 +246,7 @@ export const updateKeyAccessAction = serverAction([
 export const revokeKeyAction = serverAction([
   adminOnly,
   async (id: string): Promise<ActionResult> => {
-    await env.DB.prepare("UPDATE api_keys SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL").bind(now(), id).run();
+    await env.DB.prepare("UPDATE api_keys SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL AND user_id IS NULL").bind(now(), id).run();
     return ok("Key revoked. Programs using it are refused from now on.");
   },
 ]);

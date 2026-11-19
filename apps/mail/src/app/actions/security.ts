@@ -6,6 +6,7 @@ import { type ActionResult, adminOnly, fail, ok, signedIn, signedInForMfaSetup, 
 import { appName } from "@/app/components/brand";
 import { formatSecret, newTotpSecret, otpauthUri, qrDataUrl, replaceRecoveryCodes, verifySecondFactor } from "@/lib/mfa";
 import { now } from "@/lib/util";
+import { endConnections } from "@/lib/apikeys";
 
 /*
  * Two-step verification: each person's own setup (Security page), and the
@@ -99,7 +100,7 @@ export const resetUserMfaAction = serverAction([
     if (userId === me().id) return fail("Use your own Security page to change your two-step verification.");
     const user = await env.DB.prepare("SELECT name FROM users WHERE id = ?").bind(userId).first<{ name: string }>();
     if (!user) return fail("This user no longer exists.");
-    await env.DB.batch([...clearMfa(userId), env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(userId)]);
-    return ok(`Two-step verification reset for ${user.name}. They sign in with their password and set it up again.`);
+    await env.DB.batch([...clearMfa(userId), env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(userId), ...endConnections(userId)]);
+    return ok(`Two-step verification reset for ${user.name}. They sign in with their password and set it up again; their assistants are disconnected.`);
   },
 ]);

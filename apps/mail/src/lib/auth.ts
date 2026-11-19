@@ -82,6 +82,12 @@ export async function createSession(userId: string, request: Request): Promise<s
   return cookieHeader(token, SESSION_TTL / 1000, isSecure(request));
 }
 
+/** The id (hash) of this request's session, if it has one. */
+export async function currentSessionId(request: Request): Promise<string | null> {
+  const token = readCookie(request, COOKIE);
+  return token ? sha256(token) : null;
+}
+
 export async function destroySession(request: Request): Promise<string> {
   const token = readCookie(request, COOKIE);
   if (token) {

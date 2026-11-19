@@ -10,6 +10,8 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 
 ## Unreleased
 
+## 0.6.1 (2026-11-19)
+
 ### Added
 - The [MCP docs page](https://gentlemail.dev/docs/mcp/) has its own social card, shown when its link is shared: the assistants it works with, and "Only what you allow". ([#29](https://github.com/Softwaiz/gentlemail/pull/29))
 

@@ -3,7 +3,7 @@ title: Read mail
 description: List, read, move and download GentleMail messages and attachments with the API.
 ---
 
-These need **Read** on the mailbox. A key only ever sees the mailboxes it has Read on.
+These need **Read** on the mailbox, except marking and moving, which need **Organize**. A key only lists and reads messages from the mailboxes it has Read on.
 
 ## List messages
 
@@ -35,7 +35,7 @@ Never put `html` in a web page without sanitising it first. It's whatever the se
 
 ## Move or mark a message
 
-`POST /api/v1/messages/:id` with `{ "action": "…" }`, one of `read`, `unread`, `star`, `unstar`, `archive`, `trash`, `spam` or `inbox`.
+`POST /api/v1/messages/:id` with `{ "action": "…" }`, one of `read`, `unread`, `star`, `unstar`, `archive`, `trash`, `spam` or `inbox`. The key needs **Organize** on the message's mailbox: with Read but not Organize, the answer is `403 organize_required`.
 
 ```sh
 curl -X POST https://mail.example.com/api/v1/messages/$ID \

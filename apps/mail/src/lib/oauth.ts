@@ -8,8 +8,8 @@ import { b64url, newId, now } from "./util";
  * The OAuth 2.1 authorization server behind /mcp, kept in D1.
  *
  * An assistant registers itself (Dynamic Client Registration), sends the person
- * to /oauth/authorize, where they sign in and choose what it may read and send,
- * then trades the code for tokens (PKCE, S256 only). What it gets is a
+ * to /oauth/authorize, where they sign in and choose what it may read, organize
+ * and send, then trades the code for tokens (PKCE, S256 only). What it gets is a
  * connection: an api_keys row with user_id set, so the same grants and checks
  * as API keys apply, limited to what that person can open (see authenticate()).
  *
@@ -249,8 +249,10 @@ export async function exchangeCode(client: OAuthClient, form: FormData): Promise
     ).bind(newId(), client.name, row.user_id, t, client.id, codeId),
     env.DB.prepare(`DELETE FROM api_key_grants WHERE key_id = ${keyOf} AND ${codeLive}`).bind(...of, codeId),
     ...grants.map((g) =>
-      env.DB.prepare(`INSERT INTO api_key_grants (key_id, target_type, target_id, can_read, can_send) SELECT ${keyOf}, ?, ?, ?, ? WHERE ${codeLive}`)
-        .bind(...of, g.target_type, g.target_id, g.can_read, g.can_send, codeId),
+      // `?? 0`: a sign-in started before organize existed has no such field.
+      env.DB.prepare(
+        `INSERT INTO api_key_grants (key_id, target_type, target_id, can_read, can_organize, can_send) SELECT ${keyOf}, ?, ?, ?, ?, ? WHERE ${codeLive}`,
+      ).bind(...of, g.target_type, g.target_id, g.can_read, g.can_organize ?? 0, g.can_send, codeId),
     ),
     token(accessId, "access", ACCESS_TTL),
     token(refreshId, "refresh", REFRESH_TTL),

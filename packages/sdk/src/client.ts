@@ -83,7 +83,10 @@ export class GentleMail {
     get: async (id: string): Promise<Message> =>
       (await this.#json<{ data: Message }>("GET", `/messages/${encodeURIComponent(id)}`)).data,
 
-    /** Marks or moves a message: read, unread, star, unstar, archive, trash, spam or inbox. */
+    /**
+     * Marks or moves a message: read, unread, star, unstar, archive, trash, spam or inbox.
+     * The key needs Organize on its mailbox (Read, before GentleMail 0.6.1).
+     */
     update: async (id: string, action: MessageAction): Promise<void> => {
       await this.#json("POST", `/messages/${encodeURIComponent(id)}`, { action });
     },

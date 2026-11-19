@@ -35,65 +35,84 @@ const msgOf = (mb) => `msg_${mb}`;
 const attOf = (mb) => `att_${mb}`;
 const attBytes = (mb) => `attachment of ${mb}`;
 
-const R = { read: true, send: false };
-const S = { read: false, send: true };
-const RS = { read: true, send: true };
+const perms = (read, organize, send) => ({ read, organize, send });
+const R = perms(true, false, false);
+const O = perms(false, true, false);
+const S = perms(false, false, true);
+const RO = perms(true, true, false);
+const RS = perms(true, false, true);
+const ROS = perms(true, true, true);
 
 /*
- * Each key: its grants as stored, and what it may do on each mailbox (left out = nothing).
+ * Each key: its grants as stored ([target type, target id, read, organize, send]),
+ * and what it may do on each mailbox (left out = nothing).
  * `revoked` keys are refused outright.
  */
 const KEYS = {
   everything: {
-    grants: [["all", "", 1, 1]],
-    access: { mA1: RS, mA2: RS, mB1: RS, mN1: RS, mS1: RS },
+    grants: [["all", "", 1, 1, 1]],
+    access: { mA1: ROS, mA2: ROS, mB1: ROS, mN1: ROS, mS1: ROS },
   },
+  // Read alone can't mark or move anything.
   readAll: {
-    grants: [["all", "", 1, 0]],
+    grants: [["all", "", 1, 0, 0]],
     access: { mA1: R, mA2: R, mB1: R, mN1: R, mS1: R },
   },
   alphaRead: {
-    grants: [["domain", "dA", 1, 0]],
+    grants: [["domain", "dA", 1, 0, 0]],
     access: { mA1: R, mA2: R },
+  },
+  // Organize without read: files messages it can't read (by id, from a webhook).
+  alphaOrganize: {
+    grants: [["domain", "dA", 0, 1, 0]],
+    access: { mA1: O, mA2: O },
+  },
+  // Read and organize on one mailbox, read alone on another.
+  betaOneReadOrganizeAlphaRead: {
+    grants: [
+      ["mailbox", "mB1", 1, 1, 0],
+      ["domain", "dA", 1, 0, 0],
+    ],
+    access: { mB1: RO, mA1: R, mA2: R },
   },
   alphaSendBetaOneRead: {
     grants: [
-      ["domain", "dA", 0, 1],
-      ["mailbox", "mB1", 1, 0],
+      ["domain", "dA", 0, 0, 1],
+      ["mailbox", "mB1", 1, 0, 0],
     ],
     access: { mA1: S, mA2: S, mB1: R },
   },
   betaOneSend: {
-    grants: [["mailbox", "mB1", 0, 1]],
+    grants: [["mailbox", "mB1", 0, 0, 1]],
     access: { mB1: S },
   },
   // Grants add up: read on the domain plus send on one of its mailboxes.
   alphaReadOneSend: {
     grants: [
-      ["domain", "dA", 1, 0],
-      ["mailbox", "mA1", 0, 1],
+      ["domain", "dA", 1, 0, 0],
+      ["mailbox", "mA1", 0, 0, 1],
     ],
     access: { mA1: RS, mA2: R },
   },
   subdomainMailbox: {
-    grants: [["mailbox", "mS1", 1, 1]],
-    access: { mS1: RS },
+    grants: [["mailbox", "mS1", 1, 1, 1]],
+    access: { mS1: ROS },
   },
   // A grant that allows nothing.
   nothing: {
-    grants: [["mailbox", "mA1", 0, 0]],
+    grants: [["mailbox", "mA1", 0, 0, 0]],
     access: {},
   },
   // Grants on a domain and a mailbox that no longer exist.
   removedTargets: {
     grants: [
-      ["domain", "dGone", 1, 1],
-      ["mailbox", "mGone", 1, 1],
+      ["domain", "dGone", 1, 1, 1],
+      ["mailbox", "mGone", 1, 1, 1],
     ],
     access: {},
   },
   revoked: {
-    grants: [["all", "", 1, 1]],
+    grants: [["all", "", 1, 1, 1]],
     access: {},
     revoked: true,
   },
@@ -127,8 +146,10 @@ function seedSql() {
       `INSERT INTO api_keys (id, name, prefix, key_hash, scopes, created_at, revoked_at)
        VALUES (${q(name)}, ${q(name)}, 'gm_test', ${q(sha256(secretOf(name)))}, '', ${t}, ${k.revoked ? t : "NULL"});`,
     );
-    for (const [type, id, r, s] of k.grants)
-      rows.push(`INSERT INTO api_key_grants (key_id, target_type, target_id, can_read, can_send) VALUES (${q(name)}, ${q(type)}, ${q(id)}, ${r}, ${s});`);
+    for (const [type, id, r, o, s] of k.grants)
+      rows.push(
+        `INSERT INTO api_key_grants (key_id, target_type, target_id, can_read, can_organize, can_send) VALUES (${q(name)}, ${q(type)}, ${q(id)}, ${r}, ${o}, ${s});`,
+      );
   }
   return rows.join("\n");
 }
@@ -153,7 +174,7 @@ async function call(keyName, method, path, body) {
 }
 
 const can = (key, mb, scope) => !!KEYS[key].access[mb]?.[scope];
-const anyGrant = (key, scope) => KEYS[key].grants.some(([, , r, s]) => (scope === "read" ? r : s));
+const anyGrant = (key, scope) => KEYS[key].grants.some(([, , r, o, s]) => ({ read: r, organize: o, send: s })[scope]);
 /** The status a read endpoint returns when the mailbox is off limits: no read grant at all is 403, otherwise "not found". */
 const deniedRead = (key, notFound) => (anyGrant(key, "read") ? notFound : 403);
 
@@ -183,13 +204,13 @@ describe("API key access", () => {
     describe(`key "${key}"`, () => {
       test("GET /mailboxes lists exactly its mailboxes, with its permissions on each", async () => {
         const res = await call(key, "GET", "/api/v1/mailboxes");
-        if (!anyGrant(key, "read") && !anyGrant(key, "send")) return assert.equal(res.status, 403);
+        if (!["read", "organize", "send"].some((p) => anyGrant(key, p))) return assert.equal(res.status, 403);
         assert.equal(res.status, 200);
         const got = Object.fromEntries(res.data.data.map((m) => [m.id, [...m.permissions].sort()]));
         const want = {};
         for (const m of MAILBOXES) {
-          const p = [can(key, m.id, "read") && "read", can(key, m.id, "send") && "send"].filter(Boolean);
-          if (p.length) want[m.id] = p;
+          const p = ["read", "organize", "send"].filter((scope) => can(key, m.id, scope));
+          if (p.length) want[m.id] = p.sort();
         }
         assert.deepEqual(got, want);
       });
@@ -208,9 +229,10 @@ describe("API key access", () => {
 
       for (const mb of MAILBOXES) {
         const read = can(key, mb.id, "read");
+        const organize = can(key, mb.id, "organize");
         const send = can(key, mb.id, "send");
 
-        test(`${mb.address}: list, read, change and download ${read ? "allowed" : "refused"}`, async () => {
+        test(`${mb.address}: list, read and download ${read ? "allowed" : "refused"}, mark and move ${organize ? "allowed" : "refused"}`, async () => {
           const list = await call(key, "GET", `/api/v1/messages?folder=all&mailbox=${encodeURIComponent(mb.address)}`);
           assert.equal(list.status, read ? 200 : 403, "list with ?mailbox=");
           if (read) {
@@ -222,12 +244,22 @@ describe("API key access", () => {
           assert.equal(one.status, read ? 200 : deniedRead(key, 404), "get one message");
           if (read) assert.equal(one.data.data.mailbox.id, mb.id);
 
-          const star = await call(key, "POST", `/api/v1/messages/${msgOf(mb.id)}`, { action: "star" });
-          assert.equal(star.status, read ? 200 : deniedRead(key, 404), "star it");
+          // Organize, not read, decides. Refused: organize_required when it can read this message
+          // (a key from before Organize existed), forbidden with no organize anywhere, else not found.
+          const refused = read ? [403, "organize_required"] : anyGrant(key, "organize") ? [404, "not_found"] : [403, "forbidden"];
+          for (const action of ["star", "archive", "trash"]) {
+            const res = await call(key, "POST", `/api/v1/messages/${msgOf(mb.id)}`, { action });
+            if (organize) assert.equal(res.status, 200, action);
+            else assert.deepEqual([res.status, res.data.error?.code], refused, action);
+          }
           // Whatever happened, check it through a key that sees everything, then undo.
           const seen = await call("readAll", "GET", `/api/v1/messages/${msgOf(mb.id)}`);
-          assert.equal(seen.data.data.is_starred, read, "starred only when allowed");
-          if (read) await call(key, "POST", `/api/v1/messages/${msgOf(mb.id)}`, { action: "unstar" });
+          assert.equal(seen.data.data.is_starred, organize, "starred only when allowed");
+          assert.equal(seen.data.data.folder, organize ? "trash" : "inbox", "moved only when allowed");
+          if (organize) {
+            await call(key, "POST", `/api/v1/messages/${msgOf(mb.id)}`, { action: "unstar" });
+            await call(key, "POST", `/api/v1/messages/${msgOf(mb.id)}`, { action: "inbox" });
+          }
 
           const att = await call(key, "GET", `/api/v1/attachments/${attOf(mb.id)}`);
           assert.equal(att.status, read ? 200 : deniedRead(key, 404), "download the attachment");

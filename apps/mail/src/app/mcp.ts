@@ -3,7 +3,7 @@ import type { RequestInfo } from "rwsdk/worker";
 import { appName } from "@/app/components/brand";
 import { json } from "@/app/http";
 import { MESSAGE_ACTIONS, actOnMessage, getMessage, listMailboxes, listMessages, messageFor, readableSql, sendMessage } from "@/app/api";
-import { type ApiAuth, authenticate } from "@/lib/apikeys";
+import { type ApiAuth, type Scope, authenticate } from "@/lib/apikeys";
 import { type MessageRow, getHtmlBody, listAttachments, replyRecipients } from "@/lib/db";
 import { messageJson } from "@/lib/webhooks";
 import { formatAddr, htmlToText } from "@/lib/util";
@@ -81,7 +81,7 @@ type Tool = {
   inputSchema: Json;
   annotations: Json;
   /** Listed only when the connection holds these permissions (on some mailbox). */
-  needs: ("read" | "send")[];
+  needs: Scope[];
   run: (auth: ApiAuth, args: Json) => Promise<ToolResult>;
 };
 
@@ -92,7 +92,7 @@ const TOOLS: Tool[] = [
   {
     name: "list_mailboxes",
     title: "List mailboxes",
-    description: "The mailboxes this connection can use, and whether it may read and/or send from each. Call this first.",
+    description: "The mailboxes this connection can use, and on each whether it may read, organize (mark and move messages) and send. Call this first.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     annotations: READ_ONLY,
     needs: [],
@@ -293,14 +293,14 @@ const TOOLS: Tool[] = [
       additionalProperties: false,
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-    needs: ["read"],
+    needs: ["organize"],
     run: async (auth, a) => fromApi(await actOnMessage(auth, nonEmpty(a.id) ?? "", str(a.action) ?? "")),
   },
 ];
 
 const TOOL_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));
 
-/** The tools this connection can use: no send tools for a read-only one, and so on. */
+/** The tools this connection can use: a read-only one gets no send tools and can't mark or move, and so on. */
 function toolsFor(auth: ApiAuth) {
   return TOOLS.filter((t) => t.needs.every((p) => auth.can[p]));
 }
@@ -325,7 +325,7 @@ async function handleMessage(auth: ApiAuth, m: RpcMessage) {
         capabilities: { tools: { listChanged: false } },
         serverInfo: { name: "gentlemail", title: appName(), version: pkg.version },
         instructions:
-          `Email from ${appName()}. Start with list_mailboxes to see what this connection may read and send. ` +
+          `Email from ${appName()}. Start with list_mailboxes to see what this connection may read, organize and send. ` +
           `${UNTRUSTED} Before send_email or reply, show the person what will be sent and to whom, and wait for their yes.`,
       });
     }
@@ -344,6 +344,9 @@ async function handleMessage(auth: ApiAuth, m: RpcMessage) {
     case "tools/call": {
       const tool = TOOL_BY_NAME.get(str(params.name) ?? "");
       if (!tool) return rpcError(m.id, -32602, `Unknown tool: ${String(params.name)}`);
+      // Only the tools it was shown: each tool's own checks then apply on top.
+      if (!toolsFor(auth).includes(tool))
+        return rpcError(m.id, -32602, `This connection can't use ${tool.name}: it needs the ${tool.needs.join(" and ")} permission.`);
       const args = (params.arguments && typeof params.arguments === "object" ? params.arguments : {}) as Json;
       try {
         return rpcResult(m.id, await tool.run(auth, args));

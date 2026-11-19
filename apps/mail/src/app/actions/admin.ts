@@ -223,21 +223,21 @@ export const createKeyAction = serverAction([
     const name = text(form, "name").slice(0, 80);
     if (!name) return fail("Give the key a name, such as the program that uses it.");
     const grants = await grantsFromForm(form);
-    if (!grants.length) return fail("Tick Read or Send on at least one line.");
+    if (!grants.length) return fail("Tick Read, Organize or Send on at least one line.");
     // The key goes back in the action result only, never into a URL or the page.
     const { key } = await createApiKey({ name, grants, userId: me().id });
     return ok("Key created.", { data: { name, key } });
   },
 ]);
 
-/** Changes what an existing key can read and send; programs using it keep the same key. */
+/** Changes what an existing key can read, organize and send; programs using it keep the same key. */
 export const updateKeyAccessAction = serverAction([
   adminOnly,
   async (id: string, form: FormData): Promise<ActionResult> => {
     const key = await env.DB.prepare("SELECT id FROM api_keys WHERE id = ? AND revoked_at IS NULL AND user_id IS NULL").bind(id).first();
     if (!key) return fail("This key no longer exists or was revoked.");
     const grants = await grantsFromForm(form);
-    if (!grants.length) return fail("Tick Read or Send on at least one line, or revoke the key instead.");
+    if (!grants.length) return fail("Tick Read, Organize or Send on at least one line, or revoke the key instead.");
     await setApiKeyGrants(id, grants);
     return ok("Key access updated. It applies from the next request.");
   },

@@ -33,7 +33,7 @@ await mail.send({
 ```ts
 const unread = await mail.messages.list({ mailbox: "support@example.com", unread: true });
 const message = await mail.messages.get(unread[0].id); // with text and HTML
-await mail.messages.update(message.id, "archive");      // read, unread, star, unstar, archive, trash, spam, inbox
+await mail.messages.update(message.id, "archive");      // needs Organize: read, unread, star, unstar, archive, trash, spam, inbox
 await mail.messages.reply(message, { text: "Thanks, we're on it." });
 
 const file = await mail.attachments.download(message.attachments[0].url); // a Response

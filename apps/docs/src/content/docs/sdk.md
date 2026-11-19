@@ -66,6 +66,8 @@ const message = await mail.messages.get(unread[0].id); // adds text and html
 await mail.messages.update(message.id, "read");        // read, unread, star, unstar, archive, trash, spam, inbox
 ```
 
+`messages.update()` needs **Organize** on the message's mailbox. Before GentleMail 0.6.1, Read was enough; from 0.6.1, a key without Organize gets a `403` with the code `organize_required`, and `mailboxes.list()` shows `"organize"` among a mailbox's permissions.
+
 `message.html` is the HTML exactly as received. Sanitise it before you show it in a browser.
 
 ## Reply

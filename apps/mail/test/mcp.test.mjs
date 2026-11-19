@@ -52,7 +52,7 @@ function seedSql() {
   msg("mx", "mA1", "tX", "Shared", "Readable", null, 900000);
   for (let i = 0; i < 30; i++) msg(`mx${i}`, "mB1", "tX", "Re: Shared", "Not for the member", null, 1000 + i);
   rows.push(`INSERT INTO api_keys (id, name, prefix, key_hash, scopes, created_at) VALUES ('kRead', 'kRead', 'gm_test', ${q(sha256(API_KEY))}, '', ${t});`);
-  rows.push(`INSERT INTO api_key_grants (key_id, target_type, target_id, can_read, can_send) VALUES ('kRead', 'mailbox', 'mA2', 1, 0);`);
+  rows.push(`INSERT INTO api_key_grants (key_id, target_type, target_id, can_read, can_organize, can_send) VALUES ('kRead', 'mailbox', 'mA2', 1, 0, 0);`);
   return rows.join("\n");
 }
 
@@ -98,13 +98,13 @@ const authorizeParams = (client, challenge, extra = {}) =>
     ...extra,
   });
 
-/** Signs in as `user`, allows `grants` ({ read: [...targets], send: [...] }) and returns the code. */
+/** Signs in as `user`, allows `grants` ({ read: [...targets], organize: [...], send: [...] }) and returns the code. */
 async function allow(client, user, grants, challenge) {
   const params = authorizeParams(client, challenge);
   const res = await request("/oauth/authorize", {
     method: "POST",
     headers: { Cookie: cookie(user), "Content-Type": "application/x-www-form-urlencoded" },
-    body: form({ ...Object.fromEntries(params), decision: "allow", read: grants.read ?? [], send: grants.send ?? [] }),
+    body: form({ ...Object.fromEntries(params), decision: "allow", read: grants.read ?? [], organize: grants.organize ?? [], send: grants.send ?? [] }),
   });
   assert.equal(res.status, 303);
   const to = new URL(res.headers.get("location"));
@@ -149,6 +149,13 @@ async function tool(bearer, name, args = {}) {
   const out = res.body.result;
   const text = out.content[0].text;
   return out.isError ? { error: text } : JSON.parse(text);
+}
+
+/** Calls a tool tools/list doesn't show: a JSON-RPC error, and its message. */
+async function hiddenTool(bearer, name, args = {}) {
+  const res = await rpc(bearer, "tools/call", { name, arguments: args });
+  assert.equal(res.body.error?.code, -32602, JSON.stringify(res.body));
+  return res.body.error.message;
 }
 
 const toolNames = async (bearer) => (await rpc(bearer, "tools/list")).body.result.tools.map((t) => t.name).sort();
@@ -383,7 +390,7 @@ describe("consent screen", () => {
     const location = res.headers.get("location");
     assert.match(location, /^\/oauth\/authorize\?.*err=nothing_ticked/);
     const html = await (await request(location, { headers: { Cookie: cookie("uMember") } })).text();
-    assert.match(html, /Tick Read or Send on at least one line/);
+    assert.match(html, /Tick Read, Organize or Send on at least one line/);
   });
 
   test("shows only its own error messages, never text from the link", async () => {
@@ -564,7 +571,7 @@ describe("a member's assistant", () => {
   let c;
   before(async () => {
     // Asks for a mailbox the member can't open too: it is dropped.
-    c = await connect("uMember", { read: ["mailbox:mA1", "mailbox:mB1"], send: ["mailbox:mA1"] });
+    c = await connect("uMember", { read: ["mailbox:mA1", "mailbox:mB1"], organize: ["mailbox:mA1"], send: ["mailbox:mA1"] });
   });
 
   test("initialize names the server", async () => {
@@ -593,7 +600,7 @@ describe("a member's assistant", () => {
   test("reaches only the mailbox it was given", async () => {
     assert.deepEqual(
       (await tool(c.access_token, "list_mailboxes")).map((m) => [m.address, m.permissions]),
-      [["one@alpha.test", ["read", "send"]]],
+      [["one@alpha.test", ["read", "organize", "send"]]],
     );
     const { messages } = await tool(c.access_token, "search_messages", { folder: "all" });
     assert.deepEqual(new Set(messages.map((m) => m.mailbox)), new Set(["one@alpha.test"]));
@@ -871,15 +878,55 @@ describe("an admin's assistant", () => {
   test("given all mailboxes, reads them all", async () => {
     const c = await connect("uAdmin", { read: ["all"] });
     assert.deepEqual((await tool(c.access_token, "list_mailboxes")).map((m) => m.address), ["one@alpha.test", "one@beta.test", "two@alpha.test"]);
-    assert.deepEqual(await toolNames(c.access_token), ["get_message", "get_thread", "list_mailboxes", "search_messages", "update_message"]);
+    assert.deepEqual(await toolNames(c.access_token), ["get_message", "get_thread", "list_mailboxes", "search_messages"]);
+  });
+});
+
+describe("organize", () => {
+  test("a read-only assistant can't mark or move, even calling the tool it isn't shown", async () => {
+    const c = await connect("uMember", { read: ["mailbox:mA1"] });
+    assert.deepEqual(await toolNames(c.access_token), ["get_message", "get_thread", "list_mailboxes", "search_messages"]);
+    for (const action of ["read", "star", "archive", "trash", "spam"])
+      assert.deepEqual(await hiddenTool(c.access_token, "update_message", { id: "m3", action }), "This connection can't use update_message: it needs the organize permission.", action);
+    const m3 = await db.prepare("SELECT folder, is_read, is_starred FROM messages WHERE id = 'm3'").first();
+    assert.deepEqual({ ...m3 }, { folder: "inbox", is_read: 0, is_starred: 0 });
+  });
+
+  test("organize alone files messages it can't read", async () => {
+    const c = await connect("uMember", { organize: ["mailbox:mA1"] });
+    assert.deepEqual(await toolNames(c.access_token), ["list_mailboxes", "update_message"]);
+    assert.deepEqual((await tool(c.access_token, "list_mailboxes")).map((m) => m.permissions), [["organize"]]);
+    assert.equal(await hiddenTool(c.access_token, "get_message", { id: "m3" }), "This connection can't use get_message: it needs the read permission.");
+    assert.equal((await tool(c.access_token, "update_message", { id: "m3", action: "archive" })).status, "ok");
+    assert.equal((await db.prepare("SELECT folder FROM messages WHERE id = 'm3'").first()).folder, "archive");
+    await db.prepare("UPDATE messages SET folder = 'inbox' WHERE id = 'm3'").run();
+    // Organize on mA1 only: another mailbox's message stays out of reach.
+    assert.match((await tool(c.access_token, "update_message", { id: "m4", action: "archive" })).error, /No such message/);
+  });
+
+  test("a sign-in started before organize existed still completes, without it", async () => {
+    const { body: client } = await register();
+    const { verifier, challenge } = pkce();
+    const code = await allow(client, "uMember", { read: ["mailbox:mA1"] }, challenge);
+    // As a sign-in saved by the previous version: grants without can_organize.
+    await db
+      .prepare("UPDATE oauth_codes SET grants = ? WHERE id = ?")
+      .bind(JSON.stringify([{ target_type: "mailbox", target_id: "mA1", can_read: 1, can_send: 0 }]), sha256(code))
+      .run();
+    const res = await token({ grant_type: "authorization_code", code, code_verifier: verifier, client_id: client.client_id, redirect_uri: "http://127.0.0.1:6666/callback" });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual((await tool(res.body.access_token, "list_mailboxes")).map((m) => m.permissions), [["read"]]);
   });
 });
 
 describe("API keys on /mcp", () => {
   test("work too, with the key's own access", async () => {
-    assert.deepEqual(await toolNames(API_KEY), ["get_message", "get_thread", "list_mailboxes", "search_messages", "update_message"]);
+    assert.deepEqual(await toolNames(API_KEY), ["get_message", "get_thread", "list_mailboxes", "search_messages"]);
     assert.deepEqual((await tool(API_KEY, "list_mailboxes")).map((m) => m.address), ["two@alpha.test"]);
-    assert.match((await tool(API_KEY, "send_email", { from: "two@alpha.test", to: ["x@elsewhere.test"], subject: "s", text: "t" })).error, /can't send/);
+    assert.equal(
+      await hiddenTool(API_KEY, "send_email", { from: "two@alpha.test", to: ["x@elsewhere.test"], subject: "s", text: "t" }),
+      "This connection can't use send_email: it needs the send permission.",
+    );
   });
 
 });

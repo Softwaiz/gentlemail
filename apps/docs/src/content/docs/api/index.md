@@ -16,7 +16,7 @@ Programs send and read mail through the HTTP API, on the same mailboxes people u
 | `POST /send` | Send | [Send an email](/docs/api/send/), or reply in a thread. |
 | `GET /messages` | Read | [List messages](/docs/api/read/), newest first. |
 | `GET /messages/:id` | Read | One message, with its text, its original HTML and its attachments. |
-| `POST /messages/:id` | Read | Mark read or unread, star, archive, trash, spam or move back to the inbox. |
+| `POST /messages/:id` | Organize | Mark read or unread, star, archive, trash, spam or move back to the inbox. |
 | `GET /attachments/:id` | Read | The file itself. |
 
 Inside the app, **Admin → API & webhooks** has a quick reference with your instance's address filled in.
@@ -31,7 +31,7 @@ curl https://mail.example.com/api/v1/mailboxes \
 ```json
 {
   "data": [
-    { "id": "…", "address": "support@example.com", "display_name": "Support", "active": true, "permissions": ["read", "send"] },
+    { "id": "…", "address": "support@example.com", "display_name": "Support", "active": true, "permissions": ["read", "organize", "send"] },
     { "id": "…", "address": "invoices@example.com", "display_name": "Invoices", "active": true, "permissions": ["read"] }
   ]
 }

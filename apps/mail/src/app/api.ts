@@ -12,11 +12,11 @@ import { messageJson } from "@/lib/webhooks";
  *   GET  /api/v1/mailboxes            mailboxes this key can use, with its permissions on each
  *   GET  /api/v1/messages             list and search (scope: read)
  *   GET  /api/v1/messages/:id         one message with text and HTML (scope: read)
- *   POST /api/v1/messages/:id         mark read/unread, archive, trash, star… (scope: read)
+ *   POST /api/v1/messages/:id         mark read/unread, archive, trash, star… (scope: organize)
  *   GET  /api/v1/attachments/:id      attachment bytes (scope: read)
  *
  * A key's access is a set of grants (all mailboxes, a domain, a mailbox), each
- * with read and/or send; every request is checked against the mailbox it touches.
+ * with read, organize and/or send; every request is checked against the mailbox it touches.
  *
  * The work itself is in the functions below the handlers (sendMessage,
  * listMessages…), which take an authenticated key and return the response;
@@ -68,13 +68,17 @@ export async function mailboxFor(auth: ApiAuth, address: string, scope: Scope) {
   return mb;
 }
 
-export async function messageFor(auth: ApiAuth, id: string, scope: Scope) {
-  const msg = await env.DB.prepare(
-    "SELECT m.*, b.address AS mailbox_address FROM messages m JOIN mailboxes b ON b.id = m.mailbox_id WHERE m.id = ?",
-  )
+/** A message with its mailbox's address, whoever may see it (check with can()). */
+const loadMessage = (id: string) =>
+  env.DB.prepare("SELECT m.*, b.address AS mailbox_address FROM messages m JOIN mailboxes b ON b.id = m.mailbox_id WHERE m.id = ?")
     .bind(id)
     .first<MessageRow & { mailbox_address: string }>();
-  if (!msg || !can(auth, { id: msg.mailbox_id, address: msg.mailbox_address }, scope)) return null;
+
+const mailboxOf = (msg: MessageRow & { mailbox_address: string }) => ({ id: msg.mailbox_id, address: msg.mailbox_address });
+
+export async function messageFor(auth: ApiAuth, id: string, scope: Scope) {
+  const msg = await loadMessage(id);
+  if (!msg || !can(auth, mailboxOf(msg), scope)) return null;
   return msg;
 }
 
@@ -82,13 +86,14 @@ export async function messageFor(auth: ApiAuth, id: string, scope: Scope) {
 async function usableMailboxes(auth: ApiAuth) {
   const covered = coveredMailboxes(auth);
   const { results } = await env.DB.prepare(
-    `SELECT b.id, b.address, b.display_name, b.active, MAX(g.can_read) AS can_read, MAX(g.can_send) AS can_send
+    `SELECT b.id, b.address, b.display_name, b.active,
+       MAX(g.can_read) AS can_read, MAX(g.can_organize) AS can_organize, MAX(g.can_send) AS can_send
      FROM ${covered.sql}
-     GROUP BY b.id HAVING MAX(g.can_read) = 1 OR MAX(g.can_send) = 1
+     GROUP BY b.id HAVING MAX(g.can_read) = 1 OR MAX(g.can_organize) = 1 OR MAX(g.can_send) = 1
      ORDER BY b.address`,
   )
     .bind(...covered.binds)
-    .all<{ id: string; address: string; display_name: string; active: number; can_read: number; can_send: number }>();
+    .all<{ id: string; address: string; display_name: string; active: number; can_read: number; can_organize: number; can_send: number }>();
   return results;
 }
 
@@ -177,10 +182,10 @@ export const mailboxesHandler = withKey(null, async (_info, auth) => listMailbox
 export async function listMailboxes(auth: ApiAuth) {
   const mailboxes = await usableMailboxes(auth);
   return apiJson({
-    data: mailboxes.map(({ can_read, can_send, ...m }) => ({
+    data: mailboxes.map(({ can_read, can_organize, can_send, ...m }) => ({
       ...m,
       active: !!m.active,
-      permissions: [...(can_read ? ["read"] : []), ...(can_send ? ["send"] : [])],
+      permissions: [...(can_read ? ["read"] : []), ...(can_organize ? ["organize"] : []), ...(can_send ? ["send"] : [])],
     })),
   });
 }
@@ -288,14 +293,22 @@ const ACTIONS: Record<string, string> = {
 
 export const MESSAGE_ACTIONS = Object.keys(ACTIONS);
 
-export const messageActionHandler = withKey("read", async ({ params, request }, auth) => {
+// Any key: actOnMessage() answers with what is missing (organize_required, forbidden or not found).
+export const messageActionHandler = withKey(null, async ({ params, request }, auth) => {
   const b = await readJson(request);
   return actOnMessage(auth, params.id, typeof b?.action === "string" ? b.action : "");
 });
 
 export async function actOnMessage(auth: ApiAuth, id: string, action: string) {
-  const msg = await messageFor(auth, id, "read");
-  if (!msg) return apiError(404, "not_found", "No such message.");
+  const msg = await loadMessage(id);
+  if (!msg || !can(auth, mailboxOf(msg), "organize")) {
+    // One it can see but not file: say what's missing, as a reply does for read. This is
+    // what a key from before Organize existed gets, so it's checked before "no organize at all".
+    if (msg && can(auth, mailboxOf(msg), "read"))
+      return apiError(403, "organize_required", `Marking and moving messages needs the "organize" permission on ${msg.mailbox_address}.`);
+    if (!auth.can.organize) return apiError(403, "forbidden", 'This key has no "organize" permission on any mailbox.');
+    return apiError(404, "not_found", "No such message.");
+  }
   if (!ACTIONS[action]) return apiError(422, "invalid_action", `action must be one of: ${Object.keys(ACTIONS).join(", ")}.`);
   await env.DB.prepare(`UPDATE messages SET ${ACTIONS[action]} WHERE id = ?`).bind(msg.id).run();
   return apiJson({ id: msg.id, action, status: "ok" });

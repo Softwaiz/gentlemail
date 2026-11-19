@@ -5,7 +5,8 @@ export type Address = { name: string | null; address: string };
 /** Where a message is filed. */
 export type Folder = "inbox" | "sent" | "archive" | "spam" | "trash";
 
-export type Permission = "read" | "send";
+/** "organize" (marking and moving messages) exists from GentleMail 0.6.1; before, "read" allowed it. */
+export type Permission = "read" | "organize" | "send";
 
 export type Mailbox = {
   id: string;

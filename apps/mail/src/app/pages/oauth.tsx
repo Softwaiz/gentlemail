@@ -224,7 +224,7 @@ function destination(uri: string): { where: string; note: string; site: boolean 
 
 /** The consent screen's errors, by code: its ?err= is never shown as written, so a link can't put words on it. */
 const CONSENT_ERRORS: Record<string, string> = {
-  nothing_ticked: "Tick Read or Send on at least one line, or choose Cancel.",
+  nothing_ticked: "Tick Read, Organize or Send on at least one line, or choose Cancel.",
 };
 
 export async function AuthorizePage(ri: RequestInfo) {
@@ -261,7 +261,7 @@ export async function AuthorizePage(ri: RequestInfo) {
     <AuthCard title="Connect an assistant" err={err}>
       <p className="text-sm leading-relaxed text-muted-foreground">
         An app that calls itself <span className={strong}>“{req.client.name}”</span> wants to use mail as{" "}
-        <span className={strong}>{user.email}</span>. Choose what it may read and send. You can disconnect it at any time under
+        <span className={strong}>{user.email}</span>. Choose what it may read, organize and send. You can disconnect it at any time under
         Security.
       </p>
       {/* Anyone can register an app under any name, so the address is what to check. */}
@@ -311,7 +311,7 @@ export async function authorizeAction(ri: RequestInfo) {
 
   const user = ri.ctx.user!;
   const grants = await grantsFromForm(form, (await targetsFor(user)).allowed);
-  if (!grants.some((g) => g.can_read || g.can_send))
+  if (!grants.some((g) => g.can_read || g.can_organize || g.can_send))
     return redirect(withFlash(`/oauth/authorize?${req.params}`, "err", "nothing_ticked"));
 
   const code = await createCode({ clientId: req.client.id, userId: user.id, redirectUri: req.requested, challenge: req.challenge, grants });

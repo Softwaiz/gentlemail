@@ -27,7 +27,6 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 - The webmail's search also looks in Cc, as the API's does, and finds `%` and `_` as typed instead of treating them as wildcards. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 - Signing in with a recovery code shows how many are left, then offers to continue to the page you were opening, instead of dropping it. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 - `GET /api/v1/messages` with `limit=0` returned 25 messages; it now returns 1, as values out of range are brought to 1–100. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
-- In the API key dialog, an admin on an instance without domains saw the mailbox list headed "Your mailboxes"; it now says "Mailboxes". ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 - A reply through the API to a message sent from your own mailbox, without `to`, went back to that mailbox. It now goes to the original recipients, as in the webmail. ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 
 ### Security
@@ -43,7 +42,7 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 - API & webhooks and Admin fit on phones and tablets: their tables become cards, code samples scroll inside their box, and long webhook URLs and errors no longer push the page sideways. ([#21](https://github.com/Softwaiz/gentlemail/pull/21))
 
 ### Upgrading
-- Migrations `0007_oauth.sql` and `0008_oauth_retry.sql` add the tables for assistant sign-ins. **Apply them with the deploy:** until it runs, the API, **API & webhooks** and **Security** fail. The new `ratelimits` entry in `wrangler.jsonc` limits assistant app registrations per address; copy it if you keep your own `wrangler.jsonc`. Once applied, nothing changes until someone connects an assistant. See [Updating](https://gentlemail.dev/docs/updating/#from-05-to-06).
+- Migrations `0007_oauth.sql` and `0008_oauth_retry.sql` add the tables for assistant sign-ins. **Apply them with the deploy:** until it runs, the API, **API & webhooks** and **Security** fail. The new `ratelimits` entry in `wrangler.jsonc` limits assistant app registrations per address; copy it if you keep your own `wrangler.jsonc`. Once applied, nothing changes until someone connects an assistant. See [Updating](https://gentlemail.dev/docs/updating/#from-05-to-06). ([#27](https://github.com/Softwaiz/gentlemail/pull/27))
 
 ## 0.5.0 (2026-11-16)
 

@@ -250,6 +250,8 @@ export async function AuthorizePage(ri: RequestInfo) {
 
   const user = ri.ctx.user!;
   const { targets, allowAll } = await targetsFor(user);
+  // An admin may give all mailboxes or a domain even before any mailbox exists.
+  const shareable = allowAll || targets.domains.length > 0 || targets.mailboxes.length > 0;
   const err = CONSENT_ERRORS[url.searchParams.get("err") ?? ""] ?? null;
   const strong = "font-medium text-foreground";
 
@@ -275,13 +277,13 @@ export async function AuthorizePage(ri: RequestInfo) {
         {[...req.params].map(([k, v]) => (
           <input key={k} type="hidden" name={k} value={v} />
         ))}
-        {targets.mailboxes.length ? (
+        {shareable ? (
           <AccessEditor targets={targets} initial={{}} allowAll={allowAll} />
         ) : (
           <p className="text-sm text-muted-foreground">You can't open any mailbox yet, so there is nothing to share. Ask an admin.</p>
         )}
         <div className="grid grid-cols-2 gap-2">
-          <Button type="submit" name="decision" value="allow" size="lg" disabled={!targets.mailboxes.length}>
+          <Button type="submit" name="decision" value="allow" size="lg" disabled={!shareable}>
             Allow
           </Button>
           <Button type="submit" name="decision" value="deny" size="lg" variant="outline">

@@ -229,6 +229,11 @@ describe("registration limits", () => {
     await db.prepare("DELETE FROM oauth_clients WHERE id LIKE 'bulk%'").run();
   });
 
+  test("app names lose invisible characters that could make them show as another", async () => {
+    const { body } = await register(undefined, { client_name: "\u202Eedualc\u200B Bot\u0007" });
+    assert.equal(body.client_name, "edualc Bot");
+  });
+
   test("redirect URIs are kept short", async () => {
     assert.equal((await register([`https://app.test/${"x".repeat(500)}`])).status, 400);
     assert.equal((await register(Array.from({ length: 6 }, (_, i) => `https://app.test/${i}`))).status, 400);
@@ -528,6 +533,17 @@ describe("tokens", () => {
     await db.prepare("UPDATE oauth_tokens SET used_at = used_at - 31000 WHERE id = ?").bind(sha256(c.refresh_token)).run();
     await (await mf.getWorker()).scheduled({ scheduledTime: new Date(Date.UTC(2026, 0, 1, 12, 0)), cron: "0 * * * *" });
     assert.equal((await db.prepare("SELECT answer FROM oauth_tokens WHERE id = ?").bind(sha256(c.refresh_token)).first()).answer, null);
+  });
+
+  test("signing in again still works if the connection went away meanwhile", async () => {
+    const c = await connect("uMember", { read: ["mailbox:mA1"] });
+    const { verifier, challenge } = pkce();
+    const code = await allow(c.client, "uMember", { read: ["mailbox:mA1"] }, challenge);
+    // The other device signs out (or the hourly clean-up runs) just before the code is traded in.
+    await db.prepare("DELETE FROM api_keys WHERE client_id = ?").bind(c.client.client_id).run();
+    const res = await token({ grant_type: "authorization_code", code, code_verifier: verifier, client_id: c.client.client_id, redirect_uri: "http://127.0.0.1:6666/callback" });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal((await rpc(res.body.access_token, "tools/list")).status, 200);
   });
 
   test("tokens from signing in don't work on the HTTP API", async () => {
@@ -836,6 +852,15 @@ describe("disconnecting", () => {
 });
 
 describe("an admin's assistant", () => {
+  test("left with no access, is asked to sign in again (401), as anyone's is", async () => {
+    const c = await connect("uAdmin", { read: ["mailbox:mB1"] });
+    const key = await db.prepare("SELECT id FROM api_keys WHERE client_id = ?").bind(c.client.client_id).first();
+    await db.prepare("DELETE FROM api_key_grants WHERE key_id = ?").bind(key.id).run();
+    const res = await rpc(c.access_token, "tools/list");
+    assert.equal(res.status, 401);
+    assert.match(res.headers.get("www-authenticate"), /invalid_token/);
+  });
+
   test("given all mailboxes, reads them all", async () => {
     const c = await connect("uAdmin", { read: ["all"] });
     assert.deepEqual((await tool(c.access_token, "list_mailboxes")).map((m) => m.address), ["one@alpha.test", "one@beta.test", "two@alpha.test"]);

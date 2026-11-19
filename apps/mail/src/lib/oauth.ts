@@ -116,7 +116,9 @@ export async function registerClient(body: Record<string, unknown>) {
   const grantTypes = Array.isArray(body.grant_types) ? body.grant_types : ["authorization_code", "refresh_token"];
   if (!grantTypes.includes("authorization_code")) return oauthError("invalid_client_metadata", "grant_types must include authorization_code.");
 
-  const name = (typeof body.client_name === "string" ? body.client_name : "").replace(/\s+/g, " ").trim().slice(0, 80) || "An unnamed app";
+  // Control and format characters (direction overrides, zero-width ones) could make a name show as another: dropped.
+  const raw = typeof body.client_name === "string" ? body.client_name : "";
+  const name = raw.replace(/\p{Cf}/gu, "").replace(/\p{Cc}/gu, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "An unnamed app";
   const id = `gmcl_${b64url(crypto.getRandomValues(new Uint8Array(16)))}`;
   const secret = method === "none" ? null : randomToken("gmcs_");
   const created = now();
@@ -194,13 +196,21 @@ export async function exchangeCode(client: OAuthClient, form: FormData): Promise
   const code = String(form.get("code") ?? "");
   const verifier = String(form.get("code_verifier") ?? "");
   if (!code || !verifier) return oauthError("invalid_request", "Send code and code_verifier.");
-  // Claimed as it is read (expired at once), so a code works once even if two
-  // requests race. It is deleted below, with the connection made in the same batch.
+  // Claimed as it is read (its challenge emptied), so a code works once even if
+  // two requests race. A claimed code is kept a minute longer, so the hourly
+  // clean-up can't remove it mid-exchange; it is deleted below, in the batch that
+  // makes the connection.
   const codeId = await sha256(code);
-  const row = await env.DB.prepare("UPDATE oauth_codes SET expires_at = 0 WHERE id = ? AND expires_at >= ? RETURNING *")
-    .bind(codeId, now())
+  const t = now();
+  const invalid = oauthError("invalid_grant", "This code is unknown, used or expired. Sign in again.");
+  const row = await env.DB.prepare("SELECT * FROM oauth_codes WHERE id = ? AND code_challenge != '' AND expires_at >= ?")
+    .bind(codeId, t)
     .first<{ client_id: string; user_id: string; redirect_uri: string | null; code_challenge: string; grants: string }>();
-  if (!row || row.client_id !== client.id) return oauthError("invalid_grant", "This code is unknown, used or expired. Sign in again.");
+  if (!row) return invalid;
+  const claim = await env.DB.prepare("UPDATE oauth_codes SET code_challenge = '', expires_at = ? WHERE id = ? AND code_challenge = ?")
+    .bind(t + 60_000, codeId, row.code_challenge)
+    .run();
+  if (!claim.meta.changes || row.client_id !== client.id) return invalid;
   // RFC 6749 §4.1.3: sent to /oauth/authorize, so it must be sent here too, the same. Left out
   // there, it may still be sent here (many libraries always do): then it's one the app registered.
   const redirectUri = form.get("redirect_uri");
@@ -210,47 +220,38 @@ export async function exchangeCode(client: OAuthClient, form: FormData): Promise
   if ((await s256(verifier)) !== row.code_challenge) return oauthError("invalid_grant", "code_verifier doesn't match the code_challenge.");
 
   const grants: Grant[] = JSON.parse(row.grants);
-  // One connection per person and app (a unique index): signing in again, from
-  // any device, replaces its access and keeps the tokens other devices hold.
-  const existing = await env.DB.prepare("SELECT id FROM api_keys WHERE user_id = ? AND client_id = ?").bind(row.user_id, client.id).first<{ id: string }>();
-  const keyId = existing?.id ?? newId();
   const family = newId();
-  const t = now();
   const { set, accessId, refreshId } = await newPair();
   // One batch (a transaction), each step only while the code is still there: a
   // Disconnect, which deletes the code, comes either before (nothing is made)
   // or after (it removes all of it), never in between.
   const codeLive = "EXISTS (SELECT 1 FROM oauth_codes WHERE id = ?)";
+  // One connection per person and app (a unique index): signing in again, from
+  // any device, replaces its access and keeps the tokens other devices hold.
+  // Found by person and app in each statement, whether it was there or just made.
+  const keyOf = "(SELECT id FROM api_keys WHERE user_id = ? AND client_id = ?)";
+  const of = [row.user_id, client.id];
   const token = (id: string, kind: string, ttl: number) =>
-    env.DB.prepare(`INSERT INTO oauth_tokens (id, key_id, family, kind, expires_at, created_at) SELECT ?, ?, ?, ?, ?, ? WHERE ${codeLive}`)
-      .bind(id, keyId, family, kind, t + ttl, t, codeId);
-  // Signing in counts as using it: set in the same statement, so the hourly
-  // purge can't remove a dormant connection while it's being taken up again.
-  const connection = existing
-    ? env.DB.prepare(`UPDATE api_keys SET last_used_at = ? WHERE id = ? AND ${codeLive}`).bind(t, keyId, codeId)
-    : env.DB.prepare(
-        `INSERT INTO api_keys (id, name, prefix, key_hash, mailbox_id, scopes, created_by, created_at, user_id, client_id, last_used_at)
-         SELECT ?1, ?2, 'oauth', 'oauth:' || ?1, NULL, '', ?3, ?4, ?3, ?5, ?4 WHERE EXISTS (SELECT 1 FROM oauth_codes WHERE id = ?6)`,
-      ).bind(keyId, client.name, row.user_id, t, client.id, codeId);
-  let results: D1Result[];
-  try {
-    results = await env.DB.batch([
-      connection,
-      env.DB.prepare(`DELETE FROM api_key_grants WHERE key_id = ? AND ${codeLive}`).bind(keyId, codeId),
-      ...grants.map((g) =>
-        env.DB.prepare(`INSERT INTO api_key_grants (key_id, target_type, target_id, can_read, can_send) SELECT ?, ?, ?, ?, ? WHERE ${codeLive}`)
-          .bind(keyId, g.target_type, g.target_id, g.can_read, g.can_send, codeId),
-      ),
-      token(accessId, "access", ACCESS_TTL),
-      token(refreshId, "refresh", REFRESH_TTL),
-      env.DB.prepare(`UPDATE oauth_clients SET used_at = ? WHERE id = ? AND ${codeLive}`).bind(t, client.id, codeId),
-      env.DB.prepare("DELETE FROM oauth_codes WHERE id = ?").bind(codeId),
-    ]);
-  } catch (e) {
-    // Two sign-ins of the same person and app finishing at the same moment: the unique index lets one through.
-    console.error("oauth connection failed", e);
-    return oauthError("server_error", "Couldn't save the connection. Try again.", 500);
-  }
+    env.DB.prepare(`INSERT INTO oauth_tokens (id, key_id, family, kind, expires_at, created_at) SELECT ?, ${keyOf}, ?, ?, ?, ? WHERE ${codeLive}`)
+      .bind(id, ...of, family, kind, t + ttl, t, codeId);
+  const results = await env.DB.batch([
+    // Signing in counts as using it: set in the same statement, so the hourly
+    // purge can't remove a dormant connection while it's being taken up again.
+    env.DB.prepare(
+      `INSERT INTO api_keys (id, name, prefix, key_hash, mailbox_id, scopes, created_by, created_at, user_id, client_id, last_used_at)
+       SELECT ?1, ?2, 'oauth', 'oauth:' || ?1, NULL, '', ?3, ?4, ?3, ?5, ?4 WHERE EXISTS (SELECT 1 FROM oauth_codes WHERE id = ?6)
+       ON CONFLICT (user_id, client_id) WHERE client_id IS NOT NULL DO UPDATE SET last_used_at = excluded.last_used_at`,
+    ).bind(newId(), client.name, row.user_id, t, client.id, codeId),
+    env.DB.prepare(`DELETE FROM api_key_grants WHERE key_id = ${keyOf} AND ${codeLive}`).bind(...of, codeId),
+    ...grants.map((g) =>
+      env.DB.prepare(`INSERT INTO api_key_grants (key_id, target_type, target_id, can_read, can_send) SELECT ${keyOf}, ?, ?, ?, ? WHERE ${codeLive}`)
+        .bind(...of, g.target_type, g.target_id, g.can_read, g.can_send, codeId),
+    ),
+    token(accessId, "access", ACCESS_TTL),
+    token(refreshId, "refresh", REFRESH_TTL),
+    env.DB.prepare(`UPDATE oauth_clients SET used_at = ? WHERE id = ? AND ${codeLive}`).bind(t, client.id, codeId),
+    env.DB.prepare("DELETE FROM oauth_codes WHERE id = ?").bind(codeId),
+  ]);
   if (!results.at(-1)!.meta.changes) return oauthError("invalid_grant", "This sign-in was cancelled. Sign in again.");
   return set;
 }

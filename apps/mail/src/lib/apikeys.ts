@@ -267,10 +267,11 @@ export async function authenticate(request: Request, scope: Scope | null, opts: 
   if (limit) {
     const reach = reachRows?.results[0] as { r: number | null; s: number | null } | undefined;
     can = { read: !!reach?.r, send: !!reach?.s };
-    // Signing in again lets the person pick from the mailboxes they have now (refreshing fails too).
-    if (!can.read && !can.send)
-      return apiError(401, "invalid_token", "None of the mailboxes this assistant was given can be opened by you any more. Sign in again to choose others.");
   }
+  // An assistant (an admin's too) with nothing left: signing in again lets the person pick
+  // from the mailboxes they have now (refreshing fails too), so it's a 401, not a 403.
+  if (key.user_id && !can.read && !can.send)
+    return apiError(401, "invalid_token", "None of the mailboxes this assistant was given can be opened by you any more. Sign in again to choose others.");
   const auth: ApiAuth = { key, grants, limit, can };
   if (!(scope ? can[scope] : can.read || can.send))
     return apiError(403, "forbidden", scope ? `This key has no "${scope}" permission on any mailbox.` : "This key has no permission on any mailbox.");

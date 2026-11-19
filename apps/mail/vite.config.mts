@@ -26,6 +26,9 @@ export default defineConfig({
   },
   environments: {
     ssr: {},
+    // Packages such as Lexical ship a development and a production build. Ask for the
+    // production one when building, or the browser bundle gets both.
+    client: { resolve: { conditions: ["module", "browser", process.env.NODE_ENV === "development" ? "development" : "production"] } },
   },
   plugins: [
     cloudflare({

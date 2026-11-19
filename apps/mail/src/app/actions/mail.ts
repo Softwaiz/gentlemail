@@ -3,6 +3,7 @@
 import { env } from "cloudflare:workers";
 import { requestInfo, serverAction } from "rwsdk/worker";
 import { type ActionResult, fail, ok, signedIn, text } from "@/app/actions/guards";
+import { COMPOSER_HTML_LIMIT, cleanComposerHtml, composerText } from "@/lib/compose-html";
 import { type MessageRow, deleteMessageForever, getMailboxForUser, isFolder } from "@/lib/db";
 import { SendError, sendMail } from "@/lib/outbound";
 import { learnFrom } from "@/lib/spam";
@@ -137,6 +138,21 @@ export const sendMessage = serverAction([
     }
     if (total > 25 * 1024 * 1024) return fail("Attachments are limited to 25 MB in total.");
 
+    // The composer posts HTML: keep only its own formatting, and write the text version from that.
+    // A form without it (older page still open) sends its plain-text body as before.
+    const rawHtml = form.get("html");
+    let body = String(form.get("body") ?? "");
+    let html: string | undefined;
+    if (typeof rawHtml === "string" && rawHtml.trim()) {
+      if (rawHtml.length > COMPOSER_HTML_LIMIT) return fail("This message is too long to send.");
+      const clean = await cleanComposerHtml(rawHtml);
+      const plain = composerText(clean);
+      if (plain) {
+        html = clean;
+        body = plain;
+      }
+    }
+
     const originalId = text(form, "original");
     const original = originalId
       ? await env.DB.prepare("SELECT * FROM messages WHERE id = ? AND mailbox_id = ?").bind(originalId, mailbox.id).first<MessageRow>()
@@ -151,7 +167,8 @@ export const sendMessage = serverAction([
         cc,
         bcc,
         subject: text(form, "subject"),
-        body: String(form.get("body") ?? ""),
+        body,
+        html,
         includeSignature: form.get("signature") === "on",
         files,
         original,

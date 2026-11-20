@@ -32,7 +32,7 @@ The answer is `201 Created`.
 | `to`, `cc`, `bcc` | string, object or array | `"a@b.c"`, `"Name <a@b.c>"`, `{ "address", "name" }`, or a list of those. |
 | `subject` | string | Subject line. Defaults to `Re:` the original when replying. |
 | `text`, `html` | string | At least one. With only HTML, a plain-text version is made for you. |
-| `attachments` | array | Each item: `{ "filename", "content" (base64), "content_type"? }`. Up to 25 MB in all. |
+| `attachments` | array | Each item: `{ "filename", "content" (base64), "content_type"? }`. The attachments, `text` and `html` together can't exceed 25 MB: over that, the send is refused with `422` and nothing goes out. |
 | `reply_to_message_id` | string | ID of a message in this mailbox. Threads the reply, and `to` defaults to its sender (its recipients, for a message sent from this mailbox). Needs **Read** on the mailbox too. |
 | `quote` | boolean | With a reply, quote the original below your text. |
 | `signature` | boolean | Append the mailbox's signature. |

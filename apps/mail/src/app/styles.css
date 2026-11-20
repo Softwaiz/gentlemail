@@ -190,3 +190,34 @@
     }
   }
 }
+
+/* ── Composer (components/rich-editor.tsx) ──────────────────────────────────
+   Lexical's theme classes. Close to what recipients see: quotes and code get
+   the same look as the inline styles the server adds (lib/compose-html.ts). */
+.composer-body { overflow-wrap: anywhere; }
+.composer-p { margin: 0; }
+.composer-quote {
+  margin: 0.25rem 0;
+  border-left: 2px solid var(--border);
+  padding-left: 0.75rem;
+  color: var(--muted-foreground);
+}
+.composer-ul, .composer-ol { margin: 0.25rem 0; padding-left: 1.5rem; }
+.composer-ul { list-style: disc; }
+.composer-ol { list-style: decimal; }
+.composer-li-nested { list-style: none; }
+.composer-link { text-decoration: underline; text-underline-offset: 2px; color: inherit; cursor: pointer; }
+.composer-code {
+  font-family: var(--font-mono, ui-monospace, Menlo, Consolas, monospace);
+  font-size: 0.9em;
+  background: var(--muted);
+  padding: 0.05rem 0.3rem;
+  border-radius: 0.25rem;
+}
+.composer-card { animation: composer-card-in 140ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes composer-card-in {
+  from { opacity: 0; transform: translateY(-3px) scale(0.98); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .composer-card { animation: none; }
+}

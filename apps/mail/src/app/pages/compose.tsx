@@ -4,6 +4,7 @@ import { Paperclip } from "lucide-react";
 import { removeSenderRule, saveMailboxSettings } from "@/app/actions/mail";
 import { ActionButton, ActionForm } from "@/app/components/action-form";
 import { ComposeForm } from "@/app/components/compose-form";
+import { RichEditor } from "@/app/components/rich-editor";
 import { Field, Section } from "@/app/components/section";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { PageHeader, Shell, flashFrom } from "@/app/components/shell";
@@ -86,13 +87,7 @@ export async function ComposePage(ri: RequestInfo) {
           <input name="subject" defaultValue={subject} className={cn(fieldCls, "font-medium")} />
         </ComposeRow>
 
-        <textarea
-          name="body"
-          rows={14}
-          placeholder="Write your message…"
-          autoFocus={!!to}
-          className="block min-h-72 w-full resize-y bg-transparent px-5 py-4 text-[15px] leading-relaxed outline-none placeholder:text-muted-foreground"
-        />
+        <RichEditor autoFocus={!!to} />
 
         {mailbox.signature.trim() && (
           <div className="border-t border-dashed px-5 py-3">

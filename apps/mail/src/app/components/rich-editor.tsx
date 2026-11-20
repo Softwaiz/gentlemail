@@ -79,8 +79,19 @@ const THEME = {
 const URL_MATCHER = createLinkMatcherWithRegExp(/https?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]]/i);
 const EMAIL_MATCHER = createLinkMatcherWithRegExp(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i, (text) => `mailto:${text}`);
 
-/** What a link may point to, as the server also requires. */
-const validUrl = (url: string) => /^(https?:\/\/|mailto:)[^\s"'<>]+$/i.test(url);
+/**
+ * What a link may point to: a web address on a real domain name ("https://+336…" is not
+ * one) or an email address. The server allows the same schemes.
+ */
+function validUrl(url: string) {
+  if (/^mailto:[^\s@"'<>]+@[^\s@"'<>]+\.[^\s@"'<>]+$/i.test(url)) return true;
+  if (!/^https?:\/\/[^\s"'<>]+$/i.test(url)) return false;
+  try {
+    return /^([a-z0-9-]+\.)+[a-z]{2,}$/i.test(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
 
 /** "example.com" → "https://example.com", "anna@example.com" → "mailto:anna@example.com". */
 function normalizeUrl(input: string) {

@@ -20,12 +20,20 @@ The documentation is `apps/docs` ([Astro Starlight](https://starlight.astro.buil
 - From `apps/docs`: `npm run dev` to preview, `npm run build` must pass.
 - **The SDK's docs follow its versions.** A pull request that changes `packages/sdk` updates `apps/docs/src/content/docs/sdk.md` in the same pull request: a new function or option goes in its section with `<p class="since">Since X.Y.Z</p>` (the version it will ship in), a change says what changed and from which version. Its line goes in `packages/sdk/CHANGELOG.md`, which is the [SDK changelog](https://gentlemail.dev/docs/sdk/changelog/) page. If it's something new the SDK can do, add it with its version to `sdk.features` on the website (`gentlemail-site`, `src/app/content.ts`).
 
+## Branches
+People run GentleMail from `main`: the Deploy to Cloudflare button copies it, operators update with `git pull upstream main`, and merging to it deploys the docs. So `main` only ever holds releases.
+
+- **Work goes to `dev`.** Branch from `dev` and open the pull request against `dev`. Never against `main`.
+- **`main` changes only by a promotion** from `dev` (see Releases), which is merged and tagged as one release.
+- **A fix that can't wait** for the next release: branch from `main`, pull request against `main`, release it as a patch, then merge `main` into `dev` so the fix isn't lost.
+
 ## Releases
-Merging to `main` deploys, so a release is cut in a pull request and deployed by merging it.
-1. **Release pull request**, with nothing else in it: turn **Unreleased** into `## x.y.z (YYYY-MM-DD)` (the date it merges) and set the same version in `apps/mail/package.json`. If the release has a migration or anything to do by hand, it's under **Upgrading**.
-2. **Right after merging**, tag the merge commit and publish its notes: `git tag vX.Y.Z <merge commit> && git push origin vX.Y.Z`, then `gh release create vX.Y.Z --notes-file <that changelog section>`.
-3. Between releases, builds show the last version with `+dev` (the changelog has lines under **Unreleased**), so admins can tell a release from a build of `main`.
-4. Packages in `packages/` (such as the SDK) have their own versions and changelogs, released independently of the app.
+A release promotes what is in `dev` into `main`.
+1. **Release pull request into `dev`**, with nothing else in it: turn **Unreleased** into `## x.y.z (YYYY-MM-DD)` (the date it's promoted) and set the same version in `apps/mail/package.json`. If the release has a migration or anything to do by hand, it's under **Upgrading**.
+2. **Promotion pull request** from `dev` into `main`, titled `Release x.y.z`, with nothing in `dev` that isn't in that release. Merging it deploys the docs and makes the release available.
+3. **Right after merging**, tag the merge commit on `main` and publish its notes: `git tag vX.Y.Z <merge commit> && git push origin vX.Y.Z`, then `gh release create vX.Y.Z --notes-file <that changelog section>`.
+4. Between releases, builds show the last version with `+dev` (the changelog has lines under **Unreleased**), so admins can tell a release from a build of `dev`.
+5. Packages in `packages/` (such as the SDK) have their own versions and changelogs, released independently of the app. Their changes go through `dev` too; tag them (`sdk-vX.Y.Z`) on `main` once promoted.
 
 ## Code conventions
 - **Data access is plain SQL** through the D1 binding with bound parameters (`env.DB.prepare("… WHERE id = ?").bind(id)`). No ORM.
@@ -36,6 +44,6 @@ Merging to `main` deploys, so a release is cut in a pull request and deployed by
 - **No secrets, account IDs or deployment-specific domains in this repository.** `apps/mail/wrangler.jsonc` stays a template, and `.dev.vars` is never committed.
 
 ## Before opening a pull request
-From `apps/mail`: `npx tsc --noEmit`, `npm run build` and `npm test` pass, and the change is tried locally (`npm run db:migrate:local`, `npm run dev`). If you changed `apps/docs`, its `npm run build` passes too.
+Open it against `dev` (see Branches). From `apps/mail`: `npx tsc --noEmit`, `npm run build` and `npm test` pass, and the change is tried locally (`npm run db:migrate:local`, `npm run dev`). If you changed `apps/docs`, its `npm run build` passes too.
 
 `npm test` runs the built Worker locally against a throwaway database and checks that API keys reach exactly the mailboxes their grants allow, on every `/api/v1` endpoint. A change to API keys or the API adds its cases there (`apps/mail/test/api-access.test.mjs`). It also runs the MCP endpoint and its OAuth sign-in end to end (`apps/mail/test/mcp.test.mjs`): a change to either adds its cases there.

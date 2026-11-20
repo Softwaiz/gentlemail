@@ -25,13 +25,13 @@ People run GentleMail from `main`: the Deploy to Cloudflare button copies it, op
 
 - **Work goes to `dev`.** Branch from `dev` and open the pull request against `dev`. Never against `main`.
 - **`main` changes only by a promotion** from `dev` (see Releases), which is merged and tagged as one release.
-- **A fix that can't wait** for the next release: branch from `main`, pull request against `main`, release it as a patch, then merge `main` into `dev` so the fix isn't lost.
+- **A fix that can't wait** for the next release: branch from `main` and open a pull request against `main` titled `Fix: …`. It releases itself as a patch: its changelog section is the new version (`## 0.7.1 (date)`) and it sets that version in `apps/mail/package.json`. Once merged, it's tagged and released, and a `Sync main into dev after x.y.z` pull request opens so the fix isn't lost.
 
 ## Releases
-A release promotes what is in `dev` into `main`.
-1. **Version pull request into `dev`**, titled `Version x.y.z`, with nothing else in it: turn **Unreleased** into `## x.y.z (YYYY-MM-DD)` (the date it's promoted) and set the same version in `apps/mail/package.json`. If the release has a migration or anything to do by hand, it's under **Upgrading**.
-2. **Promotion pull request** from `dev` into `main`, titled `Release x.y.z`, with nothing in `dev` that isn't in that release. Merging it deploys the docs and makes the release available.
-3. **Right after merging**, tag the merge commit on `main` and publish its notes: `git tag vX.Y.Z <merge commit> && git push origin vX.Y.Z`, then `gh release create vX.Y.Z --notes-file <that changelog section>`.
+A release promotes what is in `dev` into `main`. [`release.yml`](.github/workflows/release.yml) does the bookkeeping:
+1. **A promotion pull request stays open** from `dev` into `main`, titled `Release next`. Every merge into `dev` updates it with the lines under **Unreleased** and the pull requests waiting.
+2. **Version pull request into `dev`**: run **Prepare release** in the Actions tab. It opens `Version x.y.z`, turning **Unreleased** into `## x.y.z (YYYY-MM-DD)` and setting the same version in `apps/mail/package.json`. It suggests the version from the changelog (a minor version for anything Added, Changed, Removed or with an Upgrading step, a patch for fixes only); give one to override it. If the release has a migration or anything to do by hand, it's under **Upgrading**. Merging it renames the promotion `Release x.y.z`.
+3. **Merging the promotion** deploys the docs and makes the release available. Its merge commit on `main` is tagged `vX.Y.Z` and the GitHub release is published with that changelog section, automatically.
 4. Between releases, builds show the last version with `+dev` (the changelog has lines under **Unreleased**), so admins can tell a release from a build of `dev`.
 5. Packages in `packages/` (such as the SDK) have their own versions and changelogs, released independently of the app. Their changes go through `dev` too; tag them (`sdk-vX.Y.Z`) on `main` once promoted.
 

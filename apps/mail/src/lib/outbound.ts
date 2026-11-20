@@ -4,6 +4,8 @@ import { resolveThreadId } from "./threads";
 import { emitMessageEvent } from "./webhooks";
 import {
   type Addr,
+  D1_TEXT_LIMIT,
+  byteLength,
   escapeHtml,
   formatAddr,
   formatDate,
@@ -11,6 +13,7 @@ import {
   makeSnippet,
   newId,
   now,
+  rowText,
   stripBrackets,
   textToHtml,
   toBase64,
@@ -90,7 +93,8 @@ export async function sendMail(input: SendInput): Promise<string> {
     }
   }
   const total = files.reduce((s, f) => s + f.content.byteLength, 0) + input.body.length + (input.html?.length ?? 0);
-  if (total > MAX_TOTAL) throw new SendError("Attachments exceed the 25 MB limit.");
+  // The text and HTML count too: they are part of the message the email service takes.
+  if (total > MAX_TOTAL) throw new SendError("The message and its attachments exceed the 25 MB limit.");
 
   const sig = input.includeSignature && mailbox.signature.trim() ? mailbox.signature.trim() : "";
   const quote = original && mode && input.quote !== false ? await buildQuote(original, mode) : { text: "", html: "" };
@@ -135,8 +139,16 @@ export async function sendMail(input: SendInput): Promise<string> {
     throw new SendError(e?.message ?? "Sending failed", e?.code);
   }
 
-  // Store a copy in "sent".
+  // Store a copy in "sent". The email is already gone: the copy must fit its row whatever
+  // the script (D1 counts bytes), so large HTML goes to storage, as for received mail.
   const id = newId();
+  let rowHtml: string | null = html;
+  let htmlKey: string | null = null;
+  if (byteLength(html) > D1_TEXT_LIMIT) {
+    htmlKey = `bodies/${mailbox.id}/${id}.html`;
+    await env.MAIL_BUCKET.put(htmlKey, html, { httpMetadata: { contentType: "text/html; charset=utf-8" } });
+    rowHtml = null;
+  }
   const ts = now();
   const threadId =
     original && mode === "reply"
@@ -150,9 +162,9 @@ export async function sendMail(input: SendInput): Promise<string> {
   const stmts: D1PreparedStatement[] = [
     env.DB.prepare(
       `INSERT INTO messages (id, mailbox_id, thread_id, folder, direction, message_id, in_reply_to, references_hdr,
-        from_addr, from_name, to_json, cc_json, bcc_json, subject, snippet, text_body, html_body,
+        from_addr, from_name, to_json, cc_json, bcc_json, subject, snippet, text_body, html_body, html_key,
         size, has_attachments, is_read, date, created_at)
-       VALUES (?, ?, ?, 'sent', 'out', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+       VALUES (?, ?, ?, 'sent', 'out', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
     ).bind(
       id,
       mailbox.id,
@@ -167,8 +179,9 @@ export async function sendMail(input: SendInput): Promise<string> {
       JSON.stringify(input.bcc),
       input.subject || "(no subject)",
       makeSnippet(input.body),
-      text,
-      html.length < 900_000 ? html : null,
+      rowText(text),
+      rowHtml,
+      htmlKey,
       total,
       files.length ? 1 : 0,
       ts,

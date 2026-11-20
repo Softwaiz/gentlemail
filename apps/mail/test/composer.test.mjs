@@ -10,6 +10,7 @@ import { BASE, q, sha256, startWorker } from "./harness.mjs";
 
 let mf, db, request;
 const SESSION = "session-composer";
+const API_KEY = `gm_test_composer_${"x".repeat(24)}`;
 
 before(async () => {
   const t = Date.now();
@@ -20,6 +21,8 @@ before(async () => {
       `INSERT INTO users (id, email, name, password_hash, role, created_at) VALUES ('u1', 'u1@alpha.test', 'U', 'x', 'member', ${t});`,
       `INSERT INTO sessions (id, user_id, expires_at, created_at) VALUES (${q(sha256(SESSION))}, 'u1', ${t + 3600e3}, ${t});`,
       `INSERT INTO mailbox_members (mailbox_id, user_id) VALUES ('mb1', 'u1');`,
+      `INSERT INTO api_keys (id, name, prefix, key_hash, scopes, created_at) VALUES ('k1', 'k1', 'gm_test', ${q(sha256(API_KEY))}, '', ${t});`,
+      `INSERT INTO api_key_grants (key_id, target_type, target_id, can_read, can_organize, can_send) VALUES ('k1', 'mailbox', 'mb1', 0, 0, 1);`,
     ].join("\n"),
   ));
 });
@@ -242,6 +245,32 @@ describe("composer formatting", () => {
     const { html_body, text_body } = await send({ html: "<p>a</p> <p>b</p> <ul> <li>x</li> </ul>" });
     assert.ok(!html_body.includes("&nbsp;"), html_body);
     assert.equal(text_body, "a\nb\n- x");
+  });
+
+  test("the size limit counts bytes, so a long message in Chinese is refused before it goes", async () => {
+    // 3 bytes a character: 100,000 characters fit in the limit, 200,000 don't.
+    const fits = await send({ html: `<p>${"漢".repeat(80_000)}</p>` });
+    assert.equal(fits.text_body, "漢".repeat(80_000));
+    const { res, row } = await post({ html: `<p>${"漢".repeat(200_000)}</p>` });
+    assert.ok(!row);
+    assert.match(await res.text(), /too long/);
+  });
+
+  test("a Sent copy too big for its row keeps its HTML in storage", async () => {
+    const subject = "big api send";
+    const res = await request("/api/v1/send", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: "hello@alpha.test", to: "anna@example.com", subject, html: `<p>${"漢".repeat(400_000)}</p>`, text: "字".repeat(400_000) }),
+    });
+    assert.equal(res.status, 201, await res.clone().text());
+    const row = await db.prepare("SELECT text_body, html_body, html_key FROM messages WHERE folder = 'sent' AND subject = ?").bind(subject).first();
+    assert.equal(row.html_body, null);
+    assert.ok(row.html_key);
+    const stored = await (await mf.getR2Bucket("MAIL_BUCKET")).get(row.html_key);
+    assert.ok((await stored.text()).includes("漢".repeat(400_000)));
+    assert.ok(new TextEncoder().encode(row.text_body).length <= 900_000);
+    assert.match(row.text_body, /truncated/);
   });
 
   test("a message too long to keep is refused", async () => {

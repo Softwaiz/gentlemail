@@ -35,8 +35,9 @@ const STYLE: Record<string, string> = {
 };
 
 /**
- * At most this many characters of cleaned composer HTML are sent: well under the 900,000
- * kept in Sent, which also holds the signature and the quoted message.
+ * At most this many UTF-8 bytes of cleaned composer HTML and its plain text are sent
+ * (bytes, as D1 counts them: a Chinese character is 3). Well under what a Sent row keeps,
+ * which also holds the signature and the quoted message.
  */
 export const COMPOSER_HTML_LIMIT = 500_000;
 /**
@@ -201,7 +202,7 @@ export function composerText(clean: string): string {
   let afterBr = false;
   const prefix = () => "> ".repeat(quote);
   const endLine = () => {
-    out.push(prefix() + line.replace(/\s+$/, ""));
+    out.push(prefix() + line.trimEnd()); // not /\s+$/: slow on a long run of spaces
     line = "";
   };
 
@@ -283,5 +284,5 @@ export function composerText(clean: string): string {
   }
   if (line) endLine();
   // Empty lines the user typed stay; only those at the very start and end go.
-  return out.join("\n").replace(/^(\s*\n)+/, "").replace(/\s+$/, "");
+  return out.join("\n").replace(/^(?:[ \t]*\n)+/, "").trimEnd();
 }

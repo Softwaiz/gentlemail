@@ -13,6 +13,12 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 ### Added
 - Formatting in the webmail composer: bold, italic, underline, strikethrough, subscript, superscript, links, bulleted and numbered lists, quotes and inline code, from a toolbar or keyboard shortcuts (Ctrl/⌘ B, I, U, K…). Messages go out as HTML with a matching plain-text part. Only this formatting is sent, whatever the page posts. ([#32](https://github.com/Softwaiz/gentlemail/pull/32))
 
+### Changed
+- The 25 MB limit on a sent message now counts its text and HTML, not only its attachments, in the webmail and in `POST /api/v1/send`. A send just over it with attachments, which the email service would have refused anyway, now gets `422` with "The message and its attachments exceed the 25 MB limit." ([#32](https://github.com/Softwaiz/gentlemail/pull/32))
+
+### Fixed
+- Very long messages in scripts such as Chinese or Japanese are saved properly: the Sent copy, and received mail, measured their size in characters while the database counts bytes. A long sent message could go out and then fail to be saved, showing "Sending failed" and inviting a second send. Its HTML now goes to storage, as for received mail. ([#32](https://github.com/Softwaiz/gentlemail/pull/32))
+
 ## 0.6.1 (2026-11-19)
 
 ### Added

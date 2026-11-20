@@ -117,3 +117,26 @@ export const htmlHasOwnColors = (html: string) =>
 /** D1 allows 100 bound values per query: split id lists (leaving room for a few other values). */
 export const chunks = <T>(list: T[], size = 90): T[][] =>
   Array.from({ length: Math.ceil(list.length / size) }, (_, i) => list.slice(i * size, (i + 1) * size));
+
+/**
+ * Largest body text or HTML kept in a message's row, in UTF-8 bytes: D1 limits a row to
+ * 2 MB, and a message keeps both. Larger HTML goes to storage (html_key); text is cut.
+ */
+export const D1_TEXT_LIMIT = 900_000;
+
+const utf8 = new TextEncoder();
+/** Size in UTF-8 bytes, as D1 counts it: a Chinese character is 3. */
+export const byteLength = (s: string) => utf8.encode(s).length;
+
+/** The text cut to at most this many UTF-8 bytes, without splitting a character. */
+export function clipBytes(s: string, max: number): string {
+  const bytes = utf8.encode(s);
+  if (bytes.length <= max) return s;
+  return new TextDecoder().decode(bytes.subarray(0, max)).replace(/\uFFFD$/, "");
+}
+
+/** Body text for a message's row: cut, with a note, when it's over D1_TEXT_LIMIT. */
+export function rowText(text: string): string {
+  const note = "\n\n[…truncated — full message kept in storage]";
+  return byteLength(text) > D1_TEXT_LIMIT ? clipBytes(text, D1_TEXT_LIMIT - byteLength(note)) + note : text;
+}

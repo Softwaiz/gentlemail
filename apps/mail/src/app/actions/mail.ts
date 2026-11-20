@@ -7,7 +7,7 @@ import { COMPOSER_HTML_LIMIT, COMPOSER_RAW_LIMIT, cleanComposerHtml, composerTex
 import { type MessageRow, deleteMessageForever, getMailboxForUser, isFolder } from "@/lib/db";
 import { SendError, sendMail } from "@/lib/outbound";
 import { learnFrom } from "@/lib/spam";
-import { chunks, isEmail, parseAddressList } from "@/lib/util";
+import { byteLength, chunks, isEmail, parseAddressList } from "@/lib/util";
 
 /* Mailbox mutations. signedIn runs first; each action then checks access to the mailbox. */
 
@@ -146,9 +146,9 @@ export const sendMessage = serverAction([
     if (typeof rawHtml === "string" && rawHtml.trim()) {
       if (rawHtml.length > COMPOSER_RAW_LIMIT) return fail("This message is too long to send.");
       const clean = await cleanComposerHtml(rawHtml);
-      // The limit that counts: what is sent and kept.
-      if (clean.length > COMPOSER_HTML_LIMIT) return fail("This message is too long to send.");
       const plain = composerText(clean);
+      // The limit that counts: what is sent and kept, in bytes.
+      if (byteLength(clean) + byteLength(plain) > COMPOSER_HTML_LIMIT) return fail("This message is too long to send.");
       if (plain) {
         html = clean;
         body = plain;

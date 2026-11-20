@@ -3,9 +3,8 @@ import PostalMime, { type Address } from "postal-mime";
 import { resolveThreadId } from "./threads";
 import { spamVerdict } from "./spam";
 import { emitMessageEvent } from "./webhooks";
-import { type Addr, makeSnippet, newId, now, stripBrackets } from "./util";
+import { type Addr, D1_TEXT_LIMIT, byteLength, makeSnippet, newId, now, rowText, stripBrackets } from "./util";
 
-const D1_TEXT_LIMIT = 900_000; // keep rows well under D1's 2 MB limit
 
 const flatten = (list?: Address[] | Address): Addr[] => {
   if (!list) return [];
@@ -50,13 +49,13 @@ export async function handleInbound(message: ForwardableEmailMessage) {
 
   let html = email.html ?? null;
   let htmlKey: string | null = null;
-  if (html && html.length > D1_TEXT_LIMIT) {
+  if (html && byteLength(html) > D1_TEXT_LIMIT) {
     htmlKey = `bodies/${mailbox.id}/${id}.html`;
     await env.MAIL_BUCKET.put(htmlKey, html, { httpMetadata: { contentType: "text/html; charset=utf-8" } });
     html = null;
   }
   let text = email.text ?? null;
-  if (text && text.length > D1_TEXT_LIMIT) text = text.slice(0, D1_TEXT_LIMIT) + "\n\n[…truncated — full message kept in storage]";
+  if (text) text = rowText(text);
 
   const threadId = await resolveThreadId({
     mailboxId: mailbox.id,

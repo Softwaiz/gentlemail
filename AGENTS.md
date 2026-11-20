@@ -29,7 +29,7 @@ People run GentleMail from `main`: the Deploy to Cloudflare button copies it, op
 
 ## Releases
 A release promotes what is in `dev` into `main`.
-1. **Release pull request into `dev`**, with nothing else in it: turn **Unreleased** into `## x.y.z (YYYY-MM-DD)` (the date it's promoted) and set the same version in `apps/mail/package.json`. If the release has a migration or anything to do by hand, it's under **Upgrading**.
+1. **Version pull request into `dev`**, titled `Version x.y.z`, with nothing else in it: turn **Unreleased** into `## x.y.z (YYYY-MM-DD)` (the date it's promoted) and set the same version in `apps/mail/package.json`. If the release has a migration or anything to do by hand, it's under **Upgrading**.
 2. **Promotion pull request** from `dev` into `main`, titled `Release x.y.z`, with nothing in `dev` that isn't in that release. Merging it deploys the docs and makes the release available.
 3. **Right after merging**, tag the merge commit on `main` and publish its notes: `git tag vX.Y.Z <merge commit> && git push origin vX.Y.Z`, then `gh release create vX.Y.Z --notes-file <that changelog section>`.
 4. Between releases, builds show the last version with `+dev` (the changelog has lines under **Unreleased**), so admins can tell a release from a build of `dev`.
@@ -44,6 +44,10 @@ A release promotes what is in `dev` into `main`.
 - **No secrets, account IDs or deployment-specific domains in this repository.** `apps/mail/wrangler.jsonc` stays a template, and `.dev.vars` is never committed.
 
 ## Before opening a pull request
-Open it against `dev` (see Branches). From `apps/mail`: `npx tsc --noEmit`, `npm run build` and `npm test` pass, and the change is tried locally (`npm run db:migrate:local`, `npm run dev`). If you changed `apps/docs`, its `npm run build` passes too.
+Open it against `dev` (see Branches) and fill in the [template](.github/pull_request_template.md): what and why, what you'll see (screenshots for anything on screen), how it was tested, and its checklist. Title it `Area: what changes` (`Composer: formatted messages`). Release work has fixed titles: `Version x.y.z` (the version pull request into `dev`), `Release x.y.z` (the promotion into `main`), `Fix: …` (a hotfix into `main`) and `Sync main into dev after x.y.z`.
+
+A security fix that would show a hole before it's deployed is prepared in a private fork from a GitHub security advisory, then merged, released and published together.
+
+From `apps/mail`: `npx tsc --noEmit`, `npm run build` and `npm test` pass, and the change is tried locally (`npm run db:migrate:local`, `npm run dev`). If you changed `apps/docs`, its `npm run build` passes too.
 
 `npm test` runs the built Worker locally against a throwaway database and checks that API keys reach exactly the mailboxes their grants allow, on every `/api/v1` endpoint. A change to API keys or the API adds its cases there (`apps/mail/test/api-access.test.mjs`). It also runs the MCP endpoint and its OAuth sign-in end to end (`apps/mail/test/mcp.test.mjs`): a change to either adds its cases there.

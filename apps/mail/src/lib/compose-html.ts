@@ -85,6 +85,11 @@ export async function cleanComposerHtml(html: string): Promise<string> {
       comments: (c) => {
         c.remove();
       },
+      // A bare < or > in the text (not escaped by whoever posted it) is escaped here, so it
+      // can't be read as the start of a tag later on.
+      text: (t) => {
+        if (/[<>]/.test(t.text)) t.replace(t.text.replace(/</g, "&lt;").replace(/>/g, "&gt;"), { html: true });
+      },
     });
   const out = await rewriter
     .transform(new Response(html.replace(/<!doctype[^>]*>/gi, ""), { headers: { "content-type": "text/html; charset=utf-8" } }))
@@ -111,8 +116,10 @@ function keepSpaces(html: string): string {
       if (LINE_START.test(token)) afterSpace = true;
       return token;
     }
+    // A line break in the source and the indentation after it are layout, not typed
+    // spaces (the editor writes its line breaks as <br>): left as they are.
     let out = "";
-    for (const ch of token.replace(/\t/g, "    ")) {
+    for (const ch of token.replace(/\n[ \t]+/g, "\n").replace(/\t/g, "    ")) {
       if (ch === " ") {
         out += afterSpace ? "&nbsp;" : " ";
         afterSpace = true;
@@ -142,7 +149,9 @@ function balance(html: string): string {
     if (n === "br") return tag;
     if (!slash) {
       let before = "";
-      if (ENDS_P.has(n) && open.at(-1) === "p") before += close(open.length - 1);
+      // Down to the open paragraph, wherever it is: an unclosed link inside it goes too.
+      const p = open.lastIndexOf("p");
+      if (ENDS_P.has(n) && p >= 0) before += close(p);
       if (n === "li") {
         // The item left open in the same list, and anything inline still open in it.
         const list = Math.max(open.lastIndexOf("ul"), open.lastIndexOf("ol"));
@@ -188,9 +197,14 @@ export function composerText(clean: string): string {
     line = "";
   };
 
-  for (const [token] of clean.matchAll(/<[^>]*>|[^<]+/g)) {
-    if (token[0] !== "<") {
-      const text = decode(token).replace(/[\r\n]+/g, " ");
+  for (const [token] of clean.matchAll(/<\/?[a-z][^>]*>|<|[^<]+/gi)) {
+    if (token === "<" || token[0] !== "<") {
+      // A line break in the source reads as a space, but not at the start of a line.
+      let text = decode(token.replace(/[ \t]*[\r\n]+[ \t]*/g, "\n"));
+      if (text.includes("\n")) {
+        text = text.replace(/\n+/g, " ");
+        if (/(^|\s)$/.test(line)) text = text.replace(/^ /, "");
+      }
       line += text;
       if (link) link.label += text;
       continue;
@@ -258,5 +272,6 @@ export function composerText(clean: string): string {
     }
   }
   if (line) endLine();
-  return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  // Empty lines the user typed stay; only those at the very start and end go.
+  return out.join("\n").replace(/^(\s*\n)+/, "").replace(/\s+$/, "");
 }

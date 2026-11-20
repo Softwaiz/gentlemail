@@ -269,12 +269,15 @@ function Toolbar() {
         editor.registerCommand(
           KEY_DOWN_COMMAND,
           (e: KeyboardEvent) => {
-            if (!(e.ctrlKey || e.metaKey) || e.altKey) return false;
+            // ⌘ on a Mac, Ctrl elsewhere, as Lexical's own bold and italic: on a Mac, Ctrl+E and
+            // Ctrl+K keep their text editing (end of line, delete to the end of the line).
+            const mac = /Mac|iPhone|iPad/.test(navigator.userAgent);
+            if (!(mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey) || e.altKey) return false;
             const key = e.key.toLowerCase();
             const action: (() => void) | undefined =
               e.shiftKey && key === "x" ? () => format("strikethrough")
-              // The characters, whatever the layout. Shift is what the tooltips show (Ctrl/⌘ ,
-              // alone can open the browser's settings); with it, US keyboards give "<" and ">".
+              // The characters, whatever the layout, with or without Shift (which gives "<" and
+              // ">" on US keyboards, and is needed for "." on AZERTY).
               : key === "," || key === "<" ? () => format("subscript")
               : key === "." || key === ">" ? () => format("superscript")
               : !e.shiftKey && key === "e" ? () => format("code")
@@ -320,8 +323,8 @@ function Toolbar() {
       { icon: Strikethrough, label: "Strikethrough", keys: `${mod}Shift+X`, active: formats.strikethrough, run: () => format("strikethrough") },
     ],
     [
-      { icon: Subscript, label: "Subscript", keys: `${mod}Shift+,`, active: formats.subscript, run: () => format("subscript") },
-      { icon: Superscript, label: "Superscript", keys: `${mod}Shift+.`, active: formats.superscript, run: () => format("superscript") },
+      { icon: Subscript, label: "Subscript", keys: `${mod},`, active: formats.subscript, run: () => format("subscript") },
+      { icon: Superscript, label: "Superscript", keys: `${mod}.`, active: formats.superscript, run: () => format("superscript") },
     ],
     [
       { icon: LinkIcon, label: formats.link ? "Edit link" : "Add link", keys: `${mod}K`, active: !!formats.link, run: openLink },

@@ -213,6 +213,31 @@ describe("composer formatting", () => {
     assert.equal(text_body, "a".repeat(8000));
   });
 
+  test("a bare < in the text keeps what follows it", async () => {
+    const { html_body, text_body } = await send({ html: "<p>if a < b and c > d then go</p>" });
+    assert.ok(html_body.includes('<p style="margin:0">if a &lt; b and c &gt; d then go</p>'), html_body);
+    assert.equal(text_body, "if a < b and c > d then go");
+  });
+
+  test("empty lines typed in a row all stay, and so does the first line's indent", async () => {
+    const { text_body } = await send({
+      html: '<p><span style="white-space: pre-wrap;">    indented</span></p><p><br></p><p><br></p><p><br></p><p>after three</p>',
+    });
+    assert.equal(text_body, "    indented\n\n\n\nafter three");
+  });
+
+  test("indented HTML doesn't add spaces or lines", async () => {
+    const { html_body, text_body } = await send({ html: "<ul>\n  <li>a</li>\n  <li>b</li>\n</ul>\n<p>\n  done\n</p>" });
+    assert.ok(!html_body.includes("&nbsp;"), html_body);
+    assert.equal(text_body, "- a\n- b\ndone");
+  });
+
+  test("a new paragraph closes a link left open in the one before", async () => {
+    const { html_body } = await send({ html: '<p><a href="https://example.com">link<p>after' });
+    const body = html_body.slice(html_body.indexOf("<p"), html_body.lastIndexOf("</div>"));
+    assert.equal(body, '<p style="margin:0"><a href="https://example.com">link</a></p><p style="margin:0">after</p>');
+  });
+
   test("a message too long to keep is refused", async () => {
     const { res, row } = await post({ html: `<p>${"x".repeat(600_000)}</p>` });
     assert.ok(!row);

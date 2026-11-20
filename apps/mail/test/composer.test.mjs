@@ -99,7 +99,7 @@ describe("composer formatting", () => {
     const body = html_body.toLowerCase();
     for (const bad of ["<script", "alert", "<style", "color:red", "<!--", "onclick", "onerror", "class=", "id=", "<img", "tracker", "javascript", "data:", "<iframe", "evil", "<svg", "<form", "<input", "<button", "font-size:40px", "<h1", "<span", "<div><span"])
       assert.ok(!body.slice(body.indexOf("hello") - 10).includes(bad), `${bad} left in ${html_body}`);
-    assert.ok(html_body.includes("<p>hello</p>"), html_body);
+    assert.ok(html_body.includes('<p style="margin:0">hello</p>'), html_body);
     assert.ok(html_body.includes("js link") && html_body.includes("data link") && html_body.includes("kept text") && html_body.includes("heading text"));
     assert.ok(!text_body.includes("alert") && !text_body.includes("color:red"), text_body);
     assert.match(text_body, /^hello\njs link data link spaced/);
@@ -107,8 +107,44 @@ describe("composer formatting", () => {
 
   test("keeps the text people typed, markup characters included", async () => {
     const { html_body, text_body } = await send({ html: "<p>if a &lt; b &amp;&amp; c &gt; d: &lt;script&gt;</p><p><br></p><p>bye</p>" });
-    assert.ok(html_body.includes("<p>if a &lt; b &amp;&amp; c &gt; d: &lt;script&gt;</p>"), html_body);
+    assert.ok(html_body.includes('<p style="margin:0">if a &lt; b &amp;&amp; c &gt; d: &lt;script&gt;</p>'), html_body);
     assert.equal(text_body, "if a < b && c > d: <script>\n\nbye");
+  });
+
+  for (const tag of ["xmp", "noembed", "noframes", "plaintext", "listing"]) {
+    test(`markup hidden as text in <${tag}> doesn't come back out`, async () => {
+      const { html_body, text_body } = await send({
+        html: `<p>ok</p><${tag}><script>alert(1)</script><img src="https://tracker.example/x.gif" onerror="alert(2)"><b>x</b></${tag}>`,
+      });
+      for (const bad of ["<script", "<img", "onerror", "alert", "tracker", "&lt;script"]) assert.ok(!html_body.includes(bad), `${bad} left in ${html_body}`);
+      assert.ok(html_body.includes('<p style="margin:0">ok</p>'), html_body);
+      assert.equal(text_body, "ok");
+    });
+  }
+
+  test("paragraphs have no margins, so lines aren't double-spaced", async () => {
+    const { html_body } = await send({ html: "<p>one</p><p>two</p>" });
+    assert.ok(html_body.includes('<p style="margin:0">one</p><p style="margin:0">two</p>'), html_body);
+  });
+
+  test("keeps repeated spaces and tabs", async () => {
+    const { html_body, text_body } = await send({
+      html: '<p><span style="white-space: pre-wrap;">a  b\tc</span></p><p><span style="white-space: pre-wrap;">if a &lt; b  &amp;&amp; c</span></p>',
+    });
+    assert.ok(html_body.includes("a &nbsp;b &nbsp;&nbsp;&nbsp;c"), html_body);
+    assert.ok(html_body.includes("if a &lt; b &nbsp;&amp;&amp; c"), html_body);
+    assert.equal(text_body, "a  b    c\nif a < b  && c");
+  });
+
+  test("a link with a quote in its address stays a link", async () => {
+    const { html_body } = await send({ html: `<p><a href="https://example.com/it's">the page</a></p>` });
+    assert.match(html_body, /<a href="https:\/\/example\.com\/it(&#39;|')s">the page<\/a>/);
+  });
+
+  test("closes what's left open and drops stray end tags", async () => {
+    const { html_body } = await send({ html: '<p><a href="https://example.com">open link</p></b></em><p>next' });
+    const body = html_body.slice(html_body.indexOf("<p"), html_body.lastIndexOf("</div>"));
+    assert.equal(body, '<p style="margin:0"><a href="https://example.com">open link</a></p><p style="margin:0">next</p>');
   });
 
   test("a nested list keeps its numbering", async () => {

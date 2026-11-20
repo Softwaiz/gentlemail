@@ -84,8 +84,8 @@ const EMAIL_MATCHER = createLinkMatcherWithRegExp(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[
  * one) or an email address. The server allows the same schemes.
  */
 function validUrl(url: string) {
-  if (/^mailto:[^\s@"'<>]+@[^\s@"'<>]+\.[^\s@"'<>]+$/i.test(url)) return true;
-  if (!/^https?:\/\/[^\s"'<>]+$/i.test(url)) return false;
+  if (/^mailto:[^\s@"<>]+@[^\s@"<>]+\.[^\s@"<>]+$/i.test(url)) return true;
+  if (!/^https?:\/\/[^\s"<>]+$/i.test(url)) return false;
   try {
     return /^([a-z0-9-]+\.)+[a-z]{2,}$/i.test(new URL(url).hostname);
   } catch {
@@ -204,8 +204,9 @@ function Toolbar() {
             const key = e.key.toLowerCase();
             const action: (() => void) | undefined =
               e.shiftKey && key === "x" ? () => format("strikethrough")
-              : !e.shiftKey && key === "," ? () => format("subscript")
-              : !e.shiftKey && key === "." ? () => format("superscript")
+              // With Shift: Ctrl/⌘ , alone opens the browser's settings.
+              : e.shiftKey && e.code === "Comma" ? () => format("subscript")
+              : e.shiftKey && e.code === "Period" ? () => format("superscript")
               : !e.shiftKey && key === "e" ? () => format("code")
               : !e.shiftKey && key === "k" ? openLink
               : undefined;
@@ -230,7 +231,8 @@ function Toolbar() {
     editor.update(() => {
       const selection = $getSelection();
       if (!$isRangeSelection(selection)) return;
-      for (const node of selection.getNodes()) if ($isTextNode(node)) node.setFormat(0);
+      // extract() splits the text at the selection's edges: only the selected words change.
+      if (!selection.isCollapsed()) for (const node of selection.extract()) if ($isTextNode(node)) node.setFormat(0);
       selection.setFormat(0);
     });
 
@@ -248,8 +250,8 @@ function Toolbar() {
       { icon: Strikethrough, label: "Strikethrough", keys: `${mod}Shift+X`, active: formats.strikethrough, run: () => format("strikethrough") },
     ],
     [
-      { icon: Subscript, label: "Subscript", keys: `${mod},`, active: formats.subscript, run: () => format("subscript") },
-      { icon: Superscript, label: "Superscript", keys: `${mod}.`, active: formats.superscript, run: () => format("superscript") },
+      { icon: Subscript, label: "Subscript", keys: `${mod}Shift+,`, active: formats.subscript, run: () => format("subscript") },
+      { icon: Superscript, label: "Superscript", keys: `${mod}Shift+.`, active: formats.superscript, run: () => format("superscript") },
     ],
     [
       { icon: LinkIcon, label: formats.link ? "Edit link" : "Add link", keys: `${mod}K`, active: !!formats.link, run: openLink },
@@ -344,49 +346,47 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
     return true;
   }, [editor]);
 
-  useEffect(
-    () =>
-      mergeRegister(
-        editor.registerCommand(OPEN_LINK_EDITOR, startEdit, COMMAND_PRIORITY_NORMAL),
-        editor.registerUpdateListener(({ editorState }) => {
-          editorState.read(() => {
-            const selection = $getSelection();
-            let link: LinkRef | null = null;
-            if ($isRangeSelection(selection)) {
-              const a = $findMatchingParent(selection.anchor.getNode(), $isLinkNode);
-              const b = $findMatchingParent(selection.focus.getNode(), $isLinkNode);
-              if ($isLinkNode(a) && a.is(b)) link = { key: a.getKey(), url: a.getURL() };
-            }
-            setCaret((c) => (c?.key === link?.key && c?.url === link?.url ? c : link));
-            setHover((h) => (h && !$getNodeByKey(h.key) ? null : h));
-          });
-          setTick((t) => t + 1); // the text moved: place the card again
-        }),
-        editor.registerRootListener((root, prev) => {
-          const over = (e: MouseEvent) => {
-            const a = (e.target as Element | null)?.closest?.("a");
-            if (!a) return;
-            keepHover();
-            editor.read(() => setHover($linkAt(a)));
-          };
-          const out = (e: MouseEvent) => {
-            const a = (e.target as Element | null)?.closest?.("a");
-            if (a && !(e.relatedTarget instanceof Node && a.contains(e.relatedTarget))) dropHover();
-          };
-          const focus = () => setFocused(true);
-          const blur = () => setFocused(false);
-          prev?.removeEventListener("mouseover", over);
-          prev?.removeEventListener("mouseout", out);
-          prev?.removeEventListener("focus", focus);
-          prev?.removeEventListener("blur", blur);
-          root?.addEventListener("mouseover", over);
-          root?.addEventListener("mouseout", out);
-          root?.addEventListener("focus", focus);
-          root?.addEventListener("blur", blur);
-        }),
-      ),
-    [editor, startEdit],
-  );
+  useEffect(() => {
+    // Made once per effect, so the root listener below removes the same functions it added.
+    const over = (e: MouseEvent) => {
+      const a = (e.target as Element | null)?.closest?.("a");
+      if (!a) return;
+      keepHover();
+      editor.read(() => setHover($linkAt(a)));
+    };
+    const out = (e: MouseEvent) => {
+      const a = (e.target as Element | null)?.closest?.("a");
+      if (a && !(e.relatedTarget instanceof Node && a.contains(e.relatedTarget))) dropHover();
+    };
+    const focus = () => setFocused(true);
+    const blur = () => setFocused(false);
+    return mergeRegister(
+      editor.registerUpdateListener(({ editorState }) => {
+        editorState.read(() => {
+          const selection = $getSelection();
+          let link: LinkRef | null = null;
+          if ($isRangeSelection(selection)) {
+            const a = $findMatchingParent(selection.anchor.getNode(), $isLinkNode);
+            const b = $findMatchingParent(selection.focus.getNode(), $isLinkNode);
+            if ($isLinkNode(a) && a.is(b)) link = { key: a.getKey(), url: a.getURL() };
+          }
+          setCaret((c) => (c?.key === link?.key && c?.url === link?.url ? c : link));
+          setHover((h) => (h && !$getNodeByKey(h.key) ? null : h));
+        });
+        setTick((t) => t + 1); // the text moved: place the card again
+      }),
+      editor.registerRootListener((root, prev) => {
+        prev?.removeEventListener("mouseover", over);
+        prev?.removeEventListener("mouseout", out);
+        prev?.removeEventListener("focus", focus);
+        prev?.removeEventListener("blur", blur);
+        root?.addEventListener("mouseover", over);
+        root?.addEventListener("mouseout", out);
+        root?.addEventListener("focus", focus);
+        root?.addEventListener("blur", blur);
+      }),
+    );
+  }, [editor, startEdit]);
 
   // Editing: focus the address; a click anywhere else closes the card.
   const editing = !!edit;

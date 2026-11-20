@@ -14,15 +14,22 @@
 /** Tags kept, after renaming (b → strong, i → em, strike and del → s). */
 const KEEP = new Set(["p", "br", "strong", "em", "u", "s", "sub", "sup", "a", "ul", "ol", "li", "blockquote", "code"]);
 const RENAME: Record<string, string> = { b: "strong", i: "em", strike: "s", del: "s" };
-/** Removed with everything inside them. */
+/**
+ * Removed with everything inside them. Some (xmp, noembed, noframes, plaintext, listing,
+ * textarea, title…) hold their content as text: unwrapped, that text would turn back into
+ * markup, so they must go whole.
+ */
 const DROP = [
   "script", "style", "noscript", "template", "iframe", "frame", "frameset", "object", "embed", "applet",
   "svg", "math", "head", "title", "textarea", "select", "button", "input", "img", "video", "audio", "picture",
-  "link", "meta", "base",
+  "link", "meta", "base", "xmp", "noembed", "noframes", "plaintext", "listing",
 ];
-const SAFE_HREF = /^(https?:\/\/|mailto:)[^\s"'<>]+$/i;
+/** Same rule as the editor's (components/rich-editor.tsx): web and email addresses. */
+const SAFE_HREF = /^(https?:\/\/|mailto:)[^\s"<>]+$/i;
 
 const STYLE: Record<string, string> = {
+  // Each Enter is a paragraph: without this, mail clients add their own margins and the message looks double-spaced.
+  p: "margin:0",
   blockquote: "margin:0 0 0 0.8ex;border-left:2px solid #ccc;padding-left:1ex;color:#555",
   code: "font-family:Menlo,Consolas,monospace;font-size:90%;background:#f2f2f2;padding:0 3px;border-radius:3px",
 };
@@ -66,12 +73,38 @@ export async function cleanComposerHtml(html: string): Promise<string> {
       comments: (c) => {
         c.remove();
       },
+      // The editor keeps repeated spaces and tabs with a white-space style, which goes:
+      // keep them as non-breaking spaces instead. (Text arrives as written, entities included.)
+      text: (t) => {
+        if (/ {2}|\t/.test(t.text)) t.replace(t.text.replace(/\t/g, "    ").replace(/ {2,}/g, (run) => " " + "&nbsp;".repeat(run.length - 1)), { html: true });
+      },
     });
   const out = await rewriter
     .transform(new Response(html.replace(/<!doctype[^>]*>/gi, ""), { headers: { "content-type": "text/html; charset=utf-8" } }))
     .text();
   // Lexical writes bold as <b><strong>…</strong></b>: once renamed, the same tag twice.
-  return out.replace(/<(strong|em|s|u)><\1>((?:(?!<\/?\1>)[\s\S])*)<\/\1><\/\1>/g, "<$1>$2</$1>");
+  return balance(out).replace(/<(strong|em|s|u)><\1>((?:(?!<\/?\1>)[\s\S])*)<\/\1><\/\1>/g, "<$1>$2</$1>");
+}
+
+/**
+ * Closes what was left open and drops end tags that close nothing, so an unclosed link
+ * can't take in the signature and the quoted message added after it. The input holds
+ * only kept tags, with attributes this file wrote.
+ */
+function balance(html: string): string {
+  const open: string[] = [];
+  const out = html.replace(/<(\/?)([a-z]+)\b[^>]*>/gi, (tag, slash: string, name: string) => {
+    const n = name.toLowerCase();
+    if (n === "br") return tag;
+    if (!slash) {
+      open.push(n);
+      return tag;
+    }
+    const at = open.lastIndexOf(n);
+    if (at < 0) return "";
+    return open.splice(at).reverse().map((t) => `</${t}>`).join("");
+  });
+  return out + open.reverse().map((t) => `</${t}>`).join("");
 }
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
@@ -103,7 +136,7 @@ export function composerText(clean: string): string {
 
   for (const [token] of clean.matchAll(/<[^>]*>|[^<]+/g)) {
     if (token[0] !== "<") {
-      line += decode(token).replace(/\s+/g, " ");
+      line += decode(token).replace(/[\r\n]+/g, " ");
       continue;
     }
     const m = /^<(\/?)([a-z0-9]+)/i.exec(token);

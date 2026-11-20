@@ -22,6 +22,7 @@ import {
   $createTextNode,
   $getNearestNodeFromDOMNode,
   $getNodeByKey,
+  $getRoot,
   $getSelection,
   $isRangeSelection,
   $isTextNode,
@@ -32,8 +33,11 @@ import {
   FORMAT_TEXT_COMMAND,
   KEY_DOWN_COMMAND,
   type LexicalCommand,
+  type LexicalNode,
   type NodeKey,
+  ParagraphNode,
   type TextFormatType,
+  TextNode,
 } from "lexical";
 import {
   Bold,
@@ -76,7 +80,12 @@ const THEME = {
   },
 };
 
-const URL_MATCHER = createLinkMatcherWithRegExp(/https?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]]/i);
+/** Typed web addresses link themselves, under the same rule as the link card (validUrl). */
+function URL_MATCHER(text: string) {
+  for (const m of text.matchAll(/https?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]]/gi))
+    if (validUrl(m[0])) return { index: m.index, length: m[0].length, text: m[0], url: m[0] };
+  return null;
+}
 const EMAIL_MATCHER = createLinkMatcherWithRegExp(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i, (text) => `mailto:${text}`);
 
 /**
@@ -92,6 +101,16 @@ function validUrl(url: string) {
   } catch {
     return false;
   }
+}
+
+/**
+ * The link a node is in. A typed address the user unlinked is still an automatic-link node,
+ * marked unlinked: it shows and is sent as plain text, so it counts as no link.
+ */
+function $linkOf(node: LexicalNode | null): LinkNode | null {
+  const link = !node ? null : $isLinkNode(node) ? node : $findMatchingParent(node, $isLinkNode);
+  if (!$isLinkNode(link) || ($isAutoLinkNode(link) && link.getIsUnlinked())) return null;
+  return link;
 }
 
 /** "example.com" → "https://example.com", "anna@example.com" → "mailto:anna@example.com". */
@@ -130,6 +149,7 @@ export function RichEditor({ name = "html", placeholder = "Write your message…
         />
         <LinkCard area={area} />
       </div>
+      <OnlySentFormatting />
       <HistoryPlugin />
       <ListPlugin />
       <LinkPlugin validateUrl={validUrl} />
@@ -139,6 +159,36 @@ export function RichEditor({ name = "html", placeholder = "Write your message…
       <input type="hidden" name={name} value={html} />
     </LexicalComposer>
   );
+}
+
+/** Formats Lexical knows that the server doesn't send: highlight and letter case. */
+const UNSENT_FORMATS: TextFormatType[] = ["highlight", "lowercase", "uppercase", "capitalize"];
+
+/**
+ * Pasted text can bring formatting that isn't sent (highlight, colours, alignment,
+ * indent): clear it as it arrives, so the editor shows what the recipient will get.
+ */
+function OnlySentFormatting() {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    const block = (node: ParagraphNode | QuoteNode) => {
+      if (node.getFormatType()) node.setFormat("");
+      if (node.getIndent()) node.setIndent(0);
+    };
+    return mergeRegister(
+      editor.registerNodeTransform(TextNode, (node) => {
+        for (const f of UNSENT_FORMATS) if (node.hasFormat(f)) node.toggleFormat(f);
+        if (node.getStyle()) node.setStyle("");
+      }),
+      editor.registerNodeTransform(ParagraphNode, block),
+      editor.registerNodeTransform(QuoteNode, block),
+      // A list item's indent is its nesting: only its alignment goes.
+      editor.registerNodeTransform(ListItemNode, (node) => {
+        if (node.getFormatType()) node.setFormat("");
+      }),
+    );
+  }, [editor]);
+  return null;
 }
 
 type Formats = Record<"bold" | "italic" | "underline" | "strikethrough" | "subscript" | "superscript" | "code", boolean> & {
@@ -166,7 +216,7 @@ function readFormats(): Formats {
   const selection = $getSelection();
   if (!$isRangeSelection(selection)) return NO_FORMATS;
   const node = selection.anchor.getNode();
-  const link = $findMatchingParent(node, $isLinkNode);
+  const link = $linkOf(node);
   const list = $getNearestNodeOfType(node, ListNode);
   const top = node.getKey() === "root" ? node : node.getTopLevelElementOrThrow();
   return {
@@ -177,7 +227,7 @@ function readFormats(): Formats {
     subscript: selection.hasFormat("subscript"),
     superscript: selection.hasFormat("superscript"),
     code: selection.hasFormat("code"),
-    link: $isLinkNode(link) ? link.getURL() : null,
+    link: link ? link.getURL() : null,
     list: $isListNode(list) ? (list.getListType() === "number" ? "number" : "bullet") : null,
     quote: $isQuoteNode(top),
   };
@@ -205,9 +255,10 @@ function Toolbar() {
             const key = e.key.toLowerCase();
             const action: (() => void) | undefined =
               e.shiftKey && key === "x" ? () => format("strikethrough")
-              // With Shift: Ctrl/⌘ , alone opens the browser's settings.
-              : e.shiftKey && e.code === "Comma" ? () => format("subscript")
-              : e.shiftKey && e.code === "Period" ? () => format("superscript")
+              // The characters, whatever the layout. Shift is what the tooltips show (Ctrl/⌘ ,
+              // alone can open the browser's settings); with it, US keyboards give "<" and ">".
+              : key === "," || key === "<" ? () => format("subscript")
+              : key === "." || key === ">" ? () => format("superscript")
               : !e.shiftKey && key === "e" ? () => format("code")
               : !e.shiftKey && key === "k" ? openLink
               : undefined;
@@ -296,9 +347,8 @@ type LinkRef = { key: NodeKey; url: string };
 
 /** The link a DOM element sits in, if any. Call inside editor.read. */
 function $linkAt(dom: Node | null): LinkRef | null {
-  const node = dom ? $getNearestNodeFromDOMNode(dom) : null;
-  const link = $isLinkNode(node) ? node : node ? $findMatchingParent(node, $isLinkNode) : null;
-  return $isLinkNode(link) ? { key: link.getKey(), url: link.getURL() } : null;
+  const link = $linkOf(dom ? $getNearestNodeFromDOMNode(dom) : null);
+  return link ? { key: link.getKey(), url: link.getURL() } : null;
 }
 
 const shownUrl = (url: string) => url.replace(/^mailto:/i, "");
@@ -336,8 +386,8 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
       saved.current = selection?.clone() ?? null;
       let link: LinkRef | null = null;
       if ($isRangeSelection(selection)) {
-        const node = $findMatchingParent(selection.anchor.getNode(), $isLinkNode);
-        if ($isLinkNode(node)) link = { key: node.getKey(), url: node.getURL() };
+        const node = $linkOf(selection.anchor.getNode());
+        if (node) link = { key: node.getKey(), url: node.getURL() };
       }
       const dom = window.getSelection();
       const r = dom?.rangeCount ? dom.getRangeAt(0).getBoundingClientRect() : null;
@@ -360,7 +410,10 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
       if (a && !(e.relatedTarget instanceof Node && a.contains(e.relatedTarget))) dropHover();
     };
     const focus = () => setFocused(true);
-    const blur = () => setFocused(false);
+    // Tab from a link goes to the card's buttons: still "in" the link.
+    const blur = (e: FocusEvent) => {
+      if (!(e.relatedTarget instanceof Node && box.current?.contains(e.relatedTarget))) setFocused(false);
+    };
     return mergeRegister(
       editor.registerCommand(OPEN_LINK_EDITOR, startEdit, COMMAND_PRIORITY_NORMAL),
       editor.registerUpdateListener(({ editorState }) => {
@@ -368,9 +421,9 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
           const selection = $getSelection();
           let link: LinkRef | null = null;
           if ($isRangeSelection(selection)) {
-            const a = $findMatchingParent(selection.anchor.getNode(), $isLinkNode);
-            const b = $findMatchingParent(selection.focus.getNode(), $isLinkNode);
-            if ($isLinkNode(a) && a.is(b)) link = { key: a.getKey(), url: a.getURL() };
+            const a = $linkOf(selection.anchor.getNode());
+            const b = $linkOf(selection.focus.getNode());
+            if (a && a.is(b)) link = { key: a.getKey(), url: a.getURL() };
           }
           setCaret((c) => (c?.key === link?.key && c?.url === link?.url ? c : link));
           setHover((h) => (h && !$getNodeByKey(h.key) ? null : h));
@@ -473,8 +526,9 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
         else if ($isLinkNode(node)) node.setURL(url);
         return;
       }
-      const selection = saved.current?.clone();
-      if (!$isRangeSelection(selection)) return;
+      // The text never had the cursor (focus was in To:, say): add the link at its end.
+      const kept = saved.current?.clone();
+      const selection = $isRangeSelection(kept) ? kept : $getRoot().selectEnd();
       $setSelection(selection);
       if (selection.isCollapsed()) selection.insertNodes([$createLinkNode(url).append($createTextNode(shownUrl(url)))]);
       else $toggleLink(url);
@@ -489,6 +543,11 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
       role={edit ? "dialog" : undefined}
       aria-label={edit ? (edit.key ? "Edit link" : "Add link") : undefined}
       onMouseEnter={keepHover}
+      // Leaving the card by keyboard, to anything but the text, hides it.
+      onBlur={(e) => {
+        const to = e.relatedTarget;
+        if (!(to instanceof Node && (e.currentTarget.contains(to) || editor.getRootElement()?.contains(to)))) setFocused(false);
+      }}
       onMouseLeave={() => hover && dropHover()}
       // Keep the cursor in the text when clicking the card's buttons.
       onMouseDown={(e) => {

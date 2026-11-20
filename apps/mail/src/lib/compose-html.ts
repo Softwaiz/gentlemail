@@ -11,6 +11,8 @@
  * Programs sending HTML through the API are not cleaned: their key holder chose it.
  */
 
+import { isSendableUrl } from "@/lib/links";
+
 /** Tags kept, after renaming (b → strong, i → em, strike and del → s). */
 const KEEP = new Set(["p", "br", "strong", "em", "u", "s", "sub", "sup", "a", "ul", "ol", "li", "blockquote", "code"]);
 const RENAME: Record<string, string> = { b: "strong", i: "em", strike: "s", del: "s" };
@@ -24,8 +26,6 @@ const DROP = [
   "svg", "math", "head", "title", "textarea", "select", "button", "input", "img", "video", "audio", "picture",
   "link", "meta", "base", "xmp", "noembed", "noframes", "plaintext", "listing",
 ];
-/** Same rule as the editor's (components/rich-editor.tsx): web and email addresses. */
-const SAFE_HREF = /^(https?:\/\/|mailto:)[^\s"<>]+$/i;
 
 const STYLE: Record<string, string> = {
   // Each Enter is a paragraph: without this, mail clients add their own margins and the message looks double-spaced.
@@ -35,14 +35,18 @@ const STYLE: Record<string, string> = {
 };
 
 /**
- * At most this many characters of composer HTML are accepted, before and after cleaning.
- * Well under the 900,000 kept in Sent, which also holds the signature and the quoted message.
+ * At most this many characters of cleaned composer HTML are sent: well under the 900,000
+ * kept in Sent, which also holds the signature and the quoted message.
  */
 export const COMPOSER_HTML_LIMIT = 500_000;
+/**
+ * At most this many characters are taken from the browser. The editor's own HTML carries a
+ * class and a style on every run of text, so it can be many times longer than once cleaned.
+ */
+export const COMPOSER_RAW_LIMIT = 10 * COMPOSER_HTML_LIMIT;
 
 /** Keeps only the composer's own formatting. */
 export async function cleanComposerHtml(html: string): Promise<string> {
-  const lists: string[] = []; // the lists we're in, innermost last
   const rewriter = new HTMLRewriter()
     .on(DROP.join(", "), {
       element: (el) => {
@@ -65,17 +69,12 @@ export async function cleanComposerHtml(html: string): Promise<string> {
           return;
         }
         const href = tag === "a" ? (el.getAttribute("href") ?? "").trim() : "";
-        // A numbered list's numbers: where it starts, and each item's own (Lexical numbers every item).
-        const number = (tag === "ol" ? el.getAttribute("start") : tag === "li" && lists.at(-1) === "ol" ? el.getAttribute("value") : null)?.trim() ?? "";
-        if (tag === "ol" || tag === "ul") {
-          lists.push(tag);
-          el.onEndTag(() => {
-            lists.pop();
-          });
-        }
+        // A numbered list's numbers: where it starts, and each item's own (Lexical numbers
+        // every item; balance() drops the number of an item in a bulleted list).
+        const number = (tag === "ol" ? el.getAttribute("start") : tag === "li" ? el.getAttribute("value") : null)?.trim() ?? "";
         for (const [name] of [...(el.attributes as unknown as Iterable<[string, string]>)]) el.removeAttribute(name);
         if (tag === "a") {
-          if (SAFE_HREF.test(href)) el.setAttribute("href", href);
+          if (isSendableUrl(href)) el.setAttribute("href", href);
           else el.removeAndKeepContent();
         }
         if (/^\d{1,6}$/.test(number)) el.setAttribute(tag === "ol" ? "start" : "value", String(Number(number)));
@@ -126,25 +125,40 @@ function keepSpaces(html: string): string {
   });
 }
 
+/** Opening one of these ends a paragraph left open, as browsers read HTML. */
+const ENDS_P = new Set(["p", "ul", "ol", "li", "blockquote"]);
+
 /**
  * Closes what was left open and drops end tags that close nothing, so an unclosed link
- * can't take in the signature and the quoted message added after it. The input holds
- * only kept tags, with attributes this file wrote.
+ * can't take in the signature and the quoted message added after it. A new paragraph or
+ * list item first closes the one left open before it, as browsers do, rather than going
+ * inside it. The input holds only kept tags, with attributes this file wrote.
  */
 function balance(html: string): string {
   const open: string[] = [];
+  const close = (from: number) => open.splice(from).reverse().map((t) => `</${t}>`).join("");
   const out = html.replace(/<(\/?)([a-z]+)\b[^>]*>/gi, (tag, slash: string, name: string) => {
     const n = name.toLowerCase();
     if (n === "br") return tag;
     if (!slash) {
+      let before = "";
+      if (ENDS_P.has(n) && open.at(-1) === "p") before += close(open.length - 1);
+      if (n === "li") {
+        // The item left open in the same list, and anything inline still open in it.
+        const list = Math.max(open.lastIndexOf("ul"), open.lastIndexOf("ol"));
+        const item = open.lastIndexOf("li");
+        if (item > list) before += close(item);
+        // Only a numbered list's items keep their number.
+        if (open.at(-1) !== "ol") tag = tag.replace(/ value="\d+"/, "");
+      }
       open.push(n);
-      return tag;
+      return before + tag;
     }
     const at = open.lastIndexOf(n);
     if (at < 0) return "";
-    return open.splice(at).reverse().map((t) => `</${t}>`).join("");
+    return close(at);
   });
-  return out + open.reverse().map((t) => `</${t}>`).join("");
+  return out + close(0);
 }
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
@@ -193,6 +207,8 @@ export function composerText(clean: string): string {
         if (link) link.label += " ";
         break;
       case "p":
+        // Text left before it (from a block that was unwrapped) is a line of its own.
+        if (!closing && line.trim() && !/^\s*(- |\d+\. )$/.test(line)) endLine();
         // <p><br></p> is one empty line, not two.
         if (closing && !(justBr && !line)) endLine();
         break;

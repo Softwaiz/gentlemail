@@ -3,7 +3,7 @@
 import { env } from "cloudflare:workers";
 import { requestInfo, serverAction } from "rwsdk/worker";
 import { type ActionResult, fail, ok, signedIn, text } from "@/app/actions/guards";
-import { COMPOSER_HTML_LIMIT, cleanComposerHtml, composerText } from "@/lib/compose-html";
+import { COMPOSER_HTML_LIMIT, COMPOSER_RAW_LIMIT, cleanComposerHtml, composerText } from "@/lib/compose-html";
 import { type MessageRow, deleteMessageForever, getMailboxForUser, isFolder } from "@/lib/db";
 import { SendError, sendMail } from "@/lib/outbound";
 import { learnFrom } from "@/lib/spam";
@@ -144,9 +144,9 @@ export const sendMessage = serverAction([
     let body = String(form.get("body") ?? "");
     let html: string | undefined;
     if (typeof rawHtml === "string" && rawHtml.trim()) {
-      if (rawHtml.length > COMPOSER_HTML_LIMIT) return fail("This message is too long to send.");
+      if (rawHtml.length > COMPOSER_RAW_LIMIT) return fail("This message is too long to send.");
       const clean = await cleanComposerHtml(rawHtml);
-      // Kept spaces and quote styles make it longer: check again.
+      // The limit that counts: what is sent and kept.
       if (clean.length > COMPOSER_HTML_LIMIT) return fail("This message is too long to send.");
       const plain = composerText(clean);
       if (plain) {

@@ -12,7 +12,6 @@ import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin";
 import { ListPlugin } from "@lexical/react/LexicalListPlugin";
-import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { $createQuoteNode, $isQuoteNode, QuoteNode } from "@lexical/rich-text";
 import { $setBlocksType } from "@lexical/selection";
@@ -57,6 +56,7 @@ import {
   Unlink,
 } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { isSendableUrl, trimUrlEnd } from "@/lib/links";
 import { cn } from "@/lib/utils";
 
 /*
@@ -82,26 +82,16 @@ const THEME = {
 
 /** Typed web addresses link themselves, under the same rule as the link card (validUrl). */
 function URL_MATCHER(text: string) {
-  for (const m of text.matchAll(/https?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]]/gi))
-    if (validUrl(m[0])) return { index: m.index, length: m[0].length, text: m[0], url: m[0] };
+  for (const m of text.matchAll(/https?:\/\/[^\s<>"]+/gi)) {
+    const url = trimUrlEnd(m[0]);
+    if (validUrl(url)) return { index: m.index, length: url.length, text: url, url };
+  }
   return null;
 }
 const EMAIL_MATCHER = createLinkMatcherWithRegExp(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i, (text) => `mailto:${text}`);
 
-/**
- * What a link may point to: a web address on a real domain name ("https://+336…" is not
- * one) or an email address. The server allows the same schemes.
- */
-function validUrl(url: string) {
-  if (/^mailto:[^\s@"<>]+@[^\s@"<>]+\.[^\s@"<>]+$/i.test(url)) return true;
-  if (!/^https?:\/\/[^\s"<>]+$/i.test(url)) return false;
-  try {
-    // URL gives non-ASCII names as punycode, so the last label can be "xn--p1ai".
-    return /^([a-z0-9-]+\.)+([a-z]{2,}|xn--[a-z0-9-]+)$/i.test(new URL(url).hostname);
-  } catch {
-    return false;
-  }
-}
+/** What a link may point to: web and email addresses, the same rule as when sending (lib/links.ts). */
+const validUrl = isSendableUrl;
 
 /**
  * The link a node is in. A typed address the user unlinked is still an automatic-link node,
@@ -123,7 +113,6 @@ function normalizeUrl(input: string) {
 }
 
 export function RichEditor({ name = "html", placeholder = "Write your message…", autoFocus = false }: { name?: string; placeholder?: string; autoFocus?: boolean }) {
-  const [html, setHtml] = useState("");
   const area = useRef<HTMLDivElement>(null);
   return (
     <LexicalComposer
@@ -155,10 +144,30 @@ export function RichEditor({ name = "html", placeholder = "Write your message…
       <LinkPlugin validateUrl={validUrl} />
       <AutoLinkPlugin matchers={[URL_MATCHER, EMAIL_MATCHER]} />
       {autoFocus && <AutoFocusPlugin />}
-      <OnChangePlugin ignoreSelectionChange onChange={(_state, editor) => editor.read(() => setHtml($generateHtmlFromNodes(editor, null)))} />
-      <input type="hidden" name={name} value={html} />
+      <HtmlField name={name} />
     </LexicalComposer>
   );
+}
+
+/**
+ * The hidden field the message's HTML is posted in. It is filled as the form's data is
+ * gathered, from the editor itself: a word still being typed (on a phone, often the last
+ * one when Send is tapped) is in it, which a copy kept after each change could miss.
+ */
+function HtmlField({ name }: { name: string }) {
+  const [editor] = useLexicalComposerContext();
+  const field = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const form = field.current?.form;
+    if (!form) return;
+    const fill = (e: FormDataEvent) => {
+      // read() applies pending changes first.
+      e.formData.set(name, editor.read(() => $generateHtmlFromNodes(editor, null)));
+    };
+    form.addEventListener("formdata", fill);
+    return () => form.removeEventListener("formdata", fill);
+  }, [editor, name]);
+  return <input ref={field} type="hidden" name={name} />;
 }
 
 /** Formats Lexical knows that the server doesn't send: highlight and letter case. */
@@ -182,6 +191,9 @@ function OnlySentFormatting() {
       }),
       editor.registerNodeTransform(ParagraphNode, block),
       editor.registerNodeTransform(QuoteNode, block),
+      // Pasted links to anything but web and email addresses (tel:, sms:…) aren't sent as links.
+      editor.registerNodeTransform(LinkNode, unwrapUnsendable),
+      editor.registerNodeTransform(AutoLinkNode, unwrapUnsendable),
       // A list item's indent is its nesting: only its alignment goes.
       editor.registerNodeTransform(ListItemNode, (node) => {
         if (node.getFormatType()) node.setFormat("");
@@ -189,6 +201,12 @@ function OnlySentFormatting() {
     );
   }, [editor]);
   return null;
+}
+
+function unwrapUnsendable(node: LinkNode) {
+  if (validUrl(node.getURL())) return;
+  for (const child of node.getChildren()) node.insertBefore(child);
+  node.remove();
 }
 
 type Formats = Record<"bold" | "italic" | "underline" | "strikethrough" | "subscript" | "superscript" | "code", boolean> & {

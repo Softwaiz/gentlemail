@@ -183,6 +183,36 @@ describe("composer formatting", () => {
     assert.equal(text_body, "see https://example.com\nnext");
   });
 
+  test("only web and email addresses on a domain name stay links", async () => {
+    const { html_body } = await send({
+      html:
+        '<p><a href="tel:+33612345678">call</a> <a href="sms:+33612345678">text</a> <a href="http://192.168.1.10/admin">router</a> ' +
+        '<a href="http://localhost:8080/">local</a> <a href="https://xn--e1afmkfd.xn--p1ai/">idn</a></p>',
+    });
+    for (const bad of ["tel:", "sms:", "192.168", "localhost"]) assert.ok(!html_body.includes(bad), `${bad} left in ${html_body}`);
+    assert.ok(html_body.includes('<p style="margin:0">call text router local <a href="https://xn--e1afmkfd.xn--p1ai/">idn</a></p>'), html_body);
+  });
+
+  test("a paragraph or item left open ends where the next one starts", async () => {
+    const { html_body, text_body } = await send({ html: "<p>a<p>b<ul><li>x<li><strong>y<li>z</ul>" });
+    const body = html_body.slice(html_body.indexOf("<p"), html_body.lastIndexOf("</div>"));
+    assert.equal(body, '<p style="margin:0">a</p><p style="margin:0">b</p><ul><li>x</li><li><strong>y</strong></li><li>z</li></ul>');
+    assert.equal(text_body, "a\nb\n- x\n- y\n- z");
+  });
+
+  test("text from an unwrapped block keeps its own line", async () => {
+    const { text_body } = await send({ html: "<div>Hello</div><p>World</p>" });
+    assert.equal(text_body, "Hello\nWorld");
+  });
+
+  test("a long paste is judged on what is sent, not on the editor's markup", async () => {
+    const run = '<span class="composer-text" style="white-space: pre-wrap;" data-x="padding padding">a</span>';
+    const html = `<p>${run.repeat(8000)}</p>`;
+    assert.ok(html.length > 500_000);
+    const { text_body } = await send({ html });
+    assert.equal(text_body, "a".repeat(8000));
+  });
+
   test("a message too long to keep is refused", async () => {
     const { res, row } = await post({ html: `<p>${"x".repeat(600_000)}</p>` });
     assert.ok(!row);

@@ -101,6 +101,9 @@ export async function cleanComposerHtml(html: string): Promise<string> {
     .replace(/<li( value="\d+")?>(?=<[uo]l\b)/g, '<li$1 style="list-style:none">');
 }
 
+/** Tags after which only another block can follow: a list's start, or a block's end. */
+const BETWEEN_BLOCKS = /^<(\/(p|li|ul|ol|blockquote)|ul|ol)\b/i;
+
 /** Tags after which a space starts a line, where mail clients would drop it. */
 const LINE_START = /^<\/?(p|br|li|ul|ol|blockquote)\b/i;
 
@@ -111,11 +114,16 @@ const LINE_START = /^<\/?(p|br|li|ul|ol|blockquote)\b/i;
  */
 function keepSpaces(html: string): string {
   let afterSpace = true;
+  let betweenBlocks = false;
   return html.replace(/<[^>]*>|[^<]+/g, (token) => {
     if (token[0] === "<") {
       if (LINE_START.test(token)) afterSpace = true;
+      betweenBlocks = BETWEEN_BLOCKS.test(token);
       return token;
     }
+    // Spaces between two blocks (only hand-written HTML has them) aren't text: as
+    // non-breaking spaces they would show as a line of their own.
+    if (betweenBlocks && /^\s*$/.test(token)) return token;
     // A line break in the source and the indentation after it are layout, not typed
     // spaces (the editor writes its line breaks as <br>): left as they are.
     let out = "";
@@ -199,6 +207,8 @@ export function composerText(clean: string): string {
 
   for (const [token] of clean.matchAll(/<\/?[a-z][^>]*>|<|[^<]+/gi)) {
     if (token === "<" || token[0] !== "<") {
+      // Spaces between two blocks (hand-written HTML) aren't text. Typed ones arrive as &nbsp;.
+      if (!line && /^\s+$/.test(token)) continue;
       // A line break in the source reads as a space, but not at the start of a line.
       let text = decode(token.replace(/[ \t]*[\r\n]+[ \t]*/g, "\n"));
       if (text.includes("\n")) {

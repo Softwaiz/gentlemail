@@ -89,7 +89,7 @@ export async function sendMail(input: SendInput): Promise<string> {
       if (obj) files.push({ filename: a.filename, type: a.content_type, content: await obj.arrayBuffer() });
     }
   }
-  const total = files.reduce((s, f) => s + f.content.byteLength, 0) + input.body.length;
+  const total = files.reduce((s, f) => s + f.content.byteLength, 0) + input.body.length + (input.html?.length ?? 0);
   if (total > MAX_TOTAL) throw new SendError("Attachments exceed the 25 MB limit.");
 
   const sig = input.includeSignature && mailbox.signature.trim() ? mailbox.signature.trim() : "";

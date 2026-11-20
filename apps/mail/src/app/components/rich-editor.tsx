@@ -401,22 +401,22 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
     hideTimer.current = setTimeout(() => setHover(null), 250);
   };
 
+  // Runs as a command, inside Lexical's own update: the selection is read directly
+  // (editor.read() there would commit that update early).
   const startEdit = useCallback(() => {
-    editor.read(() => {
-      const selection = $getSelection();
-      saved.current = selection?.clone() ?? null;
-      let link: LinkRef | null = null;
-      if ($isRangeSelection(selection)) {
-        const node = $linkOf(selection.anchor.getNode());
-        if (node) link = { key: node.getKey(), url: node.getURL() };
-      }
-      const dom = window.getSelection();
-      const r = dom?.rangeCount ? dom.getRangeAt(0).getBoundingClientRect() : null;
-      setHover(null);
-      setEdit({ key: link?.key ?? null, draft: link ? shownUrl(link.url) : "", rect: r && (r.width || r.height) ? r : null });
-    });
+    const selection = $getSelection();
+    saved.current = selection?.clone() ?? null;
+    let link: LinkRef | null = null;
+    if ($isRangeSelection(selection)) {
+      const node = $linkOf(selection.anchor.getNode());
+      if (node) link = { key: node.getKey(), url: node.getURL() };
+    }
+    const dom = window.getSelection();
+    const r = dom?.rangeCount ? dom.getRangeAt(0).getBoundingClientRect() : null;
+    setHover(null);
+    setEdit({ key: link?.key ?? null, draft: link ? shownUrl(link.url) : "", rect: r && (r.width || r.height) ? r : null });
     return true;
-  }, [editor]);
+  }, []);
 
   useEffect(() => {
     // Made once per effect, so the root listener below removes the same functions it added.

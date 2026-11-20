@@ -238,6 +238,12 @@ describe("composer formatting", () => {
     assert.equal(body, '<p style="margin:0"><a href="https://example.com">link</a></p><p style="margin:0">after</p>');
   });
 
+  test("spaces between two blocks don't make a line of their own", async () => {
+    const { html_body, text_body } = await send({ html: "<p>a</p> <p>b</p> <ul> <li>x</li> </ul>" });
+    assert.ok(!html_body.includes("&nbsp;"), html_body);
+    assert.equal(text_body, "a\nb\n- x");
+  });
+
   test("a message too long to keep is refused", async () => {
     const { res, row } = await post({ html: `<p>${"x".repeat(600_000)}</p>` });
     assert.ok(!row);

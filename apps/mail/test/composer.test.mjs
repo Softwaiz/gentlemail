@@ -26,8 +26,8 @@ before(async () => {
 after(() => mf?.dispose());
 
 let n = 0;
-/** Sends through the composer's action; returns the stored Sent copy. */
-async function send(fields) {
+/** Posts to the composer's action; returns the response and the stored Sent copy, if any. */
+async function post(fields) {
   const subject = `composer ${++n}`;
   const form = new FormData();
   for (const [k, v] of Object.entries({ mailbox_id: "mb1", to: "anna@example.com", subject, ...fields })) form.set(k, v);
@@ -40,6 +40,12 @@ async function send(fields) {
   });
   assert.equal(res.status, 200, await res.clone().text());
   const row = await db.prepare("SELECT text_body, html_body FROM messages WHERE folder = 'sent' AND subject = ?").bind(subject).first();
+  return { res, row };
+}
+
+/** Sends through the composer's action; returns the stored Sent copy. */
+async function send(fields) {
+  const { res, row } = await post(fields);
   assert.ok(row, `not sent: ${await res.text()}`);
   return row;
 }
@@ -62,14 +68,14 @@ describe("composer formatting", () => {
       "H<sub>2</sub>O",
       "x<sup>2</sup>",
       "<ul><li>apples</li><li>pears</li></ul>",
-      "<ol><li>first</li><li>second</li></ol>",
+      '<ol><li value="1">first</li><li value="2">second</li></ol>',
       '<a href="https://example.com/a?b=1&amp;c=2">the site</a>',
       '<a href="mailto:anna@example.com">',
     ])
       assert.ok(html_body.includes(part), `${part} missing from ${html_body}`);
     assert.match(html_body, /<blockquote style="[^"]*border-left[^"]*">quoted<\/blockquote>/);
     assert.match(html_body, /<code style="[^"]*monospace[^"]*">npm test<\/code>/);
-    assert.ok(!/<strong><strong>|<b>|<i>|class=|dir=|value=|rel=|white-space/.test(html_body), html_body);
+    assert.ok(!/<strong><strong>|<b>|<i>|class=|dir=|<ul><li value|rel=|white-space/.test(html_body), html_body);
 
     assert.equal(
       text_body,
@@ -147,11 +153,45 @@ describe("composer formatting", () => {
     assert.equal(body, '<p style="margin:0"><a href="https://example.com">open link</a></p><p style="margin:0">next</p>');
   });
 
-  test("a nested list keeps its numbering", async () => {
-    const { text_body } = await send({
-      html: '<ol><li value="1">one</li><li value="2"><ol><li value="1">one.a</li></ol></li><li value="2">two</li></ol>',
+  test("a nested list keeps its numbering, with no empty marker before it", async () => {
+    const { html_body, text_body } = await send({
+      html: '<ol><li value="1">one</li><li value="2" class="composer-li-nested"><ol><li value="1">one.a</li></ol></li><li value="2">two</li></ol>',
     });
+    assert.ok(
+      html_body.includes('<ol><li value="1">one</li><li value="2" style="list-style:none"><ol><li value="1">one.a</li></ol></li><li value="2">two</li></ol>'),
+      html_body,
+    );
     assert.equal(text_body, "1. one\n  1. one.a\n2. two");
+  });
+
+  test("a numbered list keeps where it starts", async () => {
+    const { html_body, text_body } = await send({ html: '<ol start="3"><li value="3">c</li><li value="4">d</li></ol><ol start="x"><li value="1e3">e</li></ol>' });
+    assert.ok(html_body.includes('<ol start="3"><li value="3">c</li><li value="4">d</li></ol><ol><li>e</li></ol>'), html_body);
+    assert.equal(text_body, "3. c\n4. d\n1. e");
+  });
+
+  test("spaces around a format, or at the start of a line, are kept", async () => {
+    const { html_body, text_body } = await send({
+      html: '<p><span style="white-space: pre-wrap;">a </span><b><strong style="white-space: pre-wrap;"> b</strong></b></p><p><span>  indented</span></p>',
+    });
+    assert.ok(html_body.includes('<p style="margin:0">a <strong>&nbsp;b</strong></p><p style="margin:0">&nbsp;&nbsp;indented</p>'), html_body);
+    assert.equal(text_body, "a  b\n  indented");
+  });
+
+  test("a line break inside a link doesn't repeat its address", async () => {
+    const { text_body } = await send({ html: '<p>see <a href="https://example.com">https://example.com<br></a>next</p>' });
+    assert.equal(text_body, "see https://example.com\nnext");
+  });
+
+  test("a message too long to keep is refused", async () => {
+    const { res, row } = await post({ html: `<p>${"x".repeat(600_000)}</p>` });
+    assert.ok(!row);
+    assert.match(await res.text(), /too long/);
+  });
+
+  test("kept spaces count toward the limit", async () => {
+    const { row } = await post({ html: `<p>a${" ".repeat(200_000)}b</p>` });
+    assert.ok(!row);
   });
 
   test("a page without the editor still sends its plain text", async () => {

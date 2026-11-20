@@ -34,11 +34,15 @@ const STYLE: Record<string, string> = {
   code: "font-family:Menlo,Consolas,monospace;font-size:90%;background:#f2f2f2;padding:0 3px;border-radius:3px",
 };
 
-/** At most this many characters of composer HTML are accepted. */
-export const COMPOSER_HTML_LIMIT = 1_000_000;
+/**
+ * At most this many characters of composer HTML are accepted, before and after cleaning.
+ * Well under the 900,000 kept in Sent, which also holds the signature and the quoted message.
+ */
+export const COMPOSER_HTML_LIMIT = 500_000;
 
 /** Keeps only the composer's own formatting. */
 export async function cleanComposerHtml(html: string): Promise<string> {
+  const lists: string[] = []; // the lists we're in, innermost last
   const rewriter = new HTMLRewriter()
     .on(DROP.join(", "), {
       element: (el) => {
@@ -61,11 +65,20 @@ export async function cleanComposerHtml(html: string): Promise<string> {
           return;
         }
         const href = tag === "a" ? (el.getAttribute("href") ?? "").trim() : "";
+        // A numbered list's numbers: where it starts, and each item's own (Lexical numbers every item).
+        const number = (tag === "ol" ? el.getAttribute("start") : tag === "li" && lists.at(-1) === "ol" ? el.getAttribute("value") : null)?.trim() ?? "";
+        if (tag === "ol" || tag === "ul") {
+          lists.push(tag);
+          el.onEndTag(() => {
+            lists.pop();
+          });
+        }
         for (const [name] of [...(el.attributes as unknown as Iterable<[string, string]>)]) el.removeAttribute(name);
         if (tag === "a") {
           if (SAFE_HREF.test(href)) el.setAttribute("href", href);
           else el.removeAndKeepContent();
         }
+        if (/^\d{1,6}$/.test(number)) el.setAttribute(tag === "ol" ? "start" : "value", String(Number(number)));
         if (STYLE[tag]) el.setAttribute("style", STYLE[tag]);
       },
     })
@@ -73,17 +86,44 @@ export async function cleanComposerHtml(html: string): Promise<string> {
       comments: (c) => {
         c.remove();
       },
-      // The editor keeps repeated spaces and tabs with a white-space style, which goes:
-      // keep them as non-breaking spaces instead. (Text arrives as written, entities included.)
-      text: (t) => {
-        if (/ {2}|\t/.test(t.text)) t.replace(t.text.replace(/\t/g, "    ").replace(/ {2,}/g, (run) => " " + "&nbsp;".repeat(run.length - 1)), { html: true });
-      },
     });
   const out = await rewriter
     .transform(new Response(html.replace(/<!doctype[^>]*>/gi, ""), { headers: { "content-type": "text/html; charset=utf-8" } }))
     .text();
-  // Lexical writes bold as <b><strong>…</strong></b>: once renamed, the same tag twice.
-  return balance(out).replace(/<(strong|em|s|u)><\1>((?:(?!<\/?\1>)[\s\S])*)<\/\1><\/\1>/g, "<$1>$2</$1>");
+  return keepSpaces(balance(out))
+    // Lexical writes bold as <b><strong>…</strong></b>: once renamed, the same tag twice.
+    .replace(/<(strong|em|s|u)><\1>((?:(?!<\/?\1>)[\s\S])*)<\/\1><\/\1>/g, "<$1>$2</$1>")
+    // A nested list sits in an item of its own, which the editor shows without a marker.
+    .replace(/<li( value="\d+")?>(?=<[uo]l\b)/g, '<li$1 style="list-style:none">');
+}
+
+/** Tags after which a space starts a line, where mail clients would drop it. */
+const LINE_START = /^<\/?(p|br|li|ul|ol|blockquote)\b/i;
+
+/**
+ * The editor keeps repeated spaces and tabs with a white-space style, which goes: keep
+ * them as non-breaking spaces instead. Done on the whole output, so a run split across
+ * text chunks or around an inline tag (bold, a link…) still counts as one run.
+ */
+function keepSpaces(html: string): string {
+  let afterSpace = true;
+  return html.replace(/<[^>]*>|[^<]+/g, (token) => {
+    if (token[0] === "<") {
+      if (LINE_START.test(token)) afterSpace = true;
+      return token;
+    }
+    let out = "";
+    for (const ch of token.replace(/\t/g, "    ")) {
+      if (ch === " ") {
+        out += afterSpace ? "&nbsp;" : " ";
+        afterSpace = true;
+      } else {
+        out += ch;
+        afterSpace = false;
+      }
+    }
+    return out;
+  });
 }
 
 /**
@@ -126,7 +166,7 @@ export function composerText(clean: string): string {
   let line = "";
   let quote = 0;
   const lists: { ordered: boolean; n: number }[] = [];
-  let link: { href: string; start: number } | null = null;
+  let link: { href: string; label: string } | null = null;
   let afterBr = false;
   const prefix = () => "> ".repeat(quote);
   const endLine = () => {
@@ -136,7 +176,9 @@ export function composerText(clean: string): string {
 
   for (const [token] of clean.matchAll(/<[^>]*>|[^<]+/g)) {
     if (token[0] !== "<") {
-      line += decode(token).replace(/[\r\n]+/g, " ");
+      const text = decode(token).replace(/[\r\n]+/g, " ");
+      line += text;
+      if (link) link.label += text;
       continue;
     }
     const m = /^<(\/?)([a-z0-9]+)/i.exec(token);
@@ -148,6 +190,7 @@ export function composerText(clean: string): string {
     switch (tag) {
       case "br":
         endLine();
+        if (link) link.label += " ";
         break;
       case "p":
         // <p><br></p> is one empty line, not two.
@@ -168,7 +211,7 @@ export function composerText(clean: string): string {
         }
         if (line) endLine();
         if (closing) lists.pop();
-        else lists.push({ ordered: tag === "ol", n: 0 });
+        else lists.push({ ordered: tag === "ol", n: Number(/start="(\d+)"/.exec(token)?.[1] ?? 1) - 1 });
         break;
       case "li": {
         if (closing) {
@@ -178,6 +221,8 @@ export function composerText(clean: string): string {
         }
         if (line) endLine();
         const list = lists[lists.length - 1];
+        const value = /value="(\d+)"/.exec(token)?.[1];
+        if (list && value) list.n = Number(value) - 1;
         const indent = "  ".repeat(Math.max(lists.length - 1, 0));
         line = indent + (list?.ordered ? `${++list.n}. ` : "- ");
         break;
@@ -185,9 +230,10 @@ export function composerText(clean: string): string {
       case "a":
         if (!closing) {
           const href = /href="([^"]*)"/i.exec(token)?.[1];
-          link = href ? { href: decode(href), start: line.length } : null;
+          link = href ? { href: decode(href), label: "" } : null;
         } else if (link) {
-          const label = line.slice(link.start).trim();
+          // The link's own text, even when a line break inside it ended the line.
+          const label = link.label.replace(/\s+/g, " ").trim();
           const shown = link.href.replace(/^mailto:/i, "");
           if (label !== shown && label !== link.href) line += ` (${shown})`;
           link = null;

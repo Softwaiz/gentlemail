@@ -146,6 +146,8 @@ export const sendMessage = serverAction([
     if (typeof rawHtml === "string" && rawHtml.trim()) {
       if (rawHtml.length > COMPOSER_HTML_LIMIT) return fail("This message is too long to send.");
       const clean = await cleanComposerHtml(rawHtml);
+      // Kept spaces and quote styles make it longer: check again.
+      if (clean.length > COMPOSER_HTML_LIMIT) return fail("This message is too long to send.");
       const plain = composerText(clean);
       if (plain) {
         html = clean;

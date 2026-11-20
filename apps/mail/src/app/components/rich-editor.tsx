@@ -87,7 +87,8 @@ function validUrl(url: string) {
   if (/^mailto:[^\s@"<>]+@[^\s@"<>]+\.[^\s@"<>]+$/i.test(url)) return true;
   if (!/^https?:\/\/[^\s"<>]+$/i.test(url)) return false;
   try {
-    return /^([a-z0-9-]+\.)+[a-z]{2,}$/i.test(new URL(url).hostname);
+    // URL gives non-ASCII names as punycode, so the last label can be "xn--p1ai".
+    return /^([a-z0-9-]+\.)+([a-z]{2,}|xn--[a-z0-9-]+)$/i.test(new URL(url).hostname);
   } catch {
     return false;
   }
@@ -361,6 +362,7 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
     const focus = () => setFocused(true);
     const blur = () => setFocused(false);
     return mergeRegister(
+      editor.registerCommand(OPEN_LINK_EDITOR, startEdit, COMMAND_PRIORITY_NORMAL),
       editor.registerUpdateListener(({ editorState }) => {
         editorState.read(() => {
           const selection = $getSelection();

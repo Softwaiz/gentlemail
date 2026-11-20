@@ -265,11 +265,11 @@ function Toolbar() {
               onMouseDown={(e) => e.preventDefault()}
               onClick={run}
               className={cn(
-                "grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
+                "grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
                 active && "bg-accent text-foreground",
               )}
             >
-              <Icon className="size-4" />
+              <Icon className="size-3.5" />
             </button>
           ))}
         </div>
@@ -469,7 +469,7 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
     close();
   };
 
-  const button = "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none";
+  const button = "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none";
   return (
     <div
       ref={box}
@@ -505,7 +505,7 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
             aria-label="Link address"
             aria-invalid={edit.invalid || undefined}
             className={cn(
-              "h-8 w-64 min-w-0 flex-1 rounded-md border bg-background px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+              "h-7 w-64 min-w-0 flex-1 rounded-md border bg-background px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
               edit.invalid && "border-destructive focus-visible:ring-destructive/40",
             )}
           />
@@ -513,8 +513,8 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
             {edit.key ? "Save" : "Add"}
           </button>
           {edit.key && (
-            <button type="button" onClick={() => removeLink(edit.key!)} title="Remove link" aria-label="Remove link" className={cn(button, "px-2 text-muted-foreground hover:bg-accent hover:text-foreground")}>
-              <Unlink className="size-4" />
+            <button type="button" onClick={() => removeLink(edit.key!)} title="Remove link" aria-label="Remove link" className={cn(button, "px-1.5 text-muted-foreground hover:bg-accent hover:text-foreground")}>
+              <Unlink className="size-3.5" />
             </button>
           )}
         </>
@@ -528,7 +528,7 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
               title={`Open ${shownUrl(view.url)}`}
               className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
             >
-              <LinkIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              <LinkIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
               <span className="truncate underline underline-offset-2">{shownUrl(view.url)}</span>
             </a>
             <span className="mx-0.5 h-5 border-l" aria-hidden />
@@ -541,18 +541,18 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
               }}
               title="Edit link"
               aria-label="Edit link"
-              className={cn(button, "px-2 text-muted-foreground hover:bg-accent hover:text-foreground")}
+              className={cn(button, "px-1.5 text-muted-foreground hover:bg-accent hover:text-foreground")}
             >
-              <Pencil className="size-4" />
+              <Pencil className="size-3.5" />
             </button>
             <button
               type="button"
               onClick={() => removeLink(view.key)}
               title="Remove link"
               aria-label="Remove link"
-              className={cn(button, "px-2 text-muted-foreground hover:bg-accent hover:text-foreground")}
+              className={cn(button, "px-1.5 text-muted-foreground hover:bg-accent hover:text-foreground")}
             >
-              <Unlink className="size-4" />
+              <Unlink className="size-3.5" />
             </button>
           </>
         )

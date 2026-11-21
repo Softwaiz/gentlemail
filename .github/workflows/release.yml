@@ -1,0 +1,146 @@
+# Releases of the mail app, as described under Branches and Releases in AGENTS.md:
+#
+# - Push to dev: keeps one promotion pull request open from dev into main. It's titled
+#   "Release next" while there are lines under Unreleased, "Release x.y.z" once the version
+#   pull request has been merged, and lists the pull requests waiting to be released.
+# - Prepare release (run by hand from the Actions tab): opens the "Version x.y.z" pull request
+#   into dev. The version is suggested from the changelog unless one is given.
+# - Push to main: tags the version in apps/mail/package.json if it isn't yet, and publishes its
+#   GitHub release with its changelog section. If main has changes dev doesn't (a hotfix), opens
+#   the "Sync main into dev" pull request.
+#
+# Needs the RELEASE_TOKEN secret: a fine-grained token on this repository with Contents and
+# Pull requests read and write. GitHub's own token can't be used: pull requests and pushes made
+# with it don't run the tests, which main's protection requires.
+name: Release
+
+on:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (empty: suggested from the changelog)"
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+  BOT_NAME: github-actions[bot]
+  BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+
+jobs:
+  promotion:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the token
+        run: test -n "$GH_TOKEN" || { echo "::error::Add the RELEASE_TOKEN secret (see the top of release.yml)."; exit 1; }
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Keep the promotion pull request up to date
+        run: |
+          set -euo pipefail
+          git fetch -q origin main --tags
+          if [ "$(git rev-list --count --no-merges origin/main..HEAD)" = 0 ] && git diff --quiet origin/main HEAD; then
+            echo "dev has nothing that main doesn't: no promotion to keep."
+            exit 0
+          fi
+          version=$(node .github/scripts/release.mjs version)
+          unreleased=$(node .github/scripts/release.mjs unreleased)
+          if grep -q '^- ' <<<"$unreleased"; then
+            title="Release next"
+            notes="$unreleased"
+            next="When it's time to release, run **Prepare release** in the Actions tab: it opens the version pull request into \`dev\`. Once that's merged, this one becomes the release."
+          elif ! git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            title="Release $version"
+            notes=$(node .github/scripts/release.mjs notes "$version")
+            next="Merging this releases $version: the merge commit on \`main\` is tagged \`v$version\` and its GitHub release is published from the changelog."
+          else
+            title="Release next"
+            notes="(Nothing under Unreleased yet.)"
+            next="When it's time to release, run **Prepare release** in the Actions tab."
+          fi
+          # Pull requests merged into dev since main: "#N title", from merge commits
+          # ("Merge pull request #N from …", title in the body) or squash merges ("title (#N)").
+          prs=$(git log --first-parent --format='%s :: %b' origin/main..HEAD \
+            | sed -nE -e 's/^Merge pull request (#[0-9]+) from [^ ]+ :: (.+)$/- \1 \2/p' \
+                      -e 's/^(.+) \((#[0-9]+)\) :: .*$/- \2 \1/p')
+          body=$(printf '%s\n\n## What and why\nPromotes what is in `dev` into `main`. Nothing else goes in this pull request.\n\n### Changelog\n%s\n\n### Pull requests\n%s\n' "$next" "$notes" "${prs:-(none listed)}")
+          number=$(gh pr list --head dev --base main --state open --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh pr edit "$number" --title "$title" --body "$body"
+          else
+            gh pr create --head dev --base main --title "$title" --body "$body"
+          fi
+
+  prepare:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the token
+        run: test -n "$GH_TOKEN" || { echo "::error::Add the RELEASE_TOKEN secret (see the top of release.yml)."; exit 1; }
+      - uses: actions/checkout@v5
+        with:
+          ref: dev
+          token: ${{ secrets.RELEASE_TOKEN }}
+      - name: Open the version pull request into dev
+        env:
+          ASKED: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          version=${ASKED:-$(node .github/scripts/release.mjs suggest)}
+          node .github/scripts/release.mjs prepare "$version"
+          git config user.name "$BOT_NAME"
+          git config user.email "$BOT_EMAIL"
+          git switch -c "version-$version"
+          git commit -qam "Version $version"
+          git push -u origin "version-$version"
+          notes=$(node .github/scripts/release.mjs notes "$version")
+          gh pr create --base dev --title "Version $version" --body "$(printf '## What and why\nTurns **Unreleased** into %s and sets it in `apps/mail/package.json`. Nothing else goes in this pull request.\n\nOnce merged, the promotion pull request from `dev` into `main` becomes **Release %s**.\n\n### Changelog\n%s\n' "$version" "$version" "$notes")"
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the token
+        run: test -n "$GH_TOKEN" || { echo "::error::Add the RELEASE_TOKEN secret (see the top of release.yml)."; exit 1; }
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
+      - name: Tag and publish the release
+        run: |
+          set -euo pipefail
+          version=$(node .github/scripts/release.mjs version)
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "v$version is already released."
+          elif ! node .github/scripts/release.mjs notes "$version" > notes.md; then
+            echo "::warning::apps/mail/package.json says $version but CHANGELOG.md has no $version section: not released."
+          else
+            git tag "v$version" "$GITHUB_SHA"
+            git push origin "v$version"
+            gh release create "v$version" --title "$version" --notes-file notes.md --verify-tag
+          fi
+      - name: Bring a hotfix back into dev
+        run: |
+          set -euo pipefail
+          git fetch -q origin dev
+          if [ "$(git rev-list --count --no-merges origin/dev..HEAD)" = 0 ]; then
+            echo "main has nothing that dev doesn't."
+            exit 0
+          fi
+          if [ -n "$(gh pr list --head main --base dev --state open --json number --jq '.[0].number // empty')" ]; then
+            echo "The sync pull request is already open."
+            exit 0
+          fi
+          version=$(node .github/scripts/release.mjs version)
+          gh pr create --head main --base dev --title "Sync main into dev after $version" \
+            --body "$(printf '## What and why\n`main` has changes that `dev` does not: a fix released straight to `main`. This brings them into `dev`, so the next release does not undo them.\n\nIf it conflicts, it is usually in two places: in `CHANGELOG.md`, keep the lines under Unreleased from `dev` and the new version section from `main` below them; in `apps/mail/package.json`, keep the higher version.\n')"

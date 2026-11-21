@@ -4,7 +4,7 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 
 **How it's kept**
 - Every pull request adds its lines under **Unreleased**, in the same pull request.
-- A release is its own pull request: it turns **Unreleased** into a version and a date and sets the same version in `apps/mail/package.json`. Merging it deploys it; the merge commit is then tagged `vX.Y.Z` with a GitHub release holding that section. Versions follow [Semantic Versioning](https://semver.org): while GentleMail is 0.x, a new minor version (0.3.0) can contain anything; a patch (0.2.1) only fixes.
+- Work is merged into `dev`; `main` holds releases only. A release starts with a version pull request into `dev`: it turns **Unreleased** into a version and a date and sets the same version in `apps/mail/package.json`. A promotion pull request then brings `dev` into `main`; its merge commit is tagged `vX.Y.Z` with a GitHub release holding that section. Versions follow [Semantic Versioning](https://semver.org): while GentleMail is 0.x, a new minor version (0.3.0) can contain anything; a patch (0.2.1) only fixes.
 - Sections: **Added**, **Changed**, **Fixed**, **Security**, **Removed**. A release with a database migration or anything to do by hand also gets **Upgrading**.
 - Lines describe the effect for the people using the app, not the code. Link the pull request.
 

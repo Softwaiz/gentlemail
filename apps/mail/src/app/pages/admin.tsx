@@ -21,6 +21,7 @@ import { PageHeader, Shell, flashFrom } from "@/app/components/shell";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { Input } from "@/app/components/ui/input";
+import { PasswordInput } from "@/app/components/password-input";
 import { Switch } from "@/app/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
 import { Textarea } from "@/app/components/ui/textarea";
@@ -95,7 +96,7 @@ export async function AdminPage({ ctx, request }: RequestInfo) {
           <Input name="email" type="email" defaultValue={u?.email} required />
         </Field>
         <Field label={u ? "New password" : "Password"} hint={u ? "Leave empty to keep the current one." : "At least 10 characters."}>
-          <Input name="password" type="password" minLength={10} required={!u} autoComplete="new-password" />
+          <PasswordInput name="password" minLength={10} required={!u} autoComplete="new-password" />
         </Field>
         <Field label="Role" hint={u?.id === user.id ? "You can't change your own role." : "Admins manage everything."}>
           <FormSelect name="role" options={ROLES} defaultValue={u?.role ?? "member"} disabled={u?.id === user.id} aria-label="Role" />

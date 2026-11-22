@@ -15,6 +15,7 @@ import { field, redirect, safeNext, withFlash } from "@/app/http";
 import { LogoMark, Wordmark, appName, hasLogo } from "@/app/components/brand";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
+import { PasswordInput } from "@/app/components/password-input";
 
 
 /**
@@ -85,7 +86,7 @@ export async function LoginPage({ request, ctx }: RequestInfo) {
           <Input name="email" type="email" required autoComplete="username" autoFocus className="h-10" />
         </Field>
         <Field label="Password">
-          <Input name="password" type="password" required autoComplete="current-password" className="h-10" />
+          <PasswordInput name="password" required autoComplete="current-password" className="h-10" />
         </Field>
         <Button type="submit" size="lg" className="mt-1 w-full">
           Sign in
@@ -212,7 +213,7 @@ export async function SetupPage({ request }: RequestInfo) {
     <AuthCard title="Create the admin account" err={err}>
       <form method="post" className="grid gap-4">
         <Field label="Setup token">
-          <Input name="token" type="password" required className="h-10" />
+          <PasswordInput name="token" what="setup token" required className="h-10" />
         </Field>
         <Field label="Your name">
           <Input name="name" required className="h-10" />
@@ -221,7 +222,7 @@ export async function SetupPage({ request }: RequestInfo) {
           <Input name="email" type="email" required className="h-10" />
         </Field>
         <Field label="Password (10 characters or more)">
-          <Input name="password" type="password" minLength={10} required autoComplete="new-password" className="h-10" />
+          <PasswordInput name="password" minLength={10} required autoComplete="new-password" className="h-10" />
         </Field>
         <Button type="submit" size="lg" className="mt-1 w-full">
           Create admin account

@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import { redwood } from "rwsdk/vite";
 import { cloudflare } from "@cloudflare/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
+import { lingui } from "@lingui/vite-plugin";
 import { unstable_readConfig } from "wrangler";
 import { existsSync, readFileSync } from "node:fs";
 
@@ -25,12 +26,17 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(version),
   },
   environments: {
-    ssr: {},
+    // Bundled up front: found late, they make Vite re-bundle mid-start and rwsdk lose track of
+    // client modules ("No module found … for 'use client' directive").
+    worker: { optimizeDeps: { include: ["@lingui/core", "@lingui/react/server"] } },
+    ssr: { optimizeDeps: { include: ["@lingui/core", "@lingui/react/server"] } },
     // Packages such as Lexical ship a development and a production build. Ask for the
     // production one when building, or the browser bundle gets both.
     client: { resolve: { conditions: ["module", "browser", process.env.NODE_ENV === "development" ? "development" : "production"] } },
   },
   plugins: [
+    // Compiles t`…` / msg`…` macros, and .po catalogs when imported (lingui.config.ts).
+    lingui({ macroTransform: true }),
     cloudflare({
       viteEnvironment: { name: "worker" },
     }),

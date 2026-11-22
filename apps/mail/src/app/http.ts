@@ -1,4 +1,6 @@
 import type { RequestInfo } from "rwsdk/worker";
+import { msg } from "@lingui/core/macro";
+import { i18n } from "@/lib/i18n";
 
 export const redirect = (location: string, headers?: HeadersInit) => {
   const h = new Headers(headers);
@@ -12,11 +14,11 @@ export const redirect = (location: string, headers?: HeadersInit) => {
  * from the URL would let them write "Your account is locked, call…" on a real page.
  */
 const FLASH = {
-  signin_timeout: "Your sign-in timed out. Enter your password again.",
-  too_many_codes: "Too many wrong codes. Enter your password again.",
-  recovery_used: "Signed in with a recovery code. Each code works only once.",
-  recovery_last: "That was your last recovery code. Make new ones now.",
-  nothing_ticked: "Tick Read, Organize or Send on at least one line, or choose Cancel.",
+  signin_timeout: msg({ id: "flash.signin_timeout", message: "Your sign-in timed out. Enter your password again." }),
+  too_many_codes: msg({ id: "flash.too_many_codes", message: "Too many wrong codes. Enter your password again." }),
+  recovery_used: msg({ id: "flash.recovery_used", message: "Signed in with a recovery code. Each code works only once." }),
+  recovery_last: msg({ id: "flash.recovery_last", message: "That was your last recovery code. Make new ones now." }),
+  nothing_ticked: msg({ id: "flash.nothing_ticked", message: "Tick Read, Organize or Send on at least one line, or choose Cancel." }),
 } as const;
 export type FlashCode = keyof typeof FLASH;
 
@@ -29,7 +31,7 @@ export const withFlash = (path: string, kind: "msg" | "err", code: FlashCode) =>
 
 /** The words for a flash code from a URL; anything that isn't a known code shows nothing. */
 export const flashText = (code: string | null): string | null =>
-  code && Object.hasOwn(FLASH, code) ? FLASH[code as FlashCode] : null;
+  code && Object.hasOwn(FLASH, code) ? i18n._(FLASH[code as FlashCode]) : null;
 
 export const field = (form: FormData, name: string) => String(form.get(name) ?? "").trim();
 

@@ -6,6 +6,7 @@ import * as React from "react";
 import { Input } from "@/app/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { t } from "@lingui/core/macro";
 
 /**
  * A password field with a show/hide button on the right. The text is hidden again when the
@@ -14,9 +15,9 @@ import { cn } from "@/lib/utils";
  */
 export function PasswordInput({
   className,
-  what = "password",
+  kind = "password",
   ...props
-}: Omit<React.ComponentProps<"input">, "type"> & { /** What the field holds, for the button's label. */ what?: string }) {
+}: Omit<React.ComponentProps<"input">, "type"> & { /** What the field holds, for the button's label. */ kind?: "password" | "token" }) {
   const [visible, setVisible] = React.useState(false);
   const ref = React.useRef<HTMLInputElement>(null);
 
@@ -46,7 +47,13 @@ export function PasswordInput({
     }
   };
 
-  const label = `${visible ? "Hide" : "Show"} ${what}`;
+  // Whole sentences per case, never glued words: other languages order them differently.
+  const show = kind === "token" ? t({ id: "password.show_token", message: "Show setup token" }) : t({ id: "password.show", message: "Show password" });
+  const label = visible
+    ? kind === "token"
+      ? t({ id: "password.hide_token", message: "Hide setup token" })
+      : t({ id: "password.hide", message: "Hide password" })
+    : show;
   return (
     <div className="relative" data-visible={visible}>
       <Input ref={ref} type={visible ? "text" : "password"} className={cn("pr-10", className)} {...props} />
@@ -55,7 +62,7 @@ export function PasswordInput({
           <TooltipTrigger asChild>
             <button
               type="button"
-              aria-label={`Show ${what}`}
+              aria-label={show}
               aria-pressed={visible}
               aria-controls={props.id}
               // Keeps focus in the field when clicked, so typing can go on.

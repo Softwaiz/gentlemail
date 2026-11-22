@@ -1,0 +1,178 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-22 21:40+0100\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:224
+msgid "verify.code_wrong"
+msgstr "{left, plural, one {That code didn't work. # try left.} other {That code didn't work. # tries left.}}"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:179
+msgid "verify.code"
+msgstr "Code"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:286
+msgid "setup.submit"
+msgstr "Create admin account"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:271
+msgid "setup.title"
+msgstr "Create the admin account"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:109
+msgid "signin.email"
+msgstr "Email"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:174
+msgid "verify.intro"
+msgstr "Enter the 6-digit code from your authenticator app for <0>{email}</0>."
+
+#. js-lingui-explicit-id
+#: src/app/components/password-input.tsx:55
+msgid "password.hide"
+msgstr "Hide password"
+
+#. js-lingui-explicit-id
+#: src/app/components/password-input.tsx:54
+msgid "password.hide_token"
+msgstr "Hide setup token"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:300
+msgid "setup.token_wrong"
+msgstr "Invalid setup token."
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:258
+msgid "setup.no_token_local"
+msgstr "Locally, put <0>SETUP_TOKEN=…</0> in <1>.dev.vars</1>."
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:279
+msgid "setup.email"
+msgstr "Login email"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:38
+msgid "auth.tagline"
+msgstr "Mail for every domain you run"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:198
+msgid "verify.recovery_hint"
+msgstr "No access to your app? Type one of your recovery codes (like <0>abcde-23456</0>) in the same box. Each one works once."
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:122
+msgid "signin.password"
+msgstr "Password"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:282
+msgid "setup.password"
+msgstr "Password (10 characters or more)"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:305
+msgid "setup.password_short"
+msgstr "Password too short: use 10 characters or more."
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:49
+msgid "auth.pitch"
+msgstr "Receive, read and answer mail for all your domains in one place. Your messages stay on your own Cloudflare account."
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:254
+msgid "setup.no_token"
+msgstr "Set a one-time setup token first, then reload this page:"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:252
+msgid "setup.title_no_token"
+msgstr "Setup"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:273
+msgid "setup.token"
+msgstr "Setup token"
+
+#. js-lingui-explicit-id
+#: src/app/components/password-input.tsx:51
+msgid "password.show"
+msgstr "Show password"
+
+#. js-lingui-explicit-id
+#: src/app/components/password-input.tsx:51
+msgid "password.show_token"
+msgstr "Show setup token"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:106
+msgid "signin.title"
+msgstr "Sign in"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:134
+msgid "signin.submit"
+msgstr "Sign in"
+
+#. js-lingui-explicit-id
+#: src/app/http.ts:19
+msgid "flash.recovery_used"
+msgstr "Signed in with a recovery code. Each code works only once."
+
+#. js-lingui-explicit-id
+#: src/app/http.ts:20
+msgid "flash.recovery_last"
+msgstr "That was your last recovery code. Make new ones now."
+
+#. js-lingui-explicit-id
+#: src/app/http.ts:21
+msgid "flash.nothing_ticked"
+msgstr "Tick Read, Organize or Send on at least one line, or choose Cancel."
+
+#. js-lingui-explicit-id
+#: src/app/http.ts:18
+msgid "flash.too_many_codes"
+msgstr "Too many wrong codes. Enter your password again."
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:172
+msgid "verify.title"
+msgstr "Two-step verification"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:203
+msgid "verify.other_account"
+msgstr "Use another account"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:194
+msgid "verify.submit"
+msgstr "Verify"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:151
+msgid "signin.wrong_credentials"
+msgstr "Wrong email or password."
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:276
+msgid "setup.name"
+msgstr "Your name"
+
+#. js-lingui-explicit-id
+#: src/app/http.ts:17
+msgid "flash.signin_timeout"
+msgstr "Your sign-in timed out. Enter your password again."

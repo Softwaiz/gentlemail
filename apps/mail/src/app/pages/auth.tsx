@@ -17,6 +17,8 @@ import { LogoMark, Wordmark, appName, hasLogo } from "@/app/components/brand";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { PasswordInput } from "@/app/components/password-input";
+import { plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 
 
 /**
@@ -33,7 +35,7 @@ export function AuthCard({ title, children, err }: { title: string; children: Re
         <div className="min-w-0">
           <div className="mb-8 flex items-center gap-3 text-[15px]">
             <LogoMark className="size-9 ring-1 ring-sidebar-border rounded-[10px]" />
-            <span className="text-sidebar-muted">Mail for every domain you run</span>
+            <span className="text-sidebar-muted">{t({ id: "auth.tagline", message: "Mail for every domain you run" })}</span>
           </div>
           {hasLogo() ? (
             <Wordmark className="h-[clamp(44px,7vw,92px)] max-w-full" />
@@ -44,8 +46,10 @@ export function AuthCard({ title, children, err }: { title: string; children: Re
             </div>
           )}
           <p className="mt-6 max-w-md text-[15px] leading-relaxed text-sidebar-muted">
-            Receive, read and answer mail for all your domains in one place. Your messages stay on your own Cloudflare
-            account.
+            {t({
+              id: "auth.pitch",
+              message: "Receive, read and answer mail for all your domains in one place. Your messages stay on your own Cloudflare account.",
+            })}
           </p>
         </div>
 
@@ -99,10 +103,10 @@ export async function LoginPage({ request, ctx }: RequestInfo) {
  */
 function LoginForm({ next, email, err, wrong }: { next: string; email?: string; err?: string | null; wrong?: boolean }) {
   return (
-    <AuthCard title="Sign in" err={err}>
+    <AuthCard title={t({ id: "signin.title", message: "Sign in" })} err={err}>
       <form method="post" className="grid gap-4">
         <input type="hidden" name="next" value={next} />
-        <Field label="Email">
+        <Field label={t({ id: "signin.email", message: "Email" })}>
           <Input
             name="email"
             type="email"
@@ -115,7 +119,7 @@ function LoginForm({ next, email, err, wrong }: { next: string; email?: string; 
             className="h-10"
           />
         </Field>
-        <Field label="Password">
+        <Field label={t({ id: "signin.password", message: "Password" })}>
           <PasswordInput
             name="password"
             required
@@ -127,7 +131,7 @@ function LoginForm({ next, email, err, wrong }: { next: string; email?: string; 
           />
         </Field>
         <Button type="submit" size="lg" className="mt-1 w-full">
-          Sign in
+          {t({ id: "signin.submit", message: "Sign in" })}
         </Button>
       </form>
     </AuthCard>
@@ -144,7 +148,7 @@ export async function loginAction({ request, response }: RequestInfo) {
     .first<{ id: string; password_hash: string; mfa_enabled_at: number | null }>();
   if (!row || !(await verifyPassword(password, row.password_hash))) {
     response.status = 401;
-    return <LoginForm next={next} email={email} err="Wrong email or password." wrong />;
+    return <LoginForm next={next} email={email} err={t({ id: "signin.wrong_credentials", message: "Wrong email or password." })} wrong />;
   }
   if (row.mfa_enabled_at) {
     // Second step: no session until the code is right.
@@ -165,12 +169,14 @@ export async function LoginVerifyPage({ request, ctx }: RequestInfo) {
 
 function VerifyForm({ email, err }: { email: string; err?: string }) {
   return (
-    <AuthCard title="Two-step verification" err={err}>
+    <AuthCard title={t({ id: "verify.title", message: "Two-step verification" })} err={err}>
       <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
-        Enter the 6-digit code from your authenticator app for <span className="font-medium text-foreground">{email}</span>.
+        <Trans id="verify.intro">
+          Enter the 6-digit code from your authenticator app for <span className="font-medium text-foreground">{email}</span>.
+        </Trans>
       </p>
       <form method="post" className="grid gap-4">
-        <Field label="Code">
+        <Field label={t({ id: "verify.code", message: "Code" })}>
           <Input
             name="code"
             required
@@ -185,14 +191,16 @@ function VerifyForm({ email, err }: { email: string; err?: string }) {
           />
         </Field>
         <Button type="submit" size="lg" className="w-full">
-          Verify
+          {t({ id: "verify.submit", message: "Verify" })}
         </Button>
       </form>
       <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-        No access to your app? Type one of your recovery codes (like <span className="font-mono">abcde-23456</span>) in the same box. Each one works once.
+        <Trans id="verify.recovery_hint">
+          No access to your app? Type one of your recovery codes (like <span className="font-mono">abcde-23456</span>) in the same box. Each one works once.
+        </Trans>
       </p>
       <a href="/login" className="mt-3 inline-block text-xs font-medium text-muted-foreground underline-offset-4 hover:underline">
-        Use another account
+        {t({ id: "verify.other_account", message: "Use another account" })}
       </a>
     </AuthCard>
   );
@@ -213,7 +221,7 @@ export async function loginVerifyAction({ request, response }: RequestInfo) {
     await env.DB.prepare("UPDATE login_challenges SET attempts = ? WHERE id = ?").bind(attempts, challenge.id).run();
     const left = CHALLENGE_MAX_ATTEMPTS - attempts;
     response.status = 401;
-    return <VerifyForm email={challenge.email} err={`That code didn't work. ${left} ${left === 1 ? "try" : "tries"} left.`} />;
+    return <VerifyForm email={challenge.email} err={t({ id: "verify.code_wrong", message: plural(left, { one: "That code didn't work. # try left.", other: "That code didn't work. # tries left." }) })} />;
   }
 
   const headers = new Headers();
@@ -241,13 +249,15 @@ export async function SetupPage() {
   if ((await userCount()) > 0) return redirect("/login");
   if (!env.SETUP_TOKEN) {
     return (
-      <AuthCard title="Setup">
+      <AuthCard title={t({ id: "setup.title_no_token", message: "Setup" })}>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Set a one-time setup token first, then reload this page:
+          {t({ id: "setup.no_token", message: "Set a one-time setup token first, then reload this page:" })}
         </p>
         <pre className="mt-3 rounded-md bg-muted px-3 py-2 font-mono text-xs">npx wrangler secret put SETUP_TOKEN</pre>
         <p className="mt-3 text-xs text-muted-foreground">
-          Locally, put <code className="font-mono">SETUP_TOKEN=…</code> in <code className="font-mono">.dev.vars</code>.
+          <Trans id="setup.no_token_local">
+            Locally, put <code className="font-mono">SETUP_TOKEN=…</code> in <code className="font-mono">.dev.vars</code>.
+          </Trans>
         </p>
       </AuthCard>
     );
@@ -258,22 +268,22 @@ export async function SetupPage() {
 function SetupForm({ err, bad, name, email }: { err?: string; bad?: "token" | "password"; name?: string; email?: string }) {
   const invalid = (f: "token" | "password") => (bad === f ? { "aria-invalid": true, "aria-describedby": AUTH_ERROR, autoFocus: true } : {});
   return (
-    <AuthCard title="Create the admin account" err={err}>
+    <AuthCard title={t({ id: "setup.title", message: "Create the admin account" })} err={err}>
       <form method="post" className="grid gap-4">
-        <Field label="Setup token">
-          <PasswordInput name="token" what="setup token" required className="h-10" {...invalid("token")} />
+        <Field label={t({ id: "setup.token", message: "Setup token" })}>
+          <PasswordInput name="token" kind="token" required className="h-10" {...invalid("token")} />
         </Field>
-        <Field label="Your name">
+        <Field label={t({ id: "setup.name", message: "Your name" })}>
           <Input name="name" required defaultValue={name} className="h-10" />
         </Field>
-        <Field label="Login email">
+        <Field label={t({ id: "setup.email", message: "Login email" })}>
           <Input name="email" type="email" required defaultValue={email} className="h-10" />
         </Field>
-        <Field label="Password (10 characters or more)">
+        <Field label={t({ id: "setup.password", message: "Password (10 characters or more)" })}>
           <PasswordInput name="password" minLength={10} required autoComplete="new-password" className="h-10" {...invalid("password")} />
         </Field>
         <Button type="submit" size="lg" className="mt-1 w-full">
-          Create admin account
+          {t({ id: "setup.submit", message: "Create admin account" })}
         </Button>
       </form>
     </AuthCard>
@@ -287,12 +297,12 @@ export async function setupAction({ request, response }: RequestInfo) {
   const kept = { name: field(form, "name"), email: field(form, "email") };
   if (!env.SETUP_TOKEN || token !== env.SETUP_TOKEN) {
     response.status = 403;
-    return <SetupForm {...kept} err="Invalid setup token." bad="token" />;
+    return <SetupForm {...kept} err={t({ id: "setup.token_wrong", message: "Invalid setup token." })} bad="token" />;
   }
   const password = String(form.get("password") ?? "");
   if (password.length < 10) {
     response.status = 400;
-    return <SetupForm {...kept} err="Password too short: use 10 characters or more." bad="password" />;
+    return <SetupForm {...kept} err={t({ id: "setup.password_short", message: "Password too short: use 10 characters or more." })} bad="password" />;
   }
   const id = await createUser({
     email: field(form, "email"),

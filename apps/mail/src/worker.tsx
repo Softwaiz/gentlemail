@@ -1,6 +1,8 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { render, route } from "rwsdk/router";
-import { defineApp, type RequestInfo } from "rwsdk/worker";
+import { defineApp, requestInfo, type RequestInfo } from "rwsdk/worker";
+import type { I18n } from "@lingui/core";
+import { createI18n, pickLocale, followRequestI18n } from "@/lib/i18n";
 
 import { Document } from "@/app/document";
 import { setCommonHeaders } from "@/app/headers";
@@ -41,7 +43,10 @@ import {
 } from "@/app/pages/oauth";
 import { purgeExpiredOAuth } from "@/lib/oauth";
 
-export type AppContext = { user: User | null };
+export type AppContext = { user: User | null; i18n: I18n };
+
+// Translations follow the request being answered (lib/i18n.ts).
+followRequestI18n(() => requestInfo.ctx.i18n ?? createI18n("en"));
 
 async function home({ ctx }: RequestInfo) {
   const boxes = await listMailboxesForUser(ctx.user!);
@@ -53,6 +58,7 @@ const app = defineApp([
   setCommonHeaders(),
   checkOrigin,
   async ({ ctx, request }) => {
+    ctx.i18n = createI18n(pickLocale(request.headers.get("Accept-Language")));
     ctx.user = await getUserFromRequest(request);
   },
 

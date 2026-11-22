@@ -20,6 +20,7 @@
     "test": "vite build && node --test test/*.test.mjs",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:seed:local": "node scripts/seed-local.mjs",
+    "i18n": "lingui extract --clean && lingui compile --typescript",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
   },
   "dependencies": {
@@ -31,6 +32,8 @@
     "@lexical/rich-text": "0.53.0",
     "@lexical/selection": "0.53.0",
     "@lexical/utils": "0.53.0",
+    "@lingui/core": "6.12.0",
+    "@lingui/react": "6.12.0",
     "@tailwindcss/vite": "^4.3.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -53,6 +56,8 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.50.0",
     "@cloudflare/workers-types": "5.20260801.1",
+    "@lingui/cli": "6.12.0",
+    "@lingui/vite-plugin": "6.12.0",
     "@types/node": "~26.1.2",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",

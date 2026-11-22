@@ -1,0 +1,178 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-22 21:41+0100\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: fr\n"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:224
+msgid "verify.code_wrong"
+msgstr "{left, plural, one {Ce code ne fonctionne pas. Encore # essai.} other {Ce code ne fonctionne pas. Encore # essais.}}"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:179
+msgid "verify.code"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:286
+msgid "setup.submit"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:271
+msgid "setup.title"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:109
+msgid "signin.email"
+msgstr "E-mail"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:174
+msgid "verify.intro"
+msgstr "Saisissez le code à 6 chiffres de votre application d'authentification pour <0>{email}</0>."
+
+#. js-lingui-explicit-id
+#: src/app/components/password-input.tsx:55
+msgid "password.hide"
+msgstr "Masquer le mot de passe"
+
+#. js-lingui-explicit-id
+#: src/app/components/password-input.tsx:54
+msgid "password.hide_token"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:300
+msgid "setup.token_wrong"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:258
+msgid "setup.no_token_local"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:279
+msgid "setup.email"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:38
+msgid "auth.tagline"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:198
+msgid "verify.recovery_hint"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:122
+msgid "signin.password"
+msgstr "Mot de passe"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:282
+msgid "setup.password"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:305
+msgid "setup.password_short"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:49
+msgid "auth.pitch"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:254
+msgid "setup.no_token"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:252
+msgid "setup.title_no_token"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:273
+msgid "setup.token"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/components/password-input.tsx:51
+msgid "password.show"
+msgstr "Afficher le mot de passe"
+
+#. js-lingui-explicit-id
+#: src/app/components/password-input.tsx:51
+msgid "password.show_token"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:106
+msgid "signin.title"
+msgstr "Connexion"
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:134
+msgid "signin.submit"
+msgstr "Se connecter"
+
+#. js-lingui-explicit-id
+#: src/app/http.ts:19
+msgid "flash.recovery_used"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/http.ts:20
+msgid "flash.recovery_last"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/http.ts:21
+msgid "flash.nothing_ticked"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/http.ts:18
+msgid "flash.too_many_codes"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:172
+msgid "verify.title"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:203
+msgid "verify.other_account"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:194
+msgid "verify.submit"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:151
+msgid "signin.wrong_credentials"
+msgstr "E-mail ou mot de passe incorrect."
+
+#. js-lingui-explicit-id
+#: src/app/pages/auth.tsx:276
+msgid "setup.name"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/app/http.ts:17
+msgid "flash.signin_timeout"
+msgstr "Votre connexion a expiré. Saisissez à nouveau votre mot de passe."

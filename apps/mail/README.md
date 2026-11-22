@@ -244,6 +244,7 @@ Run from `apps/mail` with `npm run <script>` (or `pnpm <script>`).
 | `build` | Production build into `dist/` |
 | `deploy` | Applies remote D1 migrations, then `wrangler deploy` (what the Deploy button and Workers Builds run, after `build`). It doesn't build, so run `build` first; and the database must already exist (see [Deploy](#1-deploy)) |
 | `db:migrate:local` / `db:migrate:remote` | Apply migrations to the local or the remote database |
+| `db:seed:local` | Fill the local database with made-up mailboxes, mail, an API key and a webhook, to look at every screen; the sign-in details are at the top of `scripts/seed-local.mjs`. Rerunning replaces that data; nothing else is touched |
 | `generate` | Regenerate `worker-configuration.d.ts` from `wrangler.jsonc` (after changing bindings or vars) |
 | `types` | Type-check with `tsc` |
 | `check` | `generate`, then `types` (calls pnpm) |
@@ -256,8 +257,9 @@ Run from `apps/mail` with `npm run <script>` (or `pnpm <script>`).
 ```sh
 echo 'SETUP_TOKEN=local-dev-setup-token' > .dev.vars
 npm run db:migrate:local
+npm run db:seed:local   # optional: made-up data and two accounts to sign in with
 npm run dev
-# open http://localhost:5173/setup
+# open http://localhost:5173/setup (or sign in with a seeded account)
 # simulate inbound mail:
 curl -X POST "http://localhost:5173/cdn-cgi/handler/email?from=a@example.org&to=hello@your-domain" --data-binary @some.eml
 ```

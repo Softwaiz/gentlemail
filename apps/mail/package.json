@@ -19,6 +19,7 @@
     "types": "tsc",
     "test": "vite build && node --test test/*.test.mjs",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:seed:local": "node scripts/seed-local.mjs",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
   },
   "dependencies": {

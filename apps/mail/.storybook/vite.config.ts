@@ -31,6 +31,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "cloudflare:workers": here("./fakes/cloudflare-workers.ts"),
+      "rwsdk/client": here("./fakes/rwsdk-client.ts"),
       "@": here("../src"),
     },
   },

@@ -16,6 +16,10 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 
 ### Changed
 - The 25 MB limit on a sent message now counts its text and HTML, not only its attachments, in the webmail and in `POST /api/v1/send`. A send just over it with attachments, which the email service would have refused anyway, now gets `422` with "The message and its attachments exceed the 25 MB limit." ([#32](https://github.com/Softwaiz/gentlemail/pull/32))
+- A wrong password on the sign-in page keeps the email filled in and puts the cursor back in the password field; a wrong setup token or too short a password on the setup page keeps the name and email. The card gives a short shake, except when the device asks for reduced motion.
+
+### Security
+- A link to a GentleMail page could make it show any text in its message box (for example `/login?err=Your account is locked, call…`). Pages now show only their own messages, chosen by a code in the link; anything else is ignored.
 
 ### Fixed
 - Very long messages in scripts such as Chinese or Japanese are saved properly: the Sent copy, and received mail, measured their size in characters while the database counts bytes. A long sent message could go out and then fail to be saved, showing "Sending failed" and inviting a second send. Its HTML now goes to storage, as for received mail. ([#32](https://github.com/Softwaiz/gentlemail/pull/32))

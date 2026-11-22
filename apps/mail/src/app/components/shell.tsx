@@ -6,6 +6,7 @@ import { LogoMark, Wordmark, hasLogo } from "./brand";
 import { MailboxSwitcher } from "./mailbox-switcher";
 import { SidebarNav } from "./mobile-nav";
 import { Toaster } from "./ui/sonner";
+import { flashText } from "@/app/http";
 import { UserMenu } from "./user-menu";
 
 export { appName } from "./brand";
@@ -245,5 +246,5 @@ export function PageHeader({
 
 export const flashFrom = (request: Request) => {
   const u = new URL(request.url);
-  return { msg: u.searchParams.get("msg"), err: u.searchParams.get("err") };
+  return { msg: flashText(u.searchParams.get("msg")), err: flashText(u.searchParams.get("err")) };
 };

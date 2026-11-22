@@ -3,7 +3,7 @@ import type { RequestInfo } from "rwsdk/worker";
 import { appName } from "@/app/components/brand";
 import { AccessEditor, type AccessTargets } from "@/app/components/key-dialog";
 import { Button } from "@/app/components/ui/button";
-import { json, redirect, requireUser, withFlash } from "@/app/http";
+import { flashText, json, redirect, requireUser, withFlash } from "@/app/http";
 import { AuthCard } from "@/app/pages/auth";
 import { grantsFromForm } from "@/lib/apikeys";
 import type { User } from "@/lib/auth";
@@ -222,10 +222,6 @@ function destination(uri: string): { where: string; note: string; site: boolean 
   return { where, note: `Not a website: an app installed on this device, which opens links starting with ${u.protocol}`, site: false };
 }
 
-/** The consent screen's errors, by code: its ?err= is never shown as written, so a link can't put words on it. */
-const CONSENT_ERRORS: Record<string, string> = {
-  nothing_ticked: "Tick Read, Organize or Send on at least one line, or choose Cancel.",
-};
 
 export async function AuthorizePage(ri: RequestInfo) {
   const denied = requireUser(ri);
@@ -252,7 +248,7 @@ export async function AuthorizePage(ri: RequestInfo) {
   const { targets, allowAll } = await targetsFor(user);
   // An admin may give all mailboxes or a domain even before any mailbox exists.
   const shareable = allowAll || targets.domains.length > 0 || targets.mailboxes.length > 0;
-  const err = CONSENT_ERRORS[url.searchParams.get("err") ?? ""] ?? null;
+  const err = flashText(url.searchParams.get("err"));
   const strong = "font-medium text-foreground";
 
   const dest = destination(req.redirectUri);

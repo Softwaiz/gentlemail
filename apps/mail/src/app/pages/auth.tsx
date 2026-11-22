@@ -11,7 +11,8 @@ import {
   verifyPassword,
 } from "@/lib/auth";
 import { recoveryCodesLeft, verifySecondFactor } from "@/lib/mfa";
-import { field, redirect, safeNext, withFlash } from "@/app/http";
+import { field, flashText, redirect, safeNext, withFlash } from "@/app/http";
+import { ShakeCard } from "@/app/components/auth-motion";
 import { LogoMark, Wordmark, appName, hasLogo } from "@/app/components/brand";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -22,6 +23,9 @@ import { PasswordInput } from "@/app/components/password-input";
  * Full-bleed ink screen in the Softwaiz manner: grid texture, oversized
  * display wordmark, and a paper card holding the form.
  */
+/** The id of the card's error, for the fields it is about (aria-describedby). */
+const AUTH_ERROR = "auth-error";
+
 export function AuthCard({ title, children, err }: { title: string; children: React.ReactNode; err?: string | null }) {
   return (
     <div className="bg-grid relative min-h-screen overflow-hidden bg-sidebar text-sidebar-foreground">
@@ -45,15 +49,22 @@ export function AuthCard({ title, children, err }: { title: string; children: Re
           </p>
         </div>
 
-        <div className="rounded-lg border border-sidebar-border bg-background p-7 text-foreground shadow-[0_30px_80px_-20px_rgb(0_0_0/60%)]">
+        <ShakeCard
+          error={err}
+          className="rounded-lg border border-sidebar-border bg-background p-7 text-foreground shadow-[0_30px_80px_-20px_rgb(0_0_0/60%)]"
+        >
           <h1 className="text-xl font-semibold tracking-[-0.02em]">{title}</h1>
           {err && (
-            <div role="alert" className="mt-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">
+            <div
+              id={AUTH_ERROR}
+              role="alert"
+              className="mt-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
+            >
               {err}
             </div>
           )}
           <div className="mt-5">{children}</div>
-        </div>
+        </ShakeCard>
       </div>
       <div aria-hidden="true" className="pointer-events-none absolute -right-24 -bottom-40 size-[420px] rounded-full bg-lime/10 blur-3xl" />
     </div>
@@ -78,15 +89,42 @@ export async function LoginPage({ request, ctx }: RequestInfo) {
   if (ctx.user) return redirect("/");
   if ((await userCount()) === 0) return redirect("/setup");
   const u = new URL(request.url);
+  return <LoginForm next={u.searchParams.get("next") ?? "/"} err={flashText(u.searchParams.get("err"))} />;
+}
+
+/**
+ * The sign-in form. After a wrong password it is sent back in answer to the POST (not by a
+ * redirect), so the email stays filled in without going into the URL, and the cursor waits
+ * in the emptied password field.
+ */
+function LoginForm({ next, email, err, wrong }: { next: string; email?: string; err?: string | null; wrong?: boolean }) {
   return (
-    <AuthCard title="Sign in" err={u.searchParams.get("err")}>
+    <AuthCard title="Sign in" err={err}>
       <form method="post" className="grid gap-4">
-        <input type="hidden" name="next" value={u.searchParams.get("next") ?? "/"} />
+        <input type="hidden" name="next" value={next} />
         <Field label="Email">
-          <Input name="email" type="email" required autoComplete="username" autoFocus className="h-10" />
+          <Input
+            name="email"
+            type="email"
+            required
+            autoComplete="username"
+            defaultValue={email}
+            autoFocus={!email}
+            aria-invalid={wrong || undefined}
+            aria-describedby={wrong ? AUTH_ERROR : undefined}
+            className="h-10"
+          />
         </Field>
         <Field label="Password">
-          <PasswordInput name="password" required autoComplete="current-password" className="h-10" />
+          <PasswordInput
+            name="password"
+            required
+            autoComplete="current-password"
+            autoFocus={!!email}
+            aria-invalid={wrong || undefined}
+            aria-describedby={wrong ? AUTH_ERROR : undefined}
+            className="h-10"
+          />
         </Field>
         <Button type="submit" size="lg" className="mt-1 w-full">
           Sign in
@@ -96,7 +134,7 @@ export async function LoginPage({ request, ctx }: RequestInfo) {
   );
 }
 
-export async function loginAction({ request }: RequestInfo) {
+export async function loginAction({ request, response }: RequestInfo) {
   const form = await request.formData();
   const email = field(form, "email").toLowerCase();
   const password = String(form.get("password") ?? "");
@@ -105,7 +143,8 @@ export async function loginAction({ request }: RequestInfo) {
     .bind(email)
     .first<{ id: string; password_hash: string; mfa_enabled_at: number | null }>();
   if (!row || !(await verifyPassword(password, row.password_hash))) {
-    return redirect(withFlash(`/login?next=${encodeURIComponent(next)}`, "err", "Wrong email or password."));
+    response.status = 401;
+    return <LoginForm next={next} email={email} err="Wrong email or password." wrong />;
   }
   if (row.mfa_enabled_at) {
     // Second step: no session until the code is right.
@@ -120,12 +159,15 @@ export async function loginAction({ request }: RequestInfo) {
 export async function LoginVerifyPage({ request, ctx }: RequestInfo) {
   if (ctx.user) return redirect("/");
   const challenge = await getLoginChallenge(request);
-  if (!challenge) return redirect(withFlash("/login", "err", "Your sign-in timed out. Enter your password again."));
-  const err = new URL(request.url).searchParams.get("err");
+  if (!challenge) return redirect(withFlash("/login", "err", "signin_timeout"));
+  return <VerifyForm email={challenge.email} />;
+}
+
+function VerifyForm({ email, err }: { email: string; err?: string }) {
   return (
     <AuthCard title="Two-step verification" err={err}>
       <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
-        Enter the 6-digit code from your authenticator app for <span className="font-medium text-foreground">{challenge.email}</span>.
+        Enter the 6-digit code from your authenticator app for <span className="font-medium text-foreground">{email}</span>.
       </p>
       <form method="post" className="grid gap-4">
         <Field label="Code">
@@ -137,6 +179,8 @@ export async function LoginVerifyPage({ request, ctx }: RequestInfo) {
             inputMode="numeric"
             maxLength={20}
             placeholder="123456"
+            aria-invalid={err ? true : undefined}
+            aria-describedby={err ? AUTH_ERROR : undefined}
             className="h-11 font-mono text-lg tracking-[0.3em]"
           />
         </Field>
@@ -154,9 +198,9 @@ export async function LoginVerifyPage({ request, ctx }: RequestInfo) {
   );
 }
 
-export async function loginVerifyAction({ request }: RequestInfo) {
+export async function loginVerifyAction({ request, response }: RequestInfo) {
   const challenge = await getLoginChallenge(request);
-  if (!challenge) return redirect(withFlash("/login", "err", "Your sign-in timed out. Enter your password again."));
+  if (!challenge) return redirect(withFlash("/login", "err", "signin_timeout"));
   const code = String((await request.formData()).get("code") ?? "");
   const result = await verifySecondFactor(challenge.user_id, code, { allowRecovery: true });
 
@@ -164,11 +208,12 @@ export async function loginVerifyAction({ request }: RequestInfo) {
     const attempts = challenge.attempts + 1;
     if (attempts >= CHALLENGE_MAX_ATTEMPTS) {
       const cookie = await endLoginChallenge(challenge.id, request);
-      return redirect(withFlash("/login", "err", "Too many wrong codes. Enter your password again."), { "Set-Cookie": cookie });
+      return redirect(withFlash("/login", "err", "too_many_codes"), { "Set-Cookie": cookie });
     }
     await env.DB.prepare("UPDATE login_challenges SET attempts = ? WHERE id = ?").bind(attempts, challenge.id).run();
     const left = CHALLENGE_MAX_ATTEMPTS - attempts;
-    return redirect(withFlash("/login/verify", "err", `That code didn't work. ${left} ${left === 1 ? "try" : "tries"} left.`));
+    response.status = 401;
+    return <VerifyForm email={challenge.email} err={`That code didn't work. ${left} ${left === 1 ? "try" : "tries"} left.`} />;
   }
 
   const headers = new Headers();
@@ -179,9 +224,8 @@ export async function loginVerifyAction({ request }: RequestInfo) {
     const left = await recoveryCodesLeft(challenge.user_id);
     // Security says how many codes are left, then offers to continue to `next` (an assistant's sign-in, say).
     const security = next === "/" ? "/account/security" : `/account/security?next=${encodeURIComponent(next)}`;
-    next = withFlash(security, left ? "msg" : "err", left
-      ? `Signed in with a recovery code. ${left} left.`
-      : "That was your last recovery code. Make new ones now.");
+    // The security page shows how many codes are left.
+    next = left ? withFlash(security, "msg", "recovery_used") : withFlash(security, "err", "recovery_last");
   }
   return redirect(next, headers);
 }
@@ -193,9 +237,8 @@ export async function logoutAction({ request }: RequestInfo) {
 
 /* ---------- First-run setup ---------- */
 
-export async function SetupPage({ request }: RequestInfo) {
+export async function SetupPage() {
   if ((await userCount()) > 0) return redirect("/login");
-  const err = new URL(request.url).searchParams.get("err");
   if (!env.SETUP_TOKEN) {
     return (
       <AuthCard title="Setup">
@@ -209,20 +252,25 @@ export async function SetupPage({ request }: RequestInfo) {
       </AuthCard>
     );
   }
+  return <SetupForm />;
+}
+
+function SetupForm({ err, bad, name, email }: { err?: string; bad?: "token" | "password"; name?: string; email?: string }) {
+  const invalid = (f: "token" | "password") => (bad === f ? { "aria-invalid": true, "aria-describedby": AUTH_ERROR, autoFocus: true } : {});
   return (
     <AuthCard title="Create the admin account" err={err}>
       <form method="post" className="grid gap-4">
         <Field label="Setup token">
-          <PasswordInput name="token" what="setup token" required className="h-10" />
+          <PasswordInput name="token" what="setup token" required className="h-10" {...invalid("token")} />
         </Field>
         <Field label="Your name">
-          <Input name="name" required className="h-10" />
+          <Input name="name" required defaultValue={name} className="h-10" />
         </Field>
         <Field label="Login email">
-          <Input name="email" type="email" required className="h-10" />
+          <Input name="email" type="email" required defaultValue={email} className="h-10" />
         </Field>
         <Field label="Password (10 characters or more)">
-          <PasswordInput name="password" minLength={10} required autoComplete="new-password" className="h-10" />
+          <PasswordInput name="password" minLength={10} required autoComplete="new-password" className="h-10" {...invalid("password")} />
         </Field>
         <Button type="submit" size="lg" className="mt-1 w-full">
           Create admin account
@@ -232,15 +280,20 @@ export async function SetupPage({ request }: RequestInfo) {
   );
 }
 
-export async function setupAction({ request }: RequestInfo) {
+export async function setupAction({ request, response }: RequestInfo) {
   if ((await userCount()) > 0) return redirect("/login");
   const form = await request.formData();
   const token = String(form.get("token") ?? "");
+  const kept = { name: field(form, "name"), email: field(form, "email") };
   if (!env.SETUP_TOKEN || token !== env.SETUP_TOKEN) {
-    return redirect(withFlash("/setup", "err", "Invalid setup token."));
+    response.status = 403;
+    return <SetupForm {...kept} err="Invalid setup token." bad="token" />;
   }
   const password = String(form.get("password") ?? "");
-  if (password.length < 10) return redirect(withFlash("/setup", "err", "Password too short."));
+  if (password.length < 10) {
+    response.status = 400;
+    return <SetupForm {...kept} err="Password too short: use 10 characters or more." bad="password" />;
+  }
   const id = await createUser({
     email: field(form, "email"),
     name: field(form, "name") || "Admin",

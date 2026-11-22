@@ -6,12 +6,30 @@ export const redirect = (location: string, headers?: HeadersInit) => {
   return new Response(null, { status: 303, headers: h });
 };
 
-/** Build a URL with ?msg= / ?err= flash parameters. */
-export const withFlash = (path: string, kind: "msg" | "err", text: string) => {
+/**
+ * Messages a redirect can ask the next page to show, by code. The URL carries only the code
+ * (?msg= / ?err=), never the words: anyone can send a link to a GentleMail page, so text taken
+ * from the URL would let them write "Your account is locked, call…" on a real page.
+ */
+const FLASH = {
+  signin_timeout: "Your sign-in timed out. Enter your password again.",
+  too_many_codes: "Too many wrong codes. Enter your password again.",
+  recovery_used: "Signed in with a recovery code. Each code works only once.",
+  recovery_last: "That was your last recovery code. Make new ones now.",
+  nothing_ticked: "Tick Read, Organize or Send on at least one line, or choose Cancel.",
+} as const;
+export type FlashCode = keyof typeof FLASH;
+
+/** Build a URL with a ?msg= / ?err= flash code. */
+export const withFlash = (path: string, kind: "msg" | "err", code: FlashCode) => {
   const u = new URL(path, "http://x");
-  u.searchParams.set(kind, text);
+  u.searchParams.set(kind, code);
   return u.pathname + u.search;
 };
+
+/** The words for a flash code from a URL; anything that isn't a known code shows nothing. */
+export const flashText = (code: string | null): string | null =>
+  code && Object.hasOwn(FLASH, code) ? FLASH[code as FlashCode] : null;
 
 export const field = (form: FormData, name: string) => String(form.get(name) ?? "").trim();
 

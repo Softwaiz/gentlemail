@@ -19,7 +19,9 @@
     "types": "tsc",
     "test": "vite build && node --test test/*.test.mjs",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
-    "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "storybook": "storybook dev -p 6006 --no-open",
+    "build-storybook": "storybook build -o storybook-static"
   },
   "dependencies": {
     "@fontsource-variable/google-sans": "^5.3.2",
@@ -51,10 +53,13 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.50.0",
     "@cloudflare/workers-types": "5.20260801.1",
+    "@storybook/addon-docs": "10.6.8",
+    "@storybook/react-vite": "10.6.8",
     "@types/node": "~26.1.2",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
     "miniflare": "5.20260730.0-alpha",
+    "storybook": "10.6.8",
     "typescript": "7.0.2",
     "vite": "~8.2.0",
     "wrangler": "4.118.0"

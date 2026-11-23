@@ -123,6 +123,8 @@ export default defineConfig({
       "@": here("../src"),
     },
   },
+  // Found late (it comes from a macro), it makes Vite bundle again and reload the first story.
+  optimizeDeps: { include: ["@lingui/core", "@lingui/react/server"] },
   define: {
     __APP_VERSION__: JSON.stringify("0.0.0-storybook"),
     __WORKER_NAME__: JSON.stringify("gentlemail"),

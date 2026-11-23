@@ -277,7 +277,7 @@ Outbound mail is simulated locally (written under `.wrangler/tmp/email`).
 npm run storybook
 # open http://localhost:6006
 ```
-Every screen and component, in each of its states, with made-up data: no account, database or seed. The toolbar switches the theme, the app name (the GentleMail logo, or an instance with its own name), the width (phone, tablet, desktop) and how server actions answer (succeed, fail, slow). Controls lists each property, marks the required ones and lets you change them live; that's a try-out, nothing is written back to the code.
+Every screen and component, in each of its states, with made-up data: no account, database or seed. The toolbar switches the theme, the language, the app name (the GentleMail logo, or an instance with its own name), the width (phone, tablet, desktop) and how server actions answer (succeed, fail, slow). Controls lists each property, marks the required ones and lets you change them live; that's a try-out, nothing is written back to the code.
 
 How it fits the code:
 
@@ -285,7 +285,7 @@ How it fits the code:
 - **Pages are split in two**: the page in `<page>.tsx` loads (database, request, redirects), and a view in `<page>-views.tsx` only draws what it's given. Stories use the view. A page not split yet has stories for the components on it. Splitting moves the markup unchanged; a redesign comes in its own pull request.
 - **Nothing in a story reaches the server.** `.storybook/vite.config.ts` replaces every `serverAction` and `serverQuery` in `src/app/actions/` with a fake: an action answers `{ ok: true }`, a query answers nothing. `.storybook/fakes/actions/<module>.ts` gives specific answers (see `mail.ts`). Anything else exported from an actions module, or an actions file that isn't a `.ts` directly in that folder, stops the build. `cloudflare:workers` is a stub holding only plain settings (`APP_NAME`), and rwsdk's client `navigate` only logs. Forms and links to the app's pages stay on the story, and cookies aren't set (`.storybook/fakes/browser.ts`).
 - **Made-up data has fixed dates** (`"09:41"`, `"Yesterday"`), never "now", so stories look the same every day.
-- **Checks in `play` functions test state, not motion**: that a menu is open (`aria-expanded`), not that it has finished sliding in. Wait for what fades in (`waitFor`).
+- **Checks in `play` functions test state, not motion**: that a menu is open (`aria-expanded`), not that it has finished sliding in. Wait for what fades in (`waitFor`). A check that reads words pins its language (`globals: { language: "en" }`), so the toolbar can't break it.
 - **When you split a page, run `npm run compare-pages`**: every page must come out identical to `dev`. Add the page to `SCENARIOS` in `scripts/compare-pages.mjs` if it isn't there.
 
 ## License

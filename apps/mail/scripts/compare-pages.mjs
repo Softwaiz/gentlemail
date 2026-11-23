@@ -18,14 +18,17 @@ import { join, resolve } from "node:path";
 import { q, sha256, startWorker } from "../test/harness.mjs";
 
 const APP = resolve(import.meta.dirname, "..");
-const ROOT = resolve(APP, "../..");
-const CACHE = join(ROOT, ".compare-pages");
 const ref = process.argv[2] ?? "origin/dev";
 
 const run = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: ["ignore", "pipe", "inherit"], encoding: "utf8" }).trim();
 const step = (s) => console.log(`\n» ${s}`);
 /** Builds a tree with its own Vite (not whichever `vite` comes first on PATH). */
 const build = (app) => run(join(app, "node_modules/.bin/vite"), ["build"], app);
+
+/** The repository, and where the app is in it: apps/mail/ here, the top of a copy made by the Deploy button. */
+const ROOT = resolve(run("git", ["rev-parse", "--show-toplevel"], APP));
+const APP_IN_ROOT = run("git", ["rev-parse", "--show-prefix"], APP);
+const CACHE = join(ROOT, ".compare-pages");
 
 /* ---------- Builds ---------- */
 
@@ -37,16 +40,27 @@ if (branch.length && run("git", ["remote"], ROOT).split("\n").includes(remote)) 
     console.warn(`Couldn't fetch ${ref}: comparing with the copy fetched last.`);
   }
 }
-const sha = run("git", ["rev-parse", "--short", run("git", ["merge-base", "HEAD", ref], ROOT)], ROOT);
+let sha;
+try {
+  sha = run("git", ["rev-parse", "--short", run("git", ["merge-base", "HEAD", ref], ROOT)], ROOT);
+} catch {
+  console.error(`There's no ${ref} to compare with here. Name a branch, tag or commit: npm run compare-pages -- main`);
+  process.exit(2);
+}
 const baseRoot = join(CACHE, `base-${sha}`);
-const baseApp = join(baseRoot, "apps/mail");
-if (!existsSync(join(baseApp, "dist/worker/wrangler.json"))) {
+const baseApp = join(baseRoot, APP_IN_ROOT);
+/** Written once the base is built, so a build that failed or was stopped is done again. */
+const built = join(baseRoot, ".built");
+if (!existsSync(built)) {
   step(`Building ${ref} (${sha}) in ${baseRoot}`);
   rmSync(baseRoot, { recursive: true, force: true });
   run("git", ["worktree", "prune"], ROOT);
   run("git", ["worktree", "add", "--detach", baseRoot, sha], ROOT);
-  run("pnpm", ["install", "--frozen-lockfile"], baseRoot);
+  // A copy made by the Deploy button holds neither pnpm's lockfile nor its workspace settings: npm there.
+  if (existsSync(join(baseRoot, "pnpm-lock.yaml"))) run("pnpm", ["install", "--frozen-lockfile"], baseRoot);
+  else run("npm", existsSync(join(baseApp, "package-lock.json")) ? ["ci"] : ["install", "--no-package-lock"], baseApp);
   build(baseApp);
+  writeFileSync(built, "");
 } else step(`${ref} (${sha}) already built`);
 
 step("Building this tree");

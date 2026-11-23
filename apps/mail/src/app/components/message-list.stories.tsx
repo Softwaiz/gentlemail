@@ -90,3 +90,16 @@ export const ArchiveTwo: Story = {
 
 /** The same, with the server failing: the error toast. */
 export const ArchiveFails: Story = { ...ArchiveTwo, parameters: { server: "fail" } };
+
+/** Out of spam: the answer says the sender is trusted from now on. */
+export const NotSpam: Story = {
+  ...Spam,
+  parameters: { server: "ok" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByLabelText("Select Quarterly numbers"));
+    await userEvent.click(canvas.getAllByRole("button", { name: "Not spam" })[0]);
+    const toast = await screen.findByText("Not spam. Mail from this sender stays in the inbox.");
+    await waitFor(() => expect(toast).toBeVisible());
+  },
+};

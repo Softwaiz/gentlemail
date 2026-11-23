@@ -1,5 +1,5 @@
 /*
- * Keeps stories where they are. The app's forms post to the Worker and its links open pages; here
+ * Keeps stories where they are, and out of the app. The app's forms post to the Worker and its links open pages; here
  * they would reach Storybook's own server, with whatever was typed. Server functions are faked
  * elsewhere (see ../vite.config.ts): this is for what the browser does by itself.
  */
@@ -33,6 +33,12 @@ export function stayOnStory() {
   w.__staysOnStory = true;
   window.addEventListener("submit", onSubmit);
   window.addEventListener("click", onClick);
+  // Cookies are shared by every port of localhost: one set here (the theme) would reach the app running locally.
+  Object.defineProperty(document, "cookie", {
+    configurable: true,
+    get: () => "",
+    set: (cookie: string) => console.info("[fake] cookie", cookie.split("=")[0]),
+  });
   // form.submit() raises no event (Log out uses it).
   HTMLFormElement.prototype.submit = function () {
     console.info("[fake] submit", this.method, this.getAttribute("action") ?? "");

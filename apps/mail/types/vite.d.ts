@@ -3,6 +3,9 @@ declare module "*?url" {
   export default result;
 }
 
+/** A stylesheet imported for its effect (Storybook). */
+declare module "*.css";
+
 /** A file's text, inlined at build time (the logo SVGs in src/app/assets). */
 declare module "*?raw" {
   const result: string;

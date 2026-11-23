@@ -2,10 +2,11 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, userEvent, within } from "storybook/test";
 import { MessageList } from "@/app/components/message-list";
-import { LoginView, SetupView, VerifyView } from "./auth-views";
+import { LoginView, VerifyView } from "./auth-views";
 
 /*
- * The sign-in screens, from auth-views.tsx: the same views the pages render, given made-up values.
+ * The sign-in screen, from auth-views.tsx: the same view the page renders, given made-up values. The
+ * other screens there are in auth-verify.stories.tsx and auth-setup.stories.tsx, each with its own Controls.
  * In the app the forms post to the Worker; here nothing is sent (.storybook/fakes/browser.ts).
  */
 
@@ -19,6 +20,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const SignIn: Story = {};
+
 /** Submitting stays on the story: what was typed is never posted. */
 export const NothingIsSent: Story = {
   play: async ({ canvasElement }) => {
@@ -38,28 +40,11 @@ export const NothingIsSent: Story = {
     }
   },
 };
+
 export const WrongPassword: Story = { args: { err: "Wrong email or password." } };
 export const TimedOut: Story = { args: { err: "Your sign-in timed out. Enter your password again." } };
 export const TooManyCodes: Story = { args: { err: "Too many wrong codes. Enter your password again." } };
 export const SignInOnPhone: Story = { globals: { viewport: { value: "phone" } } };
-
-export const TwoStepCode: StoryObj<typeof VerifyView> = {
-  render: (args) => <VerifyView {...args} />,
-  args: { email: "ada@example.com" },
-};
-export const WrongCode: StoryObj<typeof VerifyView> = {
-  ...TwoStepCode,
-  args: { email: "ada@example.com", err: "That code didn't work. 4 tries left." },
-};
-export const LongEmail: StoryObj<typeof VerifyView> = {
-  ...TwoStepCode,
-  args: { email: "someone.with.a.very.long.address@a-long-subdomain.example-company.com" },
-};
-export const TwoStepOnPhone: StoryObj<typeof VerifyView> = { ...TwoStepCode, globals: { viewport: { value: "phone" } } };
-
-export const FirstRunSetup: StoryObj<typeof SetupView> = { render: (args) => <SetupView {...args} />, args: { hasToken: true } };
-export const SetupWithoutToken: StoryObj<typeof SetupView> = { ...FirstRunSetup, args: { hasToken: false } };
-export const InvalidSetupToken: StoryObj<typeof SetupView> = { ...FirstRunSetup, args: { hasToken: true, err: "Invalid setup token." } };
 
 /* ---------- The whole flow ---------- */
 

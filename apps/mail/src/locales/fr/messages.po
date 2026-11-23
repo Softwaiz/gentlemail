@@ -19,7 +19,7 @@ msgid "thread.cc"
 msgstr ", cc {0}"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:191
+#: src/app/pages/compose.tsx:192
 msgid "settings.preview_message"
 msgstr "…votre message"
 
@@ -358,7 +358,7 @@ msgid "editor.add_link"
 msgstr "Ajouter un lien"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:104
+#: src/app/pages/compose.tsx:105
 msgid "composer.add_signature"
 msgstr "Ajouter la signature"
 
@@ -567,12 +567,12 @@ msgid "developers.http_intro"
 msgstr "URL de base <0>{base}/api/v1</0>. Envoyez la clé comme jeton Bearer."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:92
+#: src/app/pages/compose.tsx:93
 msgid "composer.bcc"
 msgstr "Cci"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:161
+#: src/app/pages/compose.tsx:162
 msgid "settings.blocked"
 msgstr "Expéditeurs bloqués"
 
@@ -611,7 +611,7 @@ msgid "keys.cancel"
 msgstr "Annuler"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:89
+#: src/app/pages/compose.tsx:90
 msgid "composer.cc"
 msgstr "Cc"
 
@@ -1014,7 +1014,7 @@ msgid "editor.formatting"
 msgstr "Mise en forme"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:68
+#: src/app/pages/compose.tsx:69
 msgid "composer.title_forward"
 msgstr "Transférer"
 
@@ -1026,12 +1026,12 @@ msgstr "Transférer"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: original.from_name || original.from_addr
-#: src/app/pages/compose.tsx:115
+#: src/app/pages/compose.tsx:116
 msgid "composer.quote_forward"
 msgstr "Message transféré de {0}, ajouté sous votre texte"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:80
+#: src/app/pages/compose.tsx:81
 msgid "composer.from"
 msgstr "De"
 
@@ -1102,7 +1102,7 @@ msgid "spam.score"
 msgstr "Score de spam élevé ({0})."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:189
+#: src/app/pages/compose.tsx:190
 msgid "settings.preview"
 msgstr "Aperçu"
 
@@ -1183,7 +1183,7 @@ msgid "editor.italic"
 msgstr "Italique"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:185
+#: src/app/pages/compose.tsx:186
 msgid "settings.signature_placeholder"
 msgstr "Jeanne Dupont\n"
 "Acme SARL, https://exemple.com"
@@ -1315,7 +1315,7 @@ msgid "admin.mailbox_saved"
 msgstr "Boîte mail enregistrée."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:175
+#: src/app/pages/compose.tsx:176
 msgid "settings.title"
 msgstr "Réglages de la boîte mail"
 
@@ -1471,7 +1471,7 @@ msgid "keys.name"
 msgstr "Nom"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:177
+#: src/app/pages/compose.tsx:178
 msgid "settings.name_signature"
 msgstr "Nom et signature"
 
@@ -1481,7 +1481,7 @@ msgid "admin.name_before"
 msgstr "Nom avant le @"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:87
+#: src/app/pages/compose.tsx:88
 msgid "composer.to_placeholder"
 msgstr "nom@exemple.com, …"
 
@@ -1526,7 +1526,7 @@ msgid "admin.new_mailbox"
 msgstr "Nouvelle boîte mail"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:69
+#: src/app/pages/compose.tsx:70
 msgid "composer.title_new"
 msgstr "Nouveau message"
 
@@ -1641,7 +1641,7 @@ msgid "developers.no_response"
 msgstr "pas de réponse"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:192
+#: src/app/pages/compose.tsx:193
 msgid "settings.no_signature"
 msgstr "Pas encore de signature"
 
@@ -1667,12 +1667,12 @@ msgid "list.nobody"
 msgstr "personne"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:163
+#: src/app/pages/compose.tsx:164
 msgid "settings.blocked_none"
 msgstr "Personne n'est bloqué."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:169
+#: src/app/pages/compose.tsx:170
 msgid "settings.trusted_none"
 msgstr "Personne n'est encore approuvé."
 
@@ -1759,13 +1759,6 @@ msgstr "Activé"
 #: src/app/components/mfa-panel.tsx:85
 msgid "mfa.on"
 msgstr "Activée"
-
-#. js-lingui-explicit-id
-#. placeholder {0}: formatDate(original.date, true)
-#. placeholder {1}: original.from_name || original.from_addr
-#: src/app/pages/compose.tsx:114
-msgid "composer.quote_reply"
-msgstr "Le {0}, {1} a écrit :"
 
 #. js-lingui-explicit-id
 #: src/app/components/mfa-panel.tsx:85
@@ -1905,7 +1898,7 @@ msgid "admin.plain_text_added_under"
 msgstr "Texte brut, ajouté sous les messages envoyés depuis cette boîte mail."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:184
+#: src/app/pages/compose.tsx:185
 msgid "settings.signature_hint"
 msgstr "Texte brut. Les liens deviennent cliquables à l'envoi."
 
@@ -2000,7 +1993,7 @@ msgid "admin.recipients_see_next_address"
 msgstr "Les destinataires le voient à côté de l'adresse."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:181
+#: src/app/pages/compose.tsx:182
 msgid "settings.sender_name_hint"
 msgstr "Les destinataires le voient à côté de l'adresse."
 
@@ -2025,7 +2018,7 @@ msgid "admin.remove"
 msgstr "Retirer"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:213
+#: src/app/pages/compose.tsx:214
 msgid "common.remove"
 msgstr "Retirer"
 
@@ -2075,7 +2068,7 @@ msgid "domains.remove_body"
 msgstr "Retire {d} de cette application. Les réglages Cloudflare restent tels quels : désactivez aussi le catch-all si le courrier ne doit plus arriver ici."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:66
+#: src/app/pages/compose.tsx:67
 msgid "composer.title_reply"
 msgstr "Répondre"
 
@@ -2174,7 +2167,7 @@ msgstr "Comme l'appareil"
 
 #. js-lingui-explicit-id
 #: src/app/components/rich-editor.tsx:607
-#: src/app/pages/compose.tsx:179
+#: src/app/pages/compose.tsx:180
 msgid "common.save"
 msgstr "Enregistrer"
 
@@ -2299,7 +2292,7 @@ msgid "admin.sender_name"
 msgstr "Nom de l'expéditeur"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:181
+#: src/app/pages/compose.tsx:182
 msgid "settings.sender_name"
 msgstr "Nom de l'expéditeur"
 
@@ -2420,7 +2413,7 @@ msgid "admin.signature"
 msgstr "Signature"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:184
+#: src/app/pages/compose.tsx:185
 msgid "settings.signature"
 msgstr "Signature"
 
@@ -2519,7 +2512,7 @@ msgid "editor.strikethrough"
 msgstr "Barré"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:95
+#: src/app/pages/compose.tsx:96
 msgid "composer.subject"
 msgstr "Objet"
 
@@ -2647,12 +2640,12 @@ msgid "admin.url_must_start_https"
 msgstr "L'URL doit commencer par https://."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:168
+#: src/app/pages/compose.tsx:169
 msgid "settings.trusted_body"
 msgstr "Leur courrier arrive toujours dans la boîte de réception. Ajoutés quand vous indiquez qu'une conversation n'est pas du spam."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:162
+#: src/app/pages/compose.tsx:163
 msgid "settings.blocked_body"
 msgstr "Leur courrier va directement dans les spams. Ajoutés quand vous signalez une conversation comme spam."
 
@@ -2775,7 +2768,7 @@ msgid "mfa.key_hint"
 msgstr "Basée sur l'heure, 6 chiffres. Sur un téléphone, vous pouvez aussi <0>l'ouvrir dans votre application</0>."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:86
+#: src/app/pages/compose.tsx:87
 msgid "composer.to"
 msgstr "À"
 
@@ -2809,7 +2802,7 @@ msgid "action.trash"
 msgstr "Corbeille"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:167
+#: src/app/pages/compose.tsx:168
 msgid "settings.trusted"
 msgstr "Expéditeurs approuvés"
 
@@ -3044,7 +3037,7 @@ msgid "signin.wrong_credentials"
 msgstr "E-mail ou mot de passe incorrect."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:194
+#: src/app/pages/compose.tsx:195
 msgid "settings.signature_optional"
 msgstr "Vous pouvez l'omettre pour n'importe quel message."
 

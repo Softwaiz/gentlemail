@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { missing } from "@/app/pages/errors";
 import type { SenderRule } from "@/lib/spam";
 import { type Mailbox, type MessageRow, getHtmlBody, getMailboxForUser, listAttachments, replyRecipients } from "@/lib/db";
+import { replyIntro } from "@/lib/outbound";
 import { type Addr, formatAddr, formatBytes, formatDate, htmlToText } from "@/lib/util";
 import { t } from "@lingui/core/macro";
 
@@ -111,7 +112,7 @@ export async function ComposePage(ri: RequestInfo) {
           <div className="mx-5 mb-4 max-h-56 overflow-auto border-l-2 border-input pl-4">
             <div className="text-xs text-muted-foreground">
               {mode === "reply"
-                ? t({ id: "composer.quote_reply", message: `On ${formatDate(original.date, true)}, ${original.from_name || original.from_addr} wrote:` })
+                ? <span lang="en">{replyIntro(original)}</span>
                 : t({ id: "composer.quote_forward", message: `Forwarded message from ${original.from_name || original.from_addr}, added below your text` })}
             </div>
             <pre className="mt-1.5 font-sans text-sm whitespace-pre-wrap text-muted-foreground">{quotePreview.slice(0, 2000)}</pre>

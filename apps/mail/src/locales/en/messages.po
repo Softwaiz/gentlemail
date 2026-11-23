@@ -20,7 +20,7 @@ msgid "thread.cc"
 msgstr ", cc {0}"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:191
+#: src/app/pages/compose.tsx:192
 msgid "settings.preview_message"
 msgstr "…your message"
 
@@ -359,7 +359,7 @@ msgid "editor.add_link"
 msgstr "Add link"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:104
+#: src/app/pages/compose.tsx:105
 msgid "composer.add_signature"
 msgstr "Add signature"
 
@@ -568,12 +568,12 @@ msgid "developers.http_intro"
 msgstr "Base URL <0>{base}/api/v1</0>. Send the key as a Bearer token."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:92
+#: src/app/pages/compose.tsx:93
 msgid "composer.bcc"
 msgstr "Bcc"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:161
+#: src/app/pages/compose.tsx:162
 msgid "settings.blocked"
 msgstr "Blocked senders"
 
@@ -612,7 +612,7 @@ msgid "keys.cancel"
 msgstr "Cancel"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:89
+#: src/app/pages/compose.tsx:90
 msgid "composer.cc"
 msgstr "Cc"
 
@@ -1015,7 +1015,7 @@ msgid "editor.formatting"
 msgstr "Formatting"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:68
+#: src/app/pages/compose.tsx:69
 msgid "composer.title_forward"
 msgstr "Forward"
 
@@ -1027,12 +1027,12 @@ msgstr "Forward"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: original.from_name || original.from_addr
-#: src/app/pages/compose.tsx:115
+#: src/app/pages/compose.tsx:116
 msgid "composer.quote_forward"
 msgstr "Forwarded message from {0}, added below your text"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:80
+#: src/app/pages/compose.tsx:81
 msgid "composer.from"
 msgstr "From"
 
@@ -1103,7 +1103,7 @@ msgid "spam.score"
 msgstr "High spam score ({0})."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:189
+#: src/app/pages/compose.tsx:190
 msgid "settings.preview"
 msgstr "How it looks"
 
@@ -1184,7 +1184,7 @@ msgid "editor.italic"
 msgstr "Italic"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:185
+#: src/app/pages/compose.tsx:186
 msgid "settings.signature_placeholder"
 msgstr "Jane Doe\n"
 "Acme Inc., https://example.com"
@@ -1316,7 +1316,7 @@ msgid "admin.mailbox_saved"
 msgstr "Mailbox saved."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:175
+#: src/app/pages/compose.tsx:176
 msgid "settings.title"
 msgstr "Mailbox settings"
 
@@ -1472,7 +1472,7 @@ msgid "keys.name"
 msgstr "Name"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:177
+#: src/app/pages/compose.tsx:178
 msgid "settings.name_signature"
 msgstr "Name and signature"
 
@@ -1482,7 +1482,7 @@ msgid "admin.name_before"
 msgstr "Name before the @"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:87
+#: src/app/pages/compose.tsx:88
 msgid "composer.to_placeholder"
 msgstr "name@example.com, …"
 
@@ -1527,7 +1527,7 @@ msgid "admin.new_mailbox"
 msgstr "New mailbox"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:69
+#: src/app/pages/compose.tsx:70
 msgid "composer.title_new"
 msgstr "New message"
 
@@ -1642,7 +1642,7 @@ msgid "developers.no_response"
 msgstr "no response"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:192
+#: src/app/pages/compose.tsx:193
 msgid "settings.no_signature"
 msgstr "No signature yet"
 
@@ -1668,12 +1668,12 @@ msgid "list.nobody"
 msgstr "nobody"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:163
+#: src/app/pages/compose.tsx:164
 msgid "settings.blocked_none"
 msgstr "Nobody blocked."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:169
+#: src/app/pages/compose.tsx:170
 msgid "settings.trusted_none"
 msgstr "Nobody trusted yet."
 
@@ -1760,13 +1760,6 @@ msgstr "On"
 #: src/app/components/mfa-panel.tsx:85
 msgid "mfa.on"
 msgstr "On"
-
-#. js-lingui-explicit-id
-#. placeholder {0}: formatDate(original.date, true)
-#. placeholder {1}: original.from_name || original.from_addr
-#: src/app/pages/compose.tsx:114
-msgid "composer.quote_reply"
-msgstr "On {0}, {1} wrote:"
 
 #. js-lingui-explicit-id
 #: src/app/components/mfa-panel.tsx:85
@@ -1906,7 +1899,7 @@ msgid "admin.plain_text_added_under"
 msgstr "Plain text, added under messages sent from this mailbox."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:184
+#: src/app/pages/compose.tsx:185
 msgid "settings.signature_hint"
 msgstr "Plain text. Links become clickable when sent."
 
@@ -2001,7 +1994,7 @@ msgid "admin.recipients_see_next_address"
 msgstr "Recipients see it next to the address."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:181
+#: src/app/pages/compose.tsx:182
 msgid "settings.sender_name_hint"
 msgstr "Recipients see this next to the address."
 
@@ -2026,7 +2019,7 @@ msgid "admin.remove"
 msgstr "Remove"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:213
+#: src/app/pages/compose.tsx:214
 msgid "common.remove"
 msgstr "Remove"
 
@@ -2076,7 +2069,7 @@ msgid "domains.remove_body"
 msgstr "Removes {d} from this app. Cloudflare settings stay as they are, so turn off the catch-all too if mail shouldn't reach this app anymore."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:66
+#: src/app/pages/compose.tsx:67
 msgid "composer.title_reply"
 msgstr "Reply"
 
@@ -2175,7 +2168,7 @@ msgstr "Same as device"
 
 #. js-lingui-explicit-id
 #: src/app/components/rich-editor.tsx:607
-#: src/app/pages/compose.tsx:179
+#: src/app/pages/compose.tsx:180
 msgid "common.save"
 msgstr "Save"
 
@@ -2300,7 +2293,7 @@ msgid "admin.sender_name"
 msgstr "Sender name"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:181
+#: src/app/pages/compose.tsx:182
 msgid "settings.sender_name"
 msgstr "Sender name"
 
@@ -2421,7 +2414,7 @@ msgid "admin.signature"
 msgstr "Signature"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:184
+#: src/app/pages/compose.tsx:185
 msgid "settings.signature"
 msgstr "Signature"
 
@@ -2520,7 +2513,7 @@ msgid "editor.strikethrough"
 msgstr "Strikethrough"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:95
+#: src/app/pages/compose.tsx:96
 msgid "composer.subject"
 msgstr "Subject"
 
@@ -2648,12 +2641,12 @@ msgid "admin.url_must_start_https"
 msgstr "The URL must start with https://."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:168
+#: src/app/pages/compose.tsx:169
 msgid "settings.trusted_body"
 msgstr "Their mail always reaches the inbox. Added when you mark a conversation as not spam."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:162
+#: src/app/pages/compose.tsx:163
 msgid "settings.blocked_body"
 msgstr "Their mail goes straight to spam. Added when you mark a conversation as spam."
 
@@ -2776,7 +2769,7 @@ msgid "mfa.key_hint"
 msgstr "Time-based, 6 digits. On a phone, you can also <0>open it in your app</0>."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:86
+#: src/app/pages/compose.tsx:87
 msgid "composer.to"
 msgstr "To"
 
@@ -2810,7 +2803,7 @@ msgid "action.trash"
 msgstr "Trash"
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:167
+#: src/app/pages/compose.tsx:168
 msgid "settings.trusted"
 msgstr "Trusted senders"
 
@@ -3045,7 +3038,7 @@ msgid "signin.wrong_credentials"
 msgstr "Wrong email or password."
 
 #. js-lingui-explicit-id
-#: src/app/pages/compose.tsx:194
+#: src/app/pages/compose.tsx:195
 msgid "settings.signature_optional"
 msgstr "You can leave it out of any single message."
 

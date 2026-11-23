@@ -134,6 +134,13 @@ describe("mail that goes out stays in English", () => {
     });
   }
 
+  test("the composer in French shows the line a reply is sent with", async () => {
+    const html = await (await request("/mb/mb1/compose?reply=m1", { headers: { Cookie: SIGNED_IN } })).text();
+    assert.match(html, /<html[^>]* lang="fr"/);
+    assert.ok(html.includes(`<span lang="en">On ${WHEN}, Ada &lt;ada@elsewhere.test&gt; wrote:</span>`));
+    assert.ok(!html.includes("a écrit"));
+  });
+
   test("an API send with a quote, asked in French", async () => {
     const res = await request("/api/v1/send", {
       method: "POST",

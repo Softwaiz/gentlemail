@@ -49,21 +49,24 @@ export class SendError extends Error {
   }
 }
 
+const quotedSender = (m: MessageRow) => (m.from_name ? `${m.from_name} <${m.from_addr}>` : m.from_addr);
+
+/** The line above a quoted reply, as it is sent: always in English. The composer shows this same line. */
+export const replyIntro = (m: MessageRow) => `On ${mailDate(m.date)}, ${quotedSender(m)} wrote:`;
+
 async function buildQuote(original: MessageRow, mode: "reply" | "forward") {
-  const who = original.from_name ? `${original.from_name} <${original.from_addr}>` : original.from_addr;
-  const when = mailDate(original.date);
   const origHtml = (await getHtmlBody(original)) ?? textToHtml(original.text_body ?? "");
   const origText = original.text_body?.trim() ? original.text_body : htmlToText(origHtml);
 
   if (mode === "forward") {
     const to = parseAddrs(original.to_json).map(formatAddr).join(", ");
-    const header = `---------- Forwarded message ----------\nFrom: ${who}\nDate: ${when}\nSubject: ${original.subject}\nTo: ${to}`;
+    const header = `---------- Forwarded message ----------\nFrom: ${quotedSender(original)}\nDate: ${mailDate(original.date)}\nSubject: ${original.subject}\nTo: ${to}`;
     return {
       text: `\n\n${header}\n\n${origText}`,
       html: `<br><br><div>${textToHtml(header)}</div><br>${origHtml}`,
     };
   }
-  const intro = `On ${when}, ${who} wrote:`;
+  const intro = replyIntro(original);
   return {
     text: `\n\n${intro}\n${origText.split("\n").map((l) => `> ${l}`).join("\n")}`,
     html: `<br><br><div>${escapeHtml(intro)}</div><blockquote style="margin:0 0 0 .8ex;border-left:1px solid #ccc;padding-left:1ex">${origHtml}</blockquote>`,

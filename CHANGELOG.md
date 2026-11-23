@@ -10,6 +10,8 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 
 ## Unreleased
 
+## 0.7.0 (2026-11-23)
+
 ### Added
 - Formatting in the webmail composer: bold, italic, underline, strikethrough, subscript, superscript, links, bulleted and numbered lists, quotes and inline code, from a toolbar or keyboard shortcuts (Ctrl/⌘ B, I, U, K…). Messages go out as HTML with a matching plain-text part. Only this formatting is sent, whatever the page posts. ([#32](https://github.com/Softwaiz/gentlemail/pull/32))
 - Password fields (sign-in, first-run setup, adding a user) have a button on the right to show or hide what you typed. The password is hidden again when the form is sent. ([#37](https://github.com/Softwaiz/gentlemail/pull/37))

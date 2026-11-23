@@ -2,7 +2,7 @@ import { defineConfig } from "@lingui/cli";
 
 export default defineConfig({
   sourceLocale: "en",
-  // English only for now; a language is added here and as a catalog (src/locales/<locale>/messages.po).
+  // A language is added here, as a catalog (src/locales/<locale>/messages.po) and in src/lib/i18n.ts.
   locales: ["en", "fr"],
   catalogs: [{ path: "<rootDir>/src/locales/{locale}/messages", include: ["src"] }],
   // `npm run i18n` writes messages.ts next to each messages.po: the app imports those, so the

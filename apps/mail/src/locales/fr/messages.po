@@ -64,7 +64,7 @@ msgstr "{0, plural, one {# domaine} other {# domaines}}"
 #. placeholder {0}: mailboxes.length
 #: src/app/pages/admin.tsx:124
 #: src/app/pages/admin.tsx:311
-#: src/app/pages/domains.tsx:47
+#: src/app/pages/domains.tsx:51
 msgid "admin.count_mailboxes"
 msgstr "{0, plural, one {# boîte mail} other {# boîtes mail}}"
 
@@ -106,7 +106,7 @@ msgstr "{0, plural, one {#+ conversation} other {#+ conversations}}"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: mailboxes.length
-#: src/app/pages/domains.tsx:229
+#: src/app/pages/domains.tsx:233
 msgid "domains.delete_mailboxes_first"
 msgstr "{0, plural, one {Supprimez d'abord sa boîte mail.} other {Supprimez d'abord ses # boîtes mail.}}"
 
@@ -188,14 +188,14 @@ msgid "shell.unread_count"
 msgstr "{count, plural, one {# non lu} other {# non lus}}"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:158
+#: src/app/pages/domains.tsx:162
 msgid "domains.active_label"
 msgstr "{d} actif"
 
 #. js-lingui-explicit-id
 #: src/app/pages/mailbox.tsx:137
 msgid "mailbox.empty"
-msgstr "{label} est vide"
+msgstr "Aucune conversation dans « {label} »."
 
 #. js-lingui-explicit-id
 #: src/app/components/key-dialog.tsx:100
@@ -315,7 +315,8 @@ msgid "admin.active"
 msgstr "Active"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:159
+#: src/app/pages/domains.tsx:45
+#: src/app/pages/domains.tsx:163
 msgid "domains.active"
 msgstr "Actif"
 
@@ -391,7 +392,7 @@ msgid "admin.admin"
 msgstr "Administration"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:156
+#: src/app/pages/domains.tsx:160
 msgid "domains.admin"
 msgstr "Administration"
 
@@ -475,7 +476,7 @@ msgid "oauth.allow"
 msgstr "Autoriser"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:138
+#: src/app/pages/domains.tsx:142
 msgid "domains.allow_sending"
 msgstr "Autoriser l'envoi depuis *@{d}"
 
@@ -620,7 +621,7 @@ msgid "admin.changing_password_signs_them"
 msgstr "Changer le mot de passe le déconnecte sur ses autres appareils."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:118
+#: src/app/pages/domains.tsx:122
 msgid "domains.state_warn"
 msgstr "À vérifier"
 
@@ -680,7 +681,7 @@ msgid "oauth.title"
 msgstr "Connecter un assistant"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:177
+#: src/app/pages/domains.tsx:181
 msgid "domains.connect_domain"
 msgstr "Connecter ce domaine"
 
@@ -803,7 +804,7 @@ msgid "developers.deleted_mailbox"
 msgstr "boîte mail supprimée"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:141
+#: src/app/pages/domains.tsx:145
 msgid "domains.deliver_every_address_app"
 msgstr "Distribuer toutes les adresses à cette application"
 
@@ -816,6 +817,11 @@ msgstr "Livré."
 #: src/app/pages/admin.tsx:398
 msgid "admin.details"
 msgstr "Informations"
+
+#. js-lingui-explicit-id
+#: src/app/pages/domains.tsx:46
+msgid "domains.disabled"
+msgstr "Désactivé"
 
 #. js-lingui-explicit-id
 #: src/app/components/section.tsx:54
@@ -845,7 +851,7 @@ msgid "connections.done"
 msgstr "Déconnecté. L'assistant est refusé dès sa prochaine requête."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:164
+#: src/app/pages/domains.tsx:168
 msgid "domains.dns_status"
 msgstr "État DNS"
 
@@ -1132,7 +1138,7 @@ msgid "thread.in_spam"
 msgstr "Dans les spams : {0}"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:145
+#: src/app/pages/domains.tsx:149
 msgid "domains.catch_all_steps"
 msgstr "Dans le tableau de bord Cloudflare, ouvrez {d}, puis Email, puis Email Routing, puis Routing rules. Modifiez le catch-all : action <0>Send to a Worker</0>, Worker <1>{worker}</1>, activé."
 
@@ -1240,7 +1246,7 @@ msgid "editor.link_address"
 msgstr "Adresse du lien"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:164
+#: src/app/pages/domains.tsx:168
 msgid "domains.live_lookup_public_dns"
 msgstr "Consultation en direct du DNS public. Rechargez la page après une modification."
 
@@ -1267,7 +1273,7 @@ msgid "setup.email"
 msgstr "E-mail de connexion"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:80
+#: src/app/pages/domains.tsx:84
 msgid "domains.lookup_failed"
 msgstr "Échec de la consultation"
 
@@ -1288,7 +1294,7 @@ msgid "admin.mail_address_shows_up"
 msgstr "Le courrier envoyé à cette adresse apparaît ici dès sa création."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:243
+#: src/app/pages/domains.tsx:247
 msgid "domains.mail_domain_rejected_from"
 msgstr "Le courrier envoyé à ce domaine est refusé dès maintenant. Vous pourrez l'ajouter de nouveau plus tard."
 
@@ -1330,7 +1336,7 @@ msgid "keys.mailboxes"
 msgstr "Boîtes mail"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:209
+#: src/app/pages/domains.tsx:213
 msgid "domains.mailboxes_on"
 msgstr "Boîtes mail sur {d}"
 
@@ -1409,13 +1415,13 @@ msgid "admin.messages"
 msgstr "Messages"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:119
+#: src/app/pages/domains.tsx:123
 msgid "domains.state_missing"
 msgstr "Absent"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: hosts.join(", ")
-#: src/app/pages/domains.tsx:89
+#: src/app/pages/domains.tsx:93
 msgid "domains.mixed_mx"
 msgstr "Enregistrements MX mélangés : {0}"
 
@@ -1443,7 +1449,7 @@ msgstr "Doit être en https. Nous y envoyons (POST) chaque événement."
 
 #. js-lingui-explicit-id
 #. placeholder {0}: hosts.join(", ")
-#: src/app/pages/domains.tsx:90
+#: src/app/pages/domains.tsx:94
 msgid "domains.mx_elsewhere"
 msgstr "Les MX pointent ailleurs : {0}"
 
@@ -1579,7 +1585,7 @@ msgid "connections.none"
 msgstr "Aucun assistant connecté pour l'instant."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:103
+#: src/app/pages/domains.tsx:107
 msgid "domains.no_dmarc"
 msgstr "Aucun enregistrement DMARC. Recommandé pour la délivrabilité."
 
@@ -1625,7 +1631,7 @@ msgid "developers.no_more_events_are"
 msgstr "Plus aucun événement n'est envoyé à cette URL, et l'historique des envois est supprimé."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:87
+#: src/app/pages/domains.tsx:91
 msgid "domains.no_mx"
 msgstr "Aucun enregistrement MX. Activez Email Routing."
 
@@ -1640,7 +1646,7 @@ msgid "settings.no_signature"
 msgstr "Pas encore de signature"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:94
+#: src/app/pages/domains.tsx:98
 msgid "domains.no_spf"
 msgstr "Aucun enregistrement SPF."
 
@@ -1676,7 +1682,7 @@ msgid "developers.none"
 msgstr "Aucun"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:211
+#: src/app/pages/domains.tsx:215
 msgid "domains.none_yet_create_one"
 msgstr "Aucune pour l'instant. Créez-en une depuis Administration, puis Boîtes mail."
 
@@ -1729,7 +1735,7 @@ msgid "admin.require_off"
 msgstr "Désactivé : chacun peut toujours l'activer pour soi dans Sécurité."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:117
+#: src/app/pages/domains.tsx:121
 msgid "domains.state_ok"
 msgstr "OK"
 
@@ -1960,7 +1966,7 @@ msgid "developers.reading_needs_key_read"
 msgstr "La lecture demande une clé avec l'autorisation Lire sur cette boîte mail, marquer et déplacer demandent Organiser, et envoyer demande Envoyer."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:139
+#: src/app/pages/domains.tsx:143
 msgid "domains.receive_mail_adds_mx"
 msgstr "Recevoir le courrier (ajoute les enregistrements MX et SPF)"
 
@@ -1975,11 +1981,11 @@ msgid "auth.pitch"
 msgstr "Recevez, lisez et répondez au courrier de tous vos domaines au même endroit. Vos messages restent sur votre propre compte Cloudflare."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:84
-#: src/app/pages/domains.tsx:87
 #: src/app/pages/domains.tsx:88
-#: src/app/pages/domains.tsx:89
-#: src/app/pages/domains.tsx:90
+#: src/app/pages/domains.tsx:91
+#: src/app/pages/domains.tsx:92
+#: src/app/pages/domains.tsx:93
+#: src/app/pages/domains.tsx:94
 msgid "domains.receiving_mx"
 msgstr "Réception (MX)"
 
@@ -2030,18 +2036,18 @@ msgid "admin.remove_title"
 msgstr "Retirer {0} ?"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:241
+#: src/app/pages/domains.tsx:245
 msgid "domains.remove_named"
 msgstr "Retirer {d}"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:242
+#: src/app/pages/domains.tsx:246
 msgid "domains.remove_title"
 msgstr "Retirer {d} ?"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:226
-#: src/app/pages/domains.tsx:244
+#: src/app/pages/domains.tsx:230
+#: src/app/pages/domains.tsx:248
 msgid "domains.remove_domain"
 msgstr "Retirer le domaine"
 
@@ -2064,7 +2070,7 @@ msgid "admin.remove_user"
 msgstr "Retirer l'utilisateur"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:234
+#: src/app/pages/domains.tsx:238
 msgid "domains.remove_body"
 msgstr "Retire {d} de cette application. Les réglages Cloudflare restent tels quels : désactivez aussi le catch-all si le courrier ne doit plus arriver ici."
 
@@ -2147,12 +2153,12 @@ msgid "admin.role"
 msgstr "Rôle"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:201
+#: src/app/pages/domains.tsx:205
 msgid "domains.rules_priority"
 msgstr "Les règles propres à une adresse, comme un transfert vers Gmail, restent prioritaires sur le catch-all. Le courrier envoyé à une adresse sans boîte mail ici est refusé."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:178
+#: src/app/pages/domains.tsx:182
 msgid "domains.run_once_from_apps"
 msgstr "À lancer une fois, depuis apps/mail, connecté au compte Cloudflare qui détient la zone."
 
@@ -2359,7 +2365,7 @@ msgid "setup.title_no_token"
 msgstr "Configuration"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:49
+#: src/app/pages/domains.tsx:53
 msgid "domains.setup_status"
 msgstr "Configuration et état"
 
@@ -2477,7 +2483,7 @@ msgid "mailbox.spam_note"
 msgstr "Les spams sont supprimés automatiquement au bout de {SPAM_RETENTION_DAYS} jours. Marquer une conversation « Pas du spam » garde désormais cet expéditeur dans votre boîte de réception."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:97
+#: src/app/pages/domains.tsx:101
 msgid "domains.spf_no_cf"
 msgstr "Le SPF n'inclut pas Cloudflare : {spf}"
 
@@ -2573,7 +2579,7 @@ msgstr "Ça n'a pas fonctionné. Vérifiez votre connexion et réessayez."
 #. js-lingui-explicit-id
 #: src/app/actions/admin.ts:54
 msgid "admin.doesnt_look_like_domain"
-msgstr "Ce n'est pas un nom de domaine valide, par exemple acme.com."
+msgstr "Ce n'est pas un nom de domaine valide. Exemple : acme.com."
 
 #. js-lingui-explicit-id
 #: src/app/actions/admin.ts:93
@@ -2834,7 +2840,7 @@ msgid "mfa.turn_on_first"
 msgstr "Activez d'abord la validation en deux étapes."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:159
+#: src/app/pages/domains.tsx:163
 msgid "domains.turned_off"
 msgstr "Désactivé"
 
@@ -2907,7 +2913,7 @@ msgid "editor.underline"
 msgstr "Souligné"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:120
+#: src/app/pages/domains.tsx:124
 msgid "domains.state_error"
 msgstr "Inconnu"
 

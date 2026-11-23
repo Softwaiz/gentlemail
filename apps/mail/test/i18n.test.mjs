@@ -2,9 +2,10 @@
 // key has its English and French text. Run with `npm test`; `npm run i18n` updates the catalogs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { createCompiledCatalog } from "@lingui/cli/api";
+import { createRequire } from "node:module";
+import { createCompiledCatalog, getCatalogs } from "@lingui/cli/api";
 
 const root = new URL("../src/", import.meta.url).pathname;
 
@@ -27,8 +28,9 @@ function catalog(locale) {
   return out;
 }
 
-// What the webmail shows is in src/app; the API, MCP and the shadcn primitives stay English.
-const screens = files(join(root, "app")).filter((f) => f.endsWith(".tsx") && !f.includes("/components/ui/"));
+// What the webmail shows is in src/app; the API, MCP and the shadcn primitives stay English,
+// and Storybook stories are for developers.
+const screens = files(join(root, "app")).filter((f) => f.endsWith(".tsx") && !f.endsWith(".stories.tsx") && !f.includes("/components/ui/"));
 
 // Text that is the same in every language: names, code and examples of code.
 const ALLOWED = new Set(["SPF", "DMARC", "HTTP", "GentleMail", "npm install gentlemail", "English", "Français"]);
@@ -58,16 +60,23 @@ test("no text is written straight in a page or component", () => {
   assert.deepEqual(found, [], `Put these in t({ id, message }) or <Trans id>:\n${found.join("\n")}`);
 });
 
-test("every key used in the code is in the English catalog", () => {
-  const en = catalog("en");
-  const missing = [];
-  for (const file of files(root)) {
-    for (const m of readFileSync(file, "utf8").matchAll(/\b(?:t|msg)\(\{\s*id: "([^"]+)"|<Trans id="([^"]+)"/g)) {
-      const key = m[1] ?? m[2];
-      if (!en.has(key)) missing.push(`${relative(root, file)}: ${key}`);
-    }
+// Extracted from the code as `npm run i18n` does, without writing anything: keys and texts, with
+// plurals, values and <Trans> markup.
+test("the English catalog has exactly the keys and words in the code", async () => {
+  // Lingui's own config reader: a dependency of its CLI, not of the app.
+  const { getConfig } = createRequire(realpathSync(new URL("../node_modules/@lingui/cli/package.json", import.meta.url)))("@lingui/conf");
+  const [source] = await getCatalogs(getConfig({ cwd: new URL("..", import.meta.url).pathname }));
+  const extracted = await source.collect();
+  assert.ok(extracted, "Lingui couldn't read the code");
+  const code = new Map(Object.entries(extracted).map(([key, { message }]) => [key, message]));
+  const en = new Map([...catalog("en")].map(([key, text]) => [key, JSON.parse(`"${text}"`)]));
+  const problems = [];
+  for (const [key, message] of code) {
+    if (!en.has(key)) problems.push(`${key}: not in the catalog`);
+    else if (en.get(key) !== message) problems.push(`${key}: "${en.get(key)}" in the catalog, "${message}" in the code`);
   }
-  assert.deepEqual(missing, [], `Run npm run i18n to update the catalogs:\n${missing.join("\n")}`);
+  for (const key of en.keys()) if (!code.has(key)) problems.push(`${key}: no longer in the code`);
+  assert.deepEqual(problems, [], `Run npm run i18n to update the catalogs:\n${problems.join("\n")}`);
 });
 
 test("every English key is translated into French, with the same placeholders", () => {
@@ -91,15 +100,4 @@ test("the compiled catalogs the app uses match the .po files", () => {
     const built = readFileSync(join(root, `locales/${locale}/messages.ts`), "utf8");
     assert.ok(built === source, `Run npm run i18n: src/locales/${locale}/messages.ts is out of date`);
   }
-});
-
-test("the English catalog has the words written in the code", () => {
-  const en = catalog("en");
-  const stale = [];
-  for (const file of files(root)) {
-    for (const m of readFileSync(file, "utf8").matchAll(/\b(?:t|msg)\(\{\s*id: "([^"]+)",\s*message:\s*("(?:[^"\\]|\\.)*")/g)) {
-      if (en.has(m[1]) && JSON.parse(`"${en.get(m[1])}"`) !== JSON.parse(m[2])) stale.push(`${relative(root, file)}: ${m[1]}`);
-    }
-  }
-  assert.deepEqual(stale, [], `Run npm run i18n to update the catalogs:\n${stale.join("\n")}`);
 });

@@ -7,6 +7,8 @@ import { type I18n, type Messages, setupI18n } from "@lingui/core";
 import { messages as en } from "@/locales/en/messages";
 import { messages as fr } from "@/locales/fr/messages";
 
+// Every catalog listed here is in the browser bundle (about 11 KB gzipped each). Fine for two: before
+// adding a third, load only the page's language in the browser.
 export const LOCALES = ["en", "fr"] as const;
 export type Locale = (typeof LOCALES)[number];
 const CATALOGS: Record<Locale, Messages> = { en, fr };

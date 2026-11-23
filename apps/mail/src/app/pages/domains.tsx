@@ -40,7 +40,11 @@ export function DomainsGrid({ domains }: { domains: DomainWithCount[] }) {
           >
             <div className="flex items-start justify-between gap-2">
               <span className="truncate text-[15px] font-semibold tracking-[-0.01em]">{d.name}</span>
-              <StatusBadge on={!!d.active} />
+              <StatusBadge
+                on={!!d.active}
+                onLabel={t({ id: "domains.active", message: "Active" })}
+                offLabel={t({ id: "domains.disabled", message: "Disabled" })}
+              />
             </div>
             <div className="flex items-end justify-between text-sm text-muted-foreground">
               <span>

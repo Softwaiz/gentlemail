@@ -65,7 +65,7 @@ msgstr "{0, plural, one {# domain} other {# domains}}"
 #. placeholder {0}: mailboxes.length
 #: src/app/pages/admin.tsx:124
 #: src/app/pages/admin.tsx:311
-#: src/app/pages/domains.tsx:47
+#: src/app/pages/domains.tsx:51
 msgid "admin.count_mailboxes"
 msgstr "{0, plural, one {# mailbox} other {# mailboxes}}"
 
@@ -107,7 +107,7 @@ msgstr "{0, plural, one {#+ conversation} other {#+ conversations}}"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: mailboxes.length
-#: src/app/pages/domains.tsx:229
+#: src/app/pages/domains.tsx:233
 msgid "domains.delete_mailboxes_first"
 msgstr "{0, plural, one {Delete its # mailbox first.} other {Delete its # mailboxes first.}}"
 
@@ -189,7 +189,7 @@ msgid "shell.unread_count"
 msgstr "{count, plural, one {# unread} other {# unread}}"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:158
+#: src/app/pages/domains.tsx:162
 msgid "domains.active_label"
 msgstr "{d} active"
 
@@ -316,7 +316,8 @@ msgid "admin.active"
 msgstr "Active"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:159
+#: src/app/pages/domains.tsx:45
+#: src/app/pages/domains.tsx:163
 msgid "domains.active"
 msgstr "Active"
 
@@ -392,7 +393,7 @@ msgid "admin.admin"
 msgstr "Admin"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:156
+#: src/app/pages/domains.tsx:160
 msgid "domains.admin"
 msgstr "Admin"
 
@@ -476,7 +477,7 @@ msgid "oauth.allow"
 msgstr "Allow"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:138
+#: src/app/pages/domains.tsx:142
 msgid "domains.allow_sending"
 msgstr "Allow sending from *@{d}"
 
@@ -621,7 +622,7 @@ msgid "admin.changing_password_signs_them"
 msgstr "Changing the password signs them out on other devices."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:118
+#: src/app/pages/domains.tsx:122
 msgid "domains.state_warn"
 msgstr "Check"
 
@@ -681,7 +682,7 @@ msgid "oauth.title"
 msgstr "Connect an assistant"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:177
+#: src/app/pages/domains.tsx:181
 msgid "domains.connect_domain"
 msgstr "Connect this domain"
 
@@ -804,7 +805,7 @@ msgid "developers.deleted_mailbox"
 msgstr "deleted mailbox"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:141
+#: src/app/pages/domains.tsx:145
 msgid "domains.deliver_every_address_app"
 msgstr "Deliver every address to this app"
 
@@ -817,6 +818,11 @@ msgstr "Delivered."
 #: src/app/pages/admin.tsx:398
 msgid "admin.details"
 msgstr "Details"
+
+#. js-lingui-explicit-id
+#: src/app/pages/domains.tsx:46
+msgid "domains.disabled"
+msgstr "Disabled"
 
 #. js-lingui-explicit-id
 #: src/app/components/section.tsx:54
@@ -846,7 +852,7 @@ msgid "connections.done"
 msgstr "Disconnected. The assistant is refused from its next request."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:164
+#: src/app/pages/domains.tsx:168
 msgid "domains.dns_status"
 msgstr "DNS status"
 
@@ -1133,7 +1139,7 @@ msgid "thread.in_spam"
 msgstr "In spam: {0}"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:145
+#: src/app/pages/domains.tsx:149
 msgid "domains.catch_all_steps"
 msgstr "In the Cloudflare dashboard, open {d}, then Email, then Email Routing, then Routing rules. Edit the catch-all: action <0>Send to a Worker</0>, Worker <1>{worker}</1>, enabled."
 
@@ -1241,7 +1247,7 @@ msgid "editor.link_address"
 msgstr "Link address"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:164
+#: src/app/pages/domains.tsx:168
 msgid "domains.live_lookup_public_dns"
 msgstr "Live lookup of public DNS. Refresh the page after a change."
 
@@ -1268,7 +1274,7 @@ msgid "setup.email"
 msgstr "Login email"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:80
+#: src/app/pages/domains.tsx:84
 msgid "domains.lookup_failed"
 msgstr "Lookup failed"
 
@@ -1289,7 +1295,7 @@ msgid "admin.mail_address_shows_up"
 msgstr "Mail to this address shows up here as soon as it's created."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:243
+#: src/app/pages/domains.tsx:247
 msgid "domains.mail_domain_rejected_from"
 msgstr "Mail to this domain is rejected from now on. You can add it again later."
 
@@ -1331,7 +1337,7 @@ msgid "keys.mailboxes"
 msgstr "Mailboxes"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:209
+#: src/app/pages/domains.tsx:213
 msgid "domains.mailboxes_on"
 msgstr "Mailboxes on {d}"
 
@@ -1410,13 +1416,13 @@ msgid "admin.messages"
 msgstr "Messages"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:119
+#: src/app/pages/domains.tsx:123
 msgid "domains.state_missing"
 msgstr "Missing"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: hosts.join(", ")
-#: src/app/pages/domains.tsx:89
+#: src/app/pages/domains.tsx:93
 msgid "domains.mixed_mx"
 msgstr "Mixed MX records: {0}"
 
@@ -1444,7 +1450,7 @@ msgstr "Must be https. We POST each event here."
 
 #. js-lingui-explicit-id
 #. placeholder {0}: hosts.join(", ")
-#: src/app/pages/domains.tsx:90
+#: src/app/pages/domains.tsx:94
 msgid "domains.mx_elsewhere"
 msgstr "MX points elsewhere: {0}"
 
@@ -1580,7 +1586,7 @@ msgid "connections.none"
 msgstr "No assistant connected yet."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:103
+#: src/app/pages/domains.tsx:107
 msgid "domains.no_dmarc"
 msgstr "No DMARC record. Recommended for deliverability."
 
@@ -1626,7 +1632,7 @@ msgid "developers.no_more_events_are"
 msgstr "No more events are sent to this URL, and the delivery history is removed."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:87
+#: src/app/pages/domains.tsx:91
 msgid "domains.no_mx"
 msgstr "No MX records. Enable Email Routing."
 
@@ -1641,7 +1647,7 @@ msgid "settings.no_signature"
 msgstr "No signature yet"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:94
+#: src/app/pages/domains.tsx:98
 msgid "domains.no_spf"
 msgstr "No SPF record."
 
@@ -1677,7 +1683,7 @@ msgid "developers.none"
 msgstr "None"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:211
+#: src/app/pages/domains.tsx:215
 msgid "domains.none_yet_create_one"
 msgstr "None yet. Create one from Admin, then Mailboxes."
 
@@ -1730,7 +1736,7 @@ msgid "admin.require_off"
 msgstr "Off: each person can still turn it on for themselves in Security."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:117
+#: src/app/pages/domains.tsx:121
 msgid "domains.state_ok"
 msgstr "OK"
 
@@ -1961,7 +1967,7 @@ msgid "developers.reading_needs_key_read"
 msgstr "Reading needs a key with the Read permission on that mailbox, marking and moving needs Organize, and sending needs Send."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:139
+#: src/app/pages/domains.tsx:143
 msgid "domains.receive_mail_adds_mx"
 msgstr "Receive mail (adds MX and SPF records)"
 
@@ -1976,11 +1982,11 @@ msgid "auth.pitch"
 msgstr "Receive, read and answer mail for all your domains in one place. Your messages stay on your own Cloudflare account."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:84
-#: src/app/pages/domains.tsx:87
 #: src/app/pages/domains.tsx:88
-#: src/app/pages/domains.tsx:89
-#: src/app/pages/domains.tsx:90
+#: src/app/pages/domains.tsx:91
+#: src/app/pages/domains.tsx:92
+#: src/app/pages/domains.tsx:93
+#: src/app/pages/domains.tsx:94
 msgid "domains.receiving_mx"
 msgstr "Receiving (MX)"
 
@@ -2031,18 +2037,18 @@ msgid "admin.remove_title"
 msgstr "Remove {0}?"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:241
+#: src/app/pages/domains.tsx:245
 msgid "domains.remove_named"
 msgstr "Remove {d}"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:242
+#: src/app/pages/domains.tsx:246
 msgid "domains.remove_title"
 msgstr "Remove {d}?"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:226
-#: src/app/pages/domains.tsx:244
+#: src/app/pages/domains.tsx:230
+#: src/app/pages/domains.tsx:248
 msgid "domains.remove_domain"
 msgstr "Remove domain"
 
@@ -2065,7 +2071,7 @@ msgid "admin.remove_user"
 msgstr "Remove user"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:234
+#: src/app/pages/domains.tsx:238
 msgid "domains.remove_body"
 msgstr "Removes {d} from this app. Cloudflare settings stay as they are, so turn off the catch-all too if mail shouldn't reach this app anymore."
 
@@ -2148,12 +2154,12 @@ msgid "admin.role"
 msgstr "Role"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:201
+#: src/app/pages/domains.tsx:205
 msgid "domains.rules_priority"
 msgstr "Rules for a specific address, such as a forward to Gmail, still take priority over the catch-all. Mail to an address with no mailbox here is rejected."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:178
+#: src/app/pages/domains.tsx:182
 msgid "domains.run_once_from_apps"
 msgstr "Run once, from apps/mail, logged in to the Cloudflare account that owns the zone."
 
@@ -2360,7 +2366,7 @@ msgid "setup.title_no_token"
 msgstr "Setup"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:49
+#: src/app/pages/domains.tsx:53
 msgid "domains.setup_status"
 msgstr "Setup and status"
 
@@ -2478,7 +2484,7 @@ msgid "mailbox.spam_note"
 msgstr "Spam is deleted automatically after {SPAM_RETENTION_DAYS} days. Marking a conversation “Not spam” keeps that sender in your inbox from now on."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:97
+#: src/app/pages/domains.tsx:101
 msgid "domains.spf_no_cf"
 msgstr "SPF doesn't include Cloudflare: {spf}"
 
@@ -2835,7 +2841,7 @@ msgid "mfa.turn_on_first"
 msgstr "Turn on two-step verification first."
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:159
+#: src/app/pages/domains.tsx:163
 msgid "domains.turned_off"
 msgstr "Turned off"
 
@@ -2908,7 +2914,7 @@ msgid "editor.underline"
 msgstr "Underline"
 
 #. js-lingui-explicit-id
-#: src/app/pages/domains.tsx:120
+#: src/app/pages/domains.tsx:124
 msgid "domains.state_error"
 msgstr "Unknown"
 

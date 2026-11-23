@@ -2,6 +2,7 @@
 
 import { KeyRound, Languages, LogOut, Monitor, Moon, Shield, Sun } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
 import { THEME_COOKIE, THEMES, type Theme } from "@/lib/theme";
-import { LOCALE_COOKIE, LOCALE_NAMES, LOCALES, type Locale, i18n } from "@/lib/i18n";
+import { LOCALE_NAMES, LOCALES, type Locale, i18n } from "@/lib/i18n";
 import { setLanguageAction } from "@/app/actions/language";
 import { msg, t } from "@lingui/core/macro";
 
@@ -23,16 +24,17 @@ const themeLabel = {
   system: { label: msg({ id: "menu.theme_system", message: "Same as device" }), Icon: Monitor },
 } as const;
 
-/** Saved on the account (every device follows it) and in this browser's cookie, then the page reloads in it. */
+/**
+ * Saved on the account (every device follows it); the server sets this device's cookie once it is.
+ * Then the page reloads in it. If it couldn't be saved, nothing changes and an error says so.
+ */
 async function applyLanguage(language: Locale | null) {
-  const secure = location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = language
-    ? `${LOCALE_COOKIE}=${language}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`
-    : `${LOCALE_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
   try {
-    await setLanguageAction(language);
-  } finally {
-    location.reload();
+    const r = await setLanguageAction(language);
+    if (r?.ok) return location.reload();
+    toast.error(r?.error ?? t({ id: "common.failed_connection", message: "That didn't work. Check your connection and try again." }));
+  } catch {
+    toast.error(t({ id: "common.failed_connection", message: "That didn't work. Check your connection and try again." }));
   }
 }
 

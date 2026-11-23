@@ -17,7 +17,7 @@ import { isMfaRequired } from "@/lib/mfa";
 import { FormSelect } from "@/app/components/form-select";
 import { cn } from "@/lib/utils";
 import { Field, Section, StatusBadge, cardRow, cardTable, cardTableHeader } from "@/app/components/section";
-import { PageHeader, Shell, flashFrom } from "@/app/components/shell";
+import { PageHeader, Shell } from "@/app/components/shell";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { Input } from "@/app/components/ui/input";
@@ -68,7 +68,7 @@ function CheckList({
 
 /* ---------- Overview: domains, mailboxes, users ---------- */
 
-export async function AdminPage({ ctx, request }: RequestInfo) {
+export async function AdminPage({ ctx }: RequestInfo) {
   const user = ctx.user!;
   const [{ results: mailboxes }, { results: users }, { results: members }, domains, mfaRequired] = await Promise.all([
     env.DB.prepare(
@@ -116,7 +116,7 @@ export async function AdminPage({ ctx, request }: RequestInfo) {
   );
 
   return (
-    <Shell user={user} folder="admin" flash={flashFrom(request)}>
+    <Shell user={user} folder="admin">
       <PageHeader
         title={t({ id: "admin.admin", message: "Admin" })}
         sub={[
@@ -369,7 +369,7 @@ export async function AdminPage({ ctx, request }: RequestInfo) {
 /* ---------- Single mailbox ---------- */
 
 export async function AdminMailboxPage(ri: RequestInfo) {
-  const { params, ctx, request } = ri;
+  const { params, ctx } = ri;
   const mailbox = await env.DB.prepare("SELECT * FROM mailboxes WHERE id = ?").bind(params.id).first<Mailbox>();
   if (!mailbox) return missing(ri, "mailbox");
   const { results: users } = await env.DB.prepare(
@@ -382,7 +382,7 @@ export async function AdminMailboxPage(ri: RequestInfo) {
   const domain = await env.DB.prepare("SELECT id FROM domains WHERE name = ?").bind(domainOf(mailbox.address)).first<{ id: string }>();
 
   return (
-    <Shell user={ctx.user!} folder="admin" flash={flashFrom(request)}>
+    <Shell user={ctx.user!} folder="admin">
       <PageHeader title={mailbox.display_name} back={{ href: "/admin", label: t({ id: "admin.admin", message: "Admin" }) }} sub={mailbox.address}>
         {domain && (
           <Button variant="outline" asChild>

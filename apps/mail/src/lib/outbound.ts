@@ -8,8 +8,8 @@ import {
   byteLength,
   escapeHtml,
   formatAddr,
-  formatDate,
   htmlToText,
+  mailDate,
   makeSnippet,
   newId,
   now,
@@ -51,7 +51,7 @@ export class SendError extends Error {
 
 async function buildQuote(original: MessageRow, mode: "reply" | "forward") {
   const who = original.from_name ? `${original.from_name} <${original.from_addr}>` : original.from_addr;
-  const when = formatDate(original.date, true);
+  const when = mailDate(original.date);
   const origHtml = (await getHtmlBody(original)) ?? textToHtml(original.text_body ?? "");
   const origText = original.text_body?.trim() ? original.text_body : htmlToText(origHtml);
 

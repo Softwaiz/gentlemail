@@ -2,7 +2,7 @@ import { WorkerEntrypoint } from "cloudflare:workers";
 import { render, route } from "rwsdk/router";
 import { defineApp, requestInfo, type RequestInfo } from "rwsdk/worker";
 import type { I18n } from "@lingui/core";
-import { chooseLocale, createI18n, followRequestI18n, localeCookie, localeFromCookie } from "@/lib/i18n";
+import { chooseLocale, createI18n, followRequestI18n, isLocale, localeCookie, localeFromCookie } from "@/lib/i18n";
 
 import { Document } from "@/app/document";
 import { setCommonHeaders } from "@/app/headers";
@@ -60,13 +60,13 @@ const app = defineApp([
   checkOrigin,
   async ({ ctx, request, response }) => {
     ctx.user = await getUserFromRequest(request);
-    const locale = chooseLocale(ctx.user?.language, request);
-    ctx.i18n = createI18n(locale);
-    // Signed in on a new device: remember the account's language here, so this device's
-    // sign-in page is in it too next time. Page loads only: a request that changes the
-    // language (the user menu) sets the cookie itself.
-    if (request.method === "GET" && ctx.user?.language && localeFromCookie(request.headers.get("Cookie")) !== locale) {
-      response.headers.append("Set-Cookie", localeCookie(locale, request));
+    ctx.i18n = createI18n(chooseLocale(ctx.user, request));
+    // Signed in: this device's cookie follows the account (cleared for "Same as browser"), so its
+    // sign-in page does too next time. Page loads only: a request that changes the language (the
+    // user menu) sets the cookie itself.
+    const saved = isLocale(ctx.user?.language) ? ctx.user.language : null;
+    if (request.method === "GET" && ctx.user && localeFromCookie(request.headers.get("Cookie")) !== saved) {
+      response.headers.append("Set-Cookie", localeCookie(saved, request));
     }
   },
 

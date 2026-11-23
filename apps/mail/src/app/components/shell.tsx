@@ -7,7 +7,7 @@ import { LogoMark, Wordmark, hasLogo } from "./brand";
 import { MailboxSwitcher } from "./mailbox-switcher";
 import { SidebarNav } from "./mobile-nav";
 import { Toaster } from "./ui/sonner";
-import { flashText } from "@/app/http";
+import { type FlashCode, flashText } from "@/app/http";
 import { UserMenu } from "./user-menu";
 
 export { appName } from "./brand";
@@ -245,7 +245,8 @@ export function PageHeader({
   );
 }
 
-export const flashFrom = (request: Request) => {
+/** The messages a redirect asked this page to show, among the codes it accepts (see FLASH in http.ts). */
+export const flashFrom = (request: Request, accepted: { msg: readonly FlashCode[]; err: readonly FlashCode[] }) => {
   const u = new URL(request.url);
-  return { msg: flashText(u.searchParams.get("msg")), err: flashText(u.searchParams.get("err")) };
+  return { msg: flashText(u.searchParams.get("msg"), accepted.msg), err: flashText(u.searchParams.get("err"), accepted.err) };
 };

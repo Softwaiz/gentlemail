@@ -4,6 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { createCompiledCatalog } from "@lingui/cli/api";
 
 const root = new URL("../src/", import.meta.url).pathname;
 
@@ -80,4 +81,25 @@ test("every English key is translated into French, with the same placeholders", 
     else if (placeholders(french).join() !== placeholders(text).join()) problems.push(`${key}: placeholders differ`);
   }
   assert.deepEqual(problems, []);
+});
+
+// The app reads the compiled messages.ts; translators edit messages.po. `npm run i18n` writes one from the other.
+test("the compiled catalogs the app uses match the .po files", () => {
+  for (const locale of ["en", "fr"]) {
+    const texts = Object.fromEntries([...catalog(locale)].map(([key, text]) => [key, JSON.parse(`"${text}"`)]));
+    const { source } = createCompiledCatalog(locale, texts, { namespace: "ts" });
+    const built = readFileSync(join(root, `locales/${locale}/messages.ts`), "utf8");
+    assert.ok(built === source, `Run npm run i18n: src/locales/${locale}/messages.ts is out of date`);
+  }
+});
+
+test("the English catalog has the words written in the code", () => {
+  const en = catalog("en");
+  const stale = [];
+  for (const file of files(root)) {
+    for (const m of readFileSync(file, "utf8").matchAll(/\b(?:t|msg)\(\{\s*id: "([^"]+)",\s*message:\s*("(?:[^"\\]|\\.)*")/g)) {
+      if (en.has(m[1]) && JSON.parse(`"${en.get(m[1])}"`) !== JSON.parse(m[2])) stale.push(`${relative(root, file)}: ${m[1]}`);
+    }
+  }
+  assert.deepEqual(stale, [], `Run npm run i18n to update the catalogs:\n${stale.join("\n")}`);
 });

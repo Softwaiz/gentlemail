@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
 import { ChevronLeft, Download, Forward, OctagonAlert, Paperclip, Reply, ReplyAll, Search, Star } from "lucide-react";
-import { Shell, flashFrom } from "@/app/components/shell";
+import { Shell } from "@/app/components/shell";
 import { type ListItem, MessageList } from "@/app/components/message-list";
 import { MarkThreadRead, StarButton, ThreadToolbar } from "@/app/components/thread-actions";
 import { Button } from "@/app/components/ui/button";
@@ -98,7 +98,7 @@ export async function FolderPage(ri: RequestInfo) {
   }));
 
   return (
-    <Shell user={user} mailboxId={mailbox.id} folder={q ? undefined : folder} flash={flashFrom(request)} bleed>
+    <Shell user={user} mailboxId={mailbox.id} folder={q ? undefined : folder} bleed>
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b px-4 py-4 md:px-6">
         <div className="min-w-0">
           <h1 className="text-xl leading-tight font-semibold tracking-[-0.02em]">{q ? t({ id: "mailbox.search_title", message: "Search" }) : label}</h1>
@@ -200,7 +200,7 @@ export async function ThreadPage(ri: RequestInfo) {
   const people = new Set(msgs.map((m) => m.from_addr.toLowerCase())).size;
 
   return (
-    <Shell user={user} mailboxId={mailbox.id} folder={folder} flash={flashFrom(request)}>
+    <Shell user={user} mailboxId={mailbox.id} folder={folder}>
       <div className="w-full">
         <a href={back} className="mb-3 inline-flex items-center gap-1 text-[13px] font-medium text-muted-foreground hover:text-foreground">
           <ChevronLeft className="size-4" /> {folderName(folder as Folder)}

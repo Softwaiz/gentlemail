@@ -47,6 +47,29 @@ describe("messages come from the server, not the link", () => {
       assert.ok(!html.includes("Call +1 555"), `?${kind}= must not appear`);
     }
   });
+
+  test("a code shows only on the page it's meant for, as the kind it's meant to be", async () => {
+    const WORDS = {
+      signin_timeout: "Your sign-in timed out",
+      too_many_codes: "Too many wrong codes",
+      recovery_used: "Signed in with a recovery code",
+      recovery_last: "That was your last recovery code",
+      nothing_ticked: "Tick Read, Organize or Send on at least one line, or choose Cancel",
+    };
+    const ACCEPTED = {
+      "/login": ["err=signin_timeout", "err=too_many_codes"],
+      "/account/security": ["msg=recovery_used", "err=recovery_last"],
+      "/admin": [],
+      "/admin/api": [],
+    };
+    for (const [path, accepted] of Object.entries(ACCEPTED))
+      for (const kind of ["msg", "err"])
+        for (const [code, words] of Object.entries(WORDS)) {
+          const { status, html } = await page(`${path}?${kind}=${code}`, path === "/login" ? {} : { headers: { Cookie: `kb_session=${SESSION}` } });
+          assert.equal(status, 200);
+          assert.equal(html.includes(words), accepted.includes(`${kind}=${code}`), `${path}?${kind}=${code}`);
+        }
+  });
 });
 
 describe("a wrong password", () => {

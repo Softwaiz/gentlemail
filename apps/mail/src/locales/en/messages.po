@@ -402,7 +402,7 @@ msgid "shell.admin"
 msgstr "Admin"
 
 #. js-lingui-explicit-id
-#: src/app/components/user-menu.tsx:77
+#: src/app/components/user-menu.tsx:79
 msgid "menu.admin"
 msgstr "Admin"
 
@@ -749,7 +749,7 @@ msgid "keys.creating"
 msgstr "Creating…"
 
 #. js-lingui-explicit-id
-#: src/app/components/user-menu.tsx:21
+#: src/app/components/user-menu.tsx:22
 msgid "menu.theme_dark"
 msgstr "Dark"
 
@@ -1204,7 +1204,7 @@ msgid "admin.key_revoked_programs_using"
 msgstr "Key revoked. Programs using it are refused from now on."
 
 #. js-lingui-explicit-id
-#: src/app/components/user-menu.tsx:106
+#: src/app/components/user-menu.tsx:108
 msgid "menu.language"
 msgstr "Language"
 
@@ -1231,7 +1231,7 @@ msgid "developers.let_other_programs_send"
 msgstr "Let other programs send and read mail, and get notified the moment mail arrives."
 
 #. js-lingui-explicit-id
-#: src/app/components/user-menu.tsx:22
+#: src/app/components/user-menu.tsx:23
 msgid "menu.theme_light"
 msgstr "Light"
 
@@ -1251,7 +1251,7 @@ msgid "setup.no_token_local"
 msgstr "Locally, put <0>SETUP_TOKEN=…</0> in <1>.dev.vars</1>."
 
 #. js-lingui-explicit-id
-#: src/app/components/user-menu.tsx:120
+#: src/app/components/user-menu.tsx:122
 #: src/worker.tsx:110
 msgid "menu.logout"
 msgstr "Log out"
@@ -2158,12 +2158,12 @@ msgid "domains.run_once_from_apps"
 msgstr "Run once, from apps/mail, logged in to the Cloudflare account that owns the zone."
 
 #. js-lingui-explicit-id
-#: src/app/components/user-menu.tsx:115
+#: src/app/components/user-menu.tsx:117
 msgid "menu.language_browser"
 msgstr "Same as browser"
 
 #. js-lingui-explicit-id
-#: src/app/components/user-menu.tsx:23
+#: src/app/components/user-menu.tsx:24
 msgid "menu.theme_system"
 msgstr "Same as device"
 
@@ -2236,7 +2236,7 @@ msgid "security.title"
 msgstr "Security"
 
 #. js-lingui-explicit-id
-#: src/app/components/user-menu.tsx:83
+#: src/app/components/user-menu.tsx:85
 msgid "menu.security"
 msgstr "Security"
 
@@ -2566,6 +2566,8 @@ msgstr "That code didn't match. Use the newest code from your app."
 #. js-lingui-explicit-id
 #: src/app/components/message-list.tsx:67
 #: src/app/components/thread-actions.tsx:22
+#: src/app/components/user-menu.tsx:35
+#: src/app/components/user-menu.tsx:37
 msgid "common.failed_connection"
 msgstr "That didn't work. Check your connection and try again."
 
@@ -2650,7 +2652,7 @@ msgid "settings.blocked_body"
 msgstr "Their mail goes straight to spam. Added when you mark a conversation as spam."
 
 #. js-lingui-explicit-id
-#: src/app/components/user-menu.tsx:87
+#: src/app/components/user-menu.tsx:89
 msgid "menu.theme"
 msgstr "Theme"
 

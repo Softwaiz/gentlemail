@@ -93,7 +93,7 @@ export async function LoginPage({ request, ctx }: RequestInfo) {
   if (ctx.user) return redirect("/");
   if ((await userCount()) === 0) return redirect("/setup");
   const u = new URL(request.url);
-  return <LoginForm next={u.searchParams.get("next") ?? "/"} err={flashText(u.searchParams.get("err"))} />;
+  return <LoginForm next={u.searchParams.get("next") ?? "/"} err={flashText(u.searchParams.get("err"), ["signin_timeout", "too_many_codes"])} />;
 }
 
 /**

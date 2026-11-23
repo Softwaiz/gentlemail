@@ -18,7 +18,7 @@ export function createI18n(locale: Locale): I18n {
 /** What each language is called in the language picker: in its own language, whatever the page is in. */
 export const LOCALE_NAMES: Record<Locale, string> = { en: "English", fr: "Français" };
 
-/** The cookie holding the last language picked on this device (read before sign-in too). */
+/** The cookie with the language of the account last used on this device: what the sign-in page is shown in. */
 export const LOCALE_COOKIE = "lang";
 
 export const isLocale = (v: unknown): v is Locale => typeof v === "string" && (LOCALES as readonly string[]).includes(v);
@@ -37,12 +37,14 @@ export function localeCookie(locale: Locale | null, request: Request): string {
 }
 
 /**
- * The language a page is shown in. First that exists wins: the one saved on the account, the
- * one picked last on this device, the browser's, English.
+ * The language a page is shown in. Signed in: the one saved on the account, or the browser's when
+ * none is ("Same as browser"). Never the cookie then: it may be older than that choice, or someone
+ * else's on a shared computer. Signed out: the cookie, then the browser's. English when none fits.
  */
-export function chooseLocale(account: string | null | undefined, request: Request): Locale {
-  if (isLocale(account)) return account;
-  return localeFromCookie(request.headers.get("Cookie")) ?? pickLocale(request.headers.get("Accept-Language"));
+export function chooseLocale(user: { language: string | null } | null, request: Request): Locale {
+  if (isLocale(user?.language)) return user.language;
+  const cookie = user ? null : localeFromCookie(request.headers.get("Cookie"));
+  return cookie ?? pickLocale(request.headers.get("Accept-Language"));
 }
 
 /** The best supported language for an Accept-Language header; English when none fits. */

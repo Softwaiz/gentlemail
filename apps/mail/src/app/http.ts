@@ -29,9 +29,14 @@ export const withFlash = (path: string, kind: "msg" | "err", code: FlashCode) =>
   return u.pathname + u.search;
 };
 
-/** The words for a flash code from a URL; anything that isn't a known code shows nothing. */
-export const flashText = (code: string | null): string | null =>
-  code && Object.hasOwn(FLASH, code) ? i18n._(FLASH[code as FlashCode]) : null;
+/**
+ * The words for a flash code from a URL, if it's one of those this page is sent with. Any other code
+ * shows nothing: a link could otherwise put another page's warning ("Too many wrong codes") on this one.
+ */
+export const flashText = (code: string | null, accepted: readonly FlashCode[]): string | null => {
+  const known = accepted.find((c) => c === code);
+  return known ? i18n._(FLASH[known]) : null;
+};
 
 export const field = (form: FormData, name: string) => String(form.get(name) ?? "").trim();
 

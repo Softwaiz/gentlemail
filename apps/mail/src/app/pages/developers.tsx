@@ -14,7 +14,7 @@ import { ActionButton, ActionForm, ConfirmAction, FormDialog } from "@/app/compo
 import { Code, CodeSamples, type Sample } from "@/app/components/code-samples";
 import { FormSelect, type Option } from "@/app/components/form-select";
 import { type AccessTargets, type AccessValue, EditKeyAccessDialog, NewKeyDialog } from "@/app/components/key-dialog";
-import { PageHeader, Shell, flashFrom } from "@/app/components/shell";
+import { PageHeader, Shell } from "@/app/components/shell";
 import { Field, Section, StatusBadge, cardRow, cardTable, cardTableHeader } from "@/app/components/section";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
@@ -209,7 +209,7 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
   const example = mailboxes[0]?.address ?? "hello@example.com";
 
   return (
-    <Shell user={ctx.user!} folder="api" flash={flashFrom(request)}>
+    <Shell user={ctx.user!} folder="api">
       <PageHeader
         title={t({ id: "developers.api_webhooks", message: "API & webhooks" })}
         sub={t({ id: "developers.let_other_programs_send", message: "Let other programs send and read mail, and get notified the moment mail arrives." })}
@@ -405,7 +405,7 @@ const statusStyle: Record<string, string> = {
 };
 
 export async function WebhookPage(ri: RequestInfo) {
-  const { params, ctx, request } = ri;
+  const { params, ctx } = ri;
   const hook = await env.DB.prepare("SELECT * FROM webhooks WHERE id = ?").bind(params.id).first<WebhookRow>();
   if (!hook) return missing(ri, "webhook");
   const mailboxes = await listMailboxes();
@@ -416,7 +416,7 @@ export async function WebhookPage(ri: RequestInfo) {
     .all<DeliveryRow>();
 
   return (
-    <Shell user={ctx.user!} folder="api" flash={flashFrom(request)}>
+    <Shell user={ctx.user!} folder="api">
       <PageHeader title={hook.name} back={{ href: "/admin/api", label: t({ id: "developers.api_webhooks", message: "API & webhooks" }) }} sub={<span className="[overflow-wrap:anywhere]">{hook.url}</span>}>
         <ActionButton variant="outline" action={testWebhookAction} args={[hook.id]}>
           {t({ id: "developers.send_test_event", message: "Send test event" })}

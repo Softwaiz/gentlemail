@@ -259,7 +259,7 @@ export async function AuthorizePage(ri: RequestInfo) {
   const { targets, allowAll } = await targetsFor(user);
   // An admin may give all mailboxes or a domain even before any mailbox exists.
   const shareable = allowAll || targets.domains.length > 0 || targets.mailboxes.length > 0;
-  const err = flashText(url.searchParams.get("err"));
+  const err = flashText(url.searchParams.get("err"), ["nothing_ticked"]);
   const strong = "font-medium text-foreground";
 
   const dest = destination(req.redirectUri);

@@ -103,6 +103,9 @@ export function formatDate(ms: number, full = false): string {
   return d.toLocaleDateString(dateLocale(), { day: "numeric", month: "short", timeZone: "UTC" });
 }
 
+/** A date written into mail that goes out: always in English, like the words around it, whoever's language the page is in. */
+export const mailDate = (ms: number) => `${new Date(ms).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC`;
+
 export function toBase64(buf: ArrayBuffer | Uint8Array): string {
   const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
   let bin = "";

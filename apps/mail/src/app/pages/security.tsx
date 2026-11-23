@@ -41,7 +41,7 @@ export async function SecurityPage({ ctx, request }: RequestInfo) {
   const back = next ? safeNext(next) : null;
 
   return (
-    <Shell user={user} folder="security" flash={flashFrom(request)}>
+    <Shell user={user} folder="security" flash={flashFrom(request, { msg: ["recovery_used"], err: ["recovery_last"] })}>
       <PageHeader title={t({ id: "security.title", message: "Security" })} sub={user.email} />
       <div className="grid max-w-3xl gap-6">
         {user.mustSetUpMfa && (

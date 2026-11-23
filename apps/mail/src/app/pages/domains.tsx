@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
-import { PageHeader, Shell, flashFrom } from "@/app/components/shell";
+import { PageHeader, Shell } from "@/app/components/shell";
 import { Section, StatusBadge } from "@/app/components/section";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -123,7 +123,7 @@ const stateLabel = (s: Check["state"]) =>
 /* ---------- Single domain ---------- */
 
 export async function AdminDomainPage(ri: RequestInfo) {
-  const { params, ctx, request } = ri;
+  const { params, ctx } = ri;
   const domain = await env.DB.prepare("SELECT * FROM domains WHERE id = ?").bind(params.id).first<Domain>();
   if (!domain) return missing(ri, "domain");
   const [{ results: mailboxes }, checks] = await Promise.all([
@@ -152,7 +152,7 @@ export async function AdminDomainPage(ri: RequestInfo) {
   ];
 
   return (
-    <Shell user={ctx.user!} folder="admin" flash={flashFrom(request)}>
+    <Shell user={ctx.user!} folder="admin">
       <PageHeader title={d} back={{ href: "/admin", label: t({ id: "domains.admin", message: "Admin" }) }}>
         <label className="flex items-center gap-2.5 rounded-md border bg-card px-3 py-2 text-sm">
           <ActionSwitch action={setDomainActive} id={domain.id} checked={!!domain.active} label={t({ id: "domains.active_label", message: `${d} active` })} />

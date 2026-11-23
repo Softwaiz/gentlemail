@@ -7,7 +7,7 @@ import { ComposeForm } from "@/app/components/compose-form";
 import { RichEditor } from "@/app/components/rich-editor";
 import { Field, Section } from "@/app/components/section";
 import { Checkbox } from "@/app/components/ui/checkbox";
-import { PageHeader, Shell, flashFrom } from "@/app/components/shell";
+import { PageHeader, Shell } from "@/app/components/shell";
 import { Badge } from "@/app/components/ui/badge";
 import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
@@ -59,7 +59,7 @@ export async function ComposePage(ri: RequestInfo) {
   const fwdAtts = original && mode === "forward" ? await listAttachments([original.id]) : [];
 
   return (
-    <Shell user={user} mailboxId={mailbox.id} flash={flashFrom(request)}>
+    <Shell user={user} mailboxId={mailbox.id}>
       <PageHeader
         title={
           mode === "reply"
@@ -148,7 +148,7 @@ function ComposeRow({ label, children }: { label: string; children: React.ReactN
 /* ---------- Mailbox settings (signature, display name) ---------- */
 
 export async function SettingsPage(ri: RequestInfo) {
-  const { params, ctx, request } = ri;
+  const { params, ctx } = ri;
   const user = ctx.user!;
   const mailbox = await getMailboxForUser(user, params.mailboxId);
   if (!mailbox) return missing(ri, "mailbox");
@@ -171,7 +171,7 @@ export async function SettingsPage(ri: RequestInfo) {
   ] as const;
 
   return (
-    <Shell user={user} mailboxId={mailbox.id} folder="settings" flash={flashFrom(request)}>
+    <Shell user={user} mailboxId={mailbox.id} folder="settings">
       <PageHeader title={t({ id: "settings.title", message: "Mailbox settings" })} sub={mailbox.address} />
       <div className="grid gap-6 xl:grid-cols-2">
         <Section title={t({ id: "settings.name_signature", message: "Name and signature" })}>

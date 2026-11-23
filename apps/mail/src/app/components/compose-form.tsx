@@ -20,6 +20,10 @@ export function ComposeForm({ children, discardHref }: { children: React.ReactNo
         e.preventDefault();
         run(new FormData(e.currentTarget));
       }}
+      // Enter in a field (To, Subject…) must not send the message: only the Send button does.
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && e.target instanceof HTMLInputElement && e.target.type !== "file") e.preventDefault();
+      }}
     >
       {children}
       {error && (

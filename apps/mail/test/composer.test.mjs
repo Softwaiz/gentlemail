@@ -296,3 +296,40 @@ describe("composer formatting", () => {
     assert.equal(text_body, "fallback");
   });
 });
+
+describe("messages with nothing in them", () => {
+  const seedOriginal = () =>
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO messages (id, mailbox_id, thread_id, folder, direction, from_addr, from_name, to_json, subject, snippet, text_body, is_read, date, created_at)
+         VALUES ('orig', 'mb1', 'th1', 'inbox', 'in', 'ada@example.com', 'Ada', '[]', 'Hi', 'Hello', 'Hello', 1, 1, 1)`,
+      )
+      .run();
+
+  test("aren't sent: only an address, blank lines, or only a signature", async () => {
+    await db.prepare("UPDATE mailboxes SET signature = 'Hello team' WHERE id = 'mb1'").run();
+    for (const fields of [{}, { html: "<p><br></p>" }, { html: "<p>&nbsp; </p><p><br></p>" }, { body: " \n " }, { html: "<p><br></p>", signature: "on" }]) {
+      const { res, row } = await post(fields);
+      assert.equal(row, null, JSON.stringify(fields));
+      assert.match(await res.text(), /Write a message or attach a file first\./);
+    }
+    await db.prepare("UPDATE mailboxes SET signature = '' WHERE id = 'mb1'").run();
+  });
+
+  test("nor is an empty reply", async () => {
+    await seedOriginal();
+    const { res, row } = await post({ original: "orig", mode: "reply", html: "<p><br></p>" });
+    assert.equal(row, null);
+    assert.match(await res.text(), /Write a message or attach a file first\./);
+  });
+
+  test("a file alone, or a forward with no word added, is sent", async () => {
+    await seedOriginal();
+    assert.ok((await post({ files: new File(["x"], "x.txt", { type: "text/plain" }) })).row);
+    assert.ok((await post({ original: "orig", mode: "forward", html: "<p><br></p>" })).row);
+  });
+
+  test("a forward of a message that isn't in this mailbox counts as a new one", async () => {
+    assert.equal((await post({ original: "nope", mode: "forward" })).row, null);
+  });
+});

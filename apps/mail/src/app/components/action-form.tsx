@@ -28,6 +28,7 @@ import {
   DialogTrigger,
 } from "@/app/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { t } from "@lingui/core/macro";
 
 type Action<A extends unknown[], T> = (...args: A) => Promise<ActionResult<T>>;
 
@@ -53,7 +54,7 @@ export function useServerAction<A extends unknown[], T>(
       try {
         r = await action(...args);
       } catch {
-        r = { ok: false, error: "Something went wrong. Check your connection and try again." };
+        r = { ok: false, error: t({ id: "common.failed_connection_generic", message: "Something went wrong. Check your connection and try again." }) };
       }
       if (!r) return;
       if (!r.ok) {
@@ -106,7 +107,7 @@ export function ActionForm({
         <div className="flex items-center gap-2">
           {submitLabel && (
             <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : submitLabel}
+              {pending ? t({ id: "common.saving", message: "Saving…" }) : submitLabel}
             </Button>
           )}
           {footer}
@@ -162,11 +163,11 @@ export function FormDialog({
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="outline">
-                Cancel
+                {t({ id: "common.cancel", message: "Cancel" })}
               </Button>
             </DialogClose>
             <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : submitLabel}
+              {pending ? t({ id: "common.saving", message: "Saving…" }) : submitLabel}
             </Button>
           </DialogFooter>
         </form>
@@ -230,7 +231,7 @@ export function ConfirmAction({
         </AlertDialogHeader>
         {confirmText !== undefined && (
           <label className="grid gap-1.5 text-sm font-medium">
-            Type {confirmText} to confirm
+            {t({ id: "common.type_to_confirm", message: `Type ${confirmText} to confirm` })}
             <input
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
@@ -241,7 +242,7 @@ export function ConfirmAction({
         )}
         <FormError error={error} />
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t({ id: "common.cancel", message: "Cancel" })}</AlertDialogCancel>
           <AlertDialogAction
             disabled={pending || blocked}
             variant="destructive"
@@ -250,7 +251,7 @@ export function ConfirmAction({
               run(...(confirmText !== undefined ? [...args, typed] : args));
             }}
           >
-            {pending ? "Working…" : confirmLabel}
+            {pending ? t({ id: "common.working", message: "Working…" }) : confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

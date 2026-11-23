@@ -4,20 +4,32 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 
 **How it's kept**
 - Every pull request adds its lines under **Unreleased**, in the same pull request.
-- A release is its own pull request: it turns **Unreleased** into a version and a date and sets the same version in `apps/mail/package.json`. Merging it deploys it; the merge commit is then tagged `vX.Y.Z` with a GitHub release holding that section. Versions follow [Semantic Versioning](https://semver.org): while GentleMail is 0.x, a new minor version (0.3.0) can contain anything; a patch (0.2.1) only fixes.
+- Work is merged into `dev`; `main` holds releases only. A release starts with a version pull request into `dev`: it turns **Unreleased** into a version and a date and sets the same version in `apps/mail/package.json`. A promotion pull request then brings `dev` into `main`; its merge commit is tagged `vX.Y.Z` with a GitHub release holding that section. Versions follow [Semantic Versioning](https://semver.org): while GentleMail is 0.x, a new minor version (0.3.0) can contain anything; a patch (0.2.1) only fixes.
 - Sections: **Added**, **Changed**, **Fixed**, **Security**, **Removed**. A release with a database migration or anything to do by hand also gets **Upgrading**.
 - Lines describe the effect for the people using the app, not the code. Link the pull request.
 
 ## Unreleased
 
+## 0.7.0 (2026-11-23)
+
 ### Added
 - Formatting in the webmail composer: bold, italic, underline, strikethrough, subscript, superscript, links, bulleted and numbered lists, quotes and inline code, from a toolbar or keyboard shortcuts (Ctrl/⌘ B, I, U, K…). Messages go out as HTML with a matching plain-text part. Only this formatting is sent, whatever the page posts. ([#32](https://github.com/Softwaiz/gentlemail/pull/32))
+- Password fields (sign-in, first-run setup, adding a user) have a button on the right to show or hide what you typed. The password is hidden again when the form is sent. ([#37](https://github.com/Softwaiz/gentlemail/pull/37))
+- The webmail in French. Each person picks English, Français or "Same as browser" in the menu under their name; the choice is saved on their account and follows them to every device. Without a choice, the webmail follows the browser's language, then English. Dates and sizes follow the language too. The API, webhooks, MCP tools and the text GentleMail adds to outgoing mail stay in English; when replying, the composer shows that line exactly as it is sent. [Languages](https://gentlemail.dev/docs/guides/languages/) explains how to add one. ([#37](https://github.com/Softwaiz/gentlemail/pull/37))
 
 ### Changed
 - The 25 MB limit on a sent message now counts its text and HTML, not only its attachments, in the webmail and in `POST /api/v1/send`. A send just over it with attachments, which the email service would have refused anyway, now gets `422` with "The message and its attachments exceed the 25 MB limit." ([#32](https://github.com/Softwaiz/gentlemail/pull/32))
+- A wrong password on the sign-in page keeps the email filled in and puts the cursor back in the password field; a wrong setup token or too short a password on the setup page keeps the name and email. The card gives a short shake, except when the device asks for reduced motion. ([#37](https://github.com/Softwaiz/gentlemail/pull/37))
+
+### Security
+- A link to a GentleMail page could make it show any text in its message box (for example `/login?err=Your account is locked, call…`). Each page now shows only its own messages, chosen by a code in the link; anything else, including another page's code, is ignored. ([#37](https://github.com/Softwaiz/gentlemail/pull/37))
 
 ### Fixed
 - Very long messages in scripts such as Chinese or Japanese are saved properly: the Sent copy, and received mail, measured their size in characters while the database counts bytes. A long sent message could go out and then fail to be saved, showing "Sending failed" and inviting a second send. Its HTML now goes to storage, as for received mail. ([#32](https://github.com/Softwaiz/gentlemail/pull/32))
+- On phones, the buttons that act on the selected conversations (Archive, Spam, Trash and the others) have names for screen readers; they were announced only as "button". ([#38](https://github.com/Softwaiz/gentlemail/pull/38))
+
+### Upgrading
+- New migration `0010_user_language.sql` (each person's language). With the Deploy button's setup it's applied on the push; otherwise run `npx wrangler d1 migrations apply DB --remote` right after deploying, or signing in fails.
 
 ## 0.6.1 (2026-11-19)
 

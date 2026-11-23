@@ -65,3 +65,9 @@ coverage
 
 # Wrangler
 .wrangler
+
+# Storybook build
+storybook-static
+
+# Page comparison builds (scripts/compare-pages.mjs), in a copy holding only this folder
+.compare-pages

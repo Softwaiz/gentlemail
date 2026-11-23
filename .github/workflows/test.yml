@@ -1,11 +1,11 @@
-# Runs the webmail's tests on every pull request and on main: the built Worker in Miniflare
+# Runs the webmail's tests on every pull request and on dev and main: the built Worker in Miniflare
 # (workerd, the Workers runtime) with in-memory D1 and R2. No Cloudflare account needed.
 name: Test
 
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, dev]
 
 permissions:
   contents: read

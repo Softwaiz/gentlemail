@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { i18n } from "@/lib/i18n";
 export type Addr = { name: string; address: string };
 
 export const newId = () => crypto.randomUUID();
@@ -76,15 +78,19 @@ export function normalizeSubject(s: string): string {
 }
 
 export function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  const num = (v: number, digits: number) => v.toLocaleString(dateLocale(), { maximumFractionDigits: digits, minimumFractionDigits: digits });
+  if (n < 1024) return t({ id: "size.bytes", message: `${n} B` });
+  if (n < 1024 * 1024) return t({ id: "size.kb", message: `${num(n / 1024, 0)} KB` });
+  return t({ id: "size.mb", message: `${num(n / 1024 / 1024, 1)} MB` });
 }
+
+/** The locale dates and numbers are written in: the reader's language (day before month in English, as before). */
+export const dateLocale = () => (i18n.locale === "fr" ? "fr-FR" : "en-GB");
 
 export function formatDate(ms: number, full = false): string {
   const d = new Date(ms);
   if (full) {
-    return d.toLocaleString("en-GB", {
+    return d.toLocaleString(dateLocale(), {
       dateStyle: "medium",
       timeStyle: "short",
       timeZone: "UTC",
@@ -92,10 +98,13 @@ export function formatDate(ms: number, full = false): string {
   }
   const today = new Date();
   if (d.toDateString() === today.toDateString()) {
-    return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
+    return d.toLocaleTimeString(dateLocale(), { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
   }
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  return d.toLocaleDateString(dateLocale(), { day: "numeric", month: "short", timeZone: "UTC" });
 }
+
+/** A date written into mail that goes out: always in English, like the words around it, whoever's language the page is in. */
+export const mailDate = (ms: number) => `${new Date(ms).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC`;
 
 export function toBase64(buf: ArrayBuffer | Uint8Array): string {
   const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);

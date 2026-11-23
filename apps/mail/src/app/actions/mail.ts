@@ -8,6 +8,9 @@ import { type MessageRow, deleteMessageForever, getMailboxForUser, isFolder } fr
 import { SendError, sendMail } from "@/lib/outbound";
 import { learnFrom } from "@/lib/spam";
 import { byteLength, chunks, isEmail, parseAddressList } from "@/lib/util";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg, t } from "@lingui/core/macro";
+import { i18n } from "@/lib/i18n";
 
 /* Mailbox mutations. signedIn runs first; each action then checks access to the mailbox. */
 
@@ -15,12 +18,23 @@ const mailboxFor = (id: string) => getMailboxForUser(requestInfo.ctx.user!, id);
 
 export type MailAction = "read" | "unread" | "star" | "unstar" | "archive" | "trash" | "spam" | "inbox" | "delete";
 
-const DONE: Partial<Record<MailAction, string>> = {
-  archive: "Archived.",
-  trash: "Moved to trash.",
-  spam: "Marked as spam. Future mail from this sender goes to spam.",
-  inbox: "Moved to inbox.",
-  delete: "Deleted forever.",
+/** The send errors the webmail words itself; others (from the email service) are shown as they come. */
+const sendErrorText = (e: SendError) => {
+  if (e.message === "The message and its attachments exceed the 25 MB limit.")
+    return t({ id: "errors.message_limit", message: "The message and its attachments exceed the 25 MB limit." });
+  if (e.message === "Maximum 50 recipients per email.") return t({ id: "errors.max_recipients", message: "Maximum 50 recipients per email." });
+  if (e.message === "Add at least one recipient.") return t({ id: "errors.no_recipient", message: "Add at least one recipient." });
+  const off = e.message.match(/^Sending from (.+) is disabled\.$/);
+  if (off) return t({ id: "errors.sending_disabled", message: `Sending from ${off[1]} is disabled.` });
+  return e.message;
+};
+
+const DONE: Partial<Record<MailAction, MessageDescriptor>> = {
+  archive: msg({ id: "done.archive", message: "Archived." }),
+  trash: msg({ id: "done.trash", message: "Moved to trash." }),
+  spam: msg({ id: "done.spam", message: "Marked as spam. Future mail from this sender goes to spam." }),
+  inbox: msg({ id: "done.inbox", message: "Moved to inbox." }),
+  delete: msg({ id: "done.delete", message: "Deleted forever." }),
 };
 
 export const updateMessages = serverAction([
@@ -35,9 +49,9 @@ export const updateMessages = serverAction([
     action: MailAction;
   }): Promise<ActionResult> => {
     const mailbox = await mailboxFor(input.mailboxId);
-    if (!mailbox) return fail("You don't have access to this mailbox.");
+    if (!mailbox) return fail(t({ id: "errors.no_mailbox_access", message: "You don't have access to this mailbox." }));
     const ids = input.ids.filter(Boolean).slice(0, 500);
-    if (!ids.length) return fail("Select at least one conversation.");
+    if (!ids.length) return fail(t({ id: "errors.select_one", message: "Select at least one conversation." }));
 
     const col = input.scope === "message" ? "id" : "thread_id";
     const inFolder = input.scope === "thread" && input.folder && isFolder(input.folder);
@@ -88,10 +102,11 @@ export const updateMessages = serverAction([
         for (const m of msgs) if (m.folder === "trash" || m.folder === "spam") await deleteMessageForever(m);
         break;
       default:
-        return fail("Unknown action.");
+        return fail(t({ id: "errors.unknown_action", message: "Unknown action." }));
     }
-    if (input.action === "inbox" && msgs.some((m) => m.folder === "spam")) return ok("Not spam. Mail from this sender stays in the inbox.");
-    return ok(DONE[input.action]);
+    if (input.action === "inbox" && msgs.some((m) => m.folder === "spam")) return ok(t({ id: "done.not_spam", message: "Not spam. Mail from this sender stays in the inbox." }));
+    const done = DONE[input.action];
+    return ok(done && i18n._(done));
   },
 ]);
 
@@ -104,7 +119,7 @@ export const markThreadRead = serverAction([
   signedIn,
   async (input: { mailboxId: string; threadId: string; folder: string }): Promise<ActionResult> => {
     const mailbox = await mailboxFor(input.mailboxId);
-    if (!mailbox) return fail("You don't have access to this mailbox.");
+    if (!mailbox) return fail(t({ id: "errors.no_mailbox_access", message: "You don't have access to this mailbox." }));
     await env.DB.prepare(
       `UPDATE messages SET is_read = 1 WHERE mailbox_id = ? AND thread_id = ? AND is_read = 0
        ${input.folder === "trash" ? "" : "AND folder != 'trash'"}`,
@@ -119,15 +134,15 @@ export const sendMessage = serverAction([
   signedIn,
   async (form: FormData): Promise<ActionResult> => {
     const mailbox = await mailboxFor(text(form, "mailbox_id"));
-    if (!mailbox) return fail("You don't have access to this mailbox.");
-    if (!mailbox.active) return fail("This mailbox is turned off, so it can't send.");
+    if (!mailbox) return fail(t({ id: "errors.no_mailbox_access", message: "You don't have access to this mailbox." }));
+    if (!mailbox.active) return fail(t({ id: "errors.mailbox_off", message: "This mailbox is turned off, so it can't send." }));
 
     const to = parseAddressList(text(form, "to"));
     const cc = parseAddressList(text(form, "cc"));
     const bcc = parseAddressList(text(form, "bcc"));
-    if (!to.length && !cc.length && !bcc.length) return fail("Add at least one recipient.");
+    if (!to.length && !cc.length && !bcc.length) return fail(t({ id: "errors.no_recipient", message: "Add at least one recipient." }));
     const bad = [...to, ...cc, ...bcc].find((a) => !isEmail(a.address));
-    if (bad) return fail(`${bad.address} isn't a valid address.`);
+    if (bad) return fail(t({ id: "errors.bad_address", message: `${bad.address} isn't a valid address.` }));
 
     const files = [];
     let total = 0;
@@ -136,7 +151,7 @@ export const sendMessage = serverAction([
       total += f.size;
       files.push({ filename: f.name, type: f.type, content: await f.arrayBuffer() });
     }
-    if (total > 25 * 1024 * 1024) return fail("Attachments are limited to 25 MB in total.");
+    if (total > 25 * 1024 * 1024) return fail(t({ id: "errors.attachments_limit", message: "Attachments are limited to 25 MB in total." }));
 
     // The composer posts HTML: keep only its own formatting, and write the text version from that.
     // A form without it (older page still open) sends its plain-text body as before.
@@ -144,11 +159,11 @@ export const sendMessage = serverAction([
     let body = String(form.get("body") ?? "");
     let html: string | undefined;
     if (typeof rawHtml === "string" && rawHtml.trim()) {
-      if (rawHtml.length > COMPOSER_RAW_LIMIT) return fail("This message is too long to send.");
+      if (rawHtml.length > COMPOSER_RAW_LIMIT) return fail(t({ id: "errors.too_long", message: "This message is too long to send." }));
       const clean = await cleanComposerHtml(rawHtml);
       const plain = composerText(clean);
       // The limit that counts: what is sent and kept, in bytes.
-      if (byteLength(clean) + byteLength(plain) > COMPOSER_HTML_LIMIT) return fail("This message is too long to send.");
+      if (byteLength(clean) + byteLength(plain) > COMPOSER_HTML_LIMIT) return fail(t({ id: "errors.too_long", message: "This message is too long to send." }));
       if (plain) {
         html = clean;
         body = plain;
@@ -177,12 +192,12 @@ export const sendMessage = serverAction([
         mode,
       });
     } catch (e) {
-      return fail(e instanceof SendError ? e.message : "Sending failed. Try again in a moment.");
+      return fail(e instanceof SendError ? sendErrorText(e) : t({ id: "errors.send_failed", message: "Sending failed. Try again in a moment." }));
     }
     if (original && mode === "reply") {
-      return ok("Reply sent.", { redirect: `/mb/${mailbox.id}/thread/${original.thread_id}?f=${original.folder}` });
+      return ok(t({ id: "done.reply_sent", message: "Reply sent." }), { redirect: `/mb/${mailbox.id}/thread/${original.thread_id}?f=${original.folder}` });
     }
-    return ok("Message sent.", { redirect: `/mb/${mailbox.id}/sent` });
+    return ok(t({ id: "done.sent", message: "Message sent." }), { redirect: `/mb/${mailbox.id}/sent` });
   },
 ]);
 
@@ -190,11 +205,11 @@ export const saveMailboxSettings = serverAction([
   signedIn,
   async (form: FormData): Promise<ActionResult> => {
     const mailbox = await mailboxFor(text(form, "mailbox_id"));
-    if (!mailbox) return fail("You don't have access to this mailbox.");
+    if (!mailbox) return fail(t({ id: "errors.no_mailbox_access", message: "You don't have access to this mailbox." }));
     await env.DB.prepare("UPDATE mailboxes SET display_name = ?, signature = ? WHERE id = ?")
       .bind(text(form, "display_name") || mailbox.display_name, String(form.get("signature") ?? "").slice(0, 5000), mailbox.id)
       .run();
-    return ok("Settings saved.");
+    return ok(t({ id: "done.settings_saved", message: "Settings saved." }));
   },
 ]);
 
@@ -202,8 +217,8 @@ export const removeSenderRule = serverAction([
   signedIn,
   async (mailboxId: string, ruleId: string): Promise<ActionResult> => {
     const mailbox = await mailboxFor(mailboxId);
-    if (!mailbox) return fail("You don't have access to this mailbox.");
+    if (!mailbox) return fail(t({ id: "errors.no_mailbox_access", message: "You don't have access to this mailbox." }));
     await env.DB.prepare("DELETE FROM sender_rules WHERE id = ? AND mailbox_id = ?").bind(ruleId, mailbox.id).run();
-    return ok("Sender removed from the list.");
+    return ok(t({ id: "done.sender_removed", message: "Sender removed from the list." }));
   },
 ]);

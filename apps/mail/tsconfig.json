@@ -45,5 +45,7 @@
     /* Skip type checking all .d.ts files. */
     "skipLibCheck": true
   },
-  "exclude": ["node_modules", ".tmp"]
+  // "**/*" leaves out folders starting with a dot.
+  "include": ["**/*", ".storybook/**/*"],
+  "exclude": ["node_modules", ".tmp", "dist", "storybook-static"]
 }

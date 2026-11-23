@@ -58,6 +58,7 @@ import {
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isSendableUrl, trimUrlEnd } from "@/lib/links";
 import { cn } from "@/lib/utils";
+import { t } from "@lingui/core/macro";
 
 /*
  * The composer's body: formatted text, posted as HTML in a hidden "html" field.
@@ -112,7 +113,7 @@ function normalizeUrl(input: string) {
   return `https://${v.replace(/^\/+/, "")}`;
 }
 
-export function RichEditor({ name = "html", placeholder = "Write your message…", autoFocus = false }: { name?: string; placeholder?: string; autoFocus?: boolean }) {
+export function RichEditor({ name = "html", placeholder, autoFocus = false }: { name?: string; placeholder?: string; autoFocus?: boolean }) {
   const area = useRef<HTMLDivElement>(null);
   return (
     <LexicalComposer
@@ -128,12 +129,12 @@ export function RichEditor({ name = "html", placeholder = "Write your message…
         <RichTextPlugin
           contentEditable={
             <ContentEditable
-              aria-label="Message"
+              aria-label={t({ id: "editor.message", message: "Message" })}
               aria-multiline
               className="composer-body block min-h-72 w-full px-5 py-4 text-[15px] leading-relaxed outline-none"
             />
           }
-          placeholder={<div className="pointer-events-none absolute top-4 left-5 text-[15px] text-muted-foreground select-none">{placeholder}</div>}
+          placeholder={<div className="pointer-events-none absolute top-4 left-5 text-[15px] text-muted-foreground select-none">{placeholder ?? t({ id: "editor.placeholder", message: "Write your message…" })}</div>}
           ErrorBoundary={LexicalErrorBoundary}
         />
         <LinkCard area={area} />
@@ -317,27 +318,27 @@ function Toolbar() {
 
   const groups: { icon: LucideIcon; label: string; keys?: string; active?: boolean; run: () => void }[][] = [
     [
-      { icon: Bold, label: "Bold", keys: `${mod}B`, active: formats.bold, run: () => format("bold") },
-      { icon: Italic, label: "Italic", keys: `${mod}I`, active: formats.italic, run: () => format("italic") },
-      { icon: Underline, label: "Underline", keys: `${mod}U`, active: formats.underline, run: () => format("underline") },
-      { icon: Strikethrough, label: "Strikethrough", keys: `${mod}Shift+X`, active: formats.strikethrough, run: () => format("strikethrough") },
+      { icon: Bold, label: t({ id: "editor.bold", message: "Bold" }), keys: `${mod}B`, active: formats.bold, run: () => format("bold") },
+      { icon: Italic, label: t({ id: "editor.italic", message: "Italic" }), keys: `${mod}I`, active: formats.italic, run: () => format("italic") },
+      { icon: Underline, label: t({ id: "editor.underline", message: "Underline" }), keys: `${mod}U`, active: formats.underline, run: () => format("underline") },
+      { icon: Strikethrough, label: t({ id: "editor.strikethrough", message: "Strikethrough" }), keys: `${mod}Shift+X`, active: formats.strikethrough, run: () => format("strikethrough") },
     ],
     [
-      { icon: Subscript, label: "Subscript", keys: `${mod},`, active: formats.subscript, run: () => format("subscript") },
-      { icon: Superscript, label: "Superscript", keys: `${mod}.`, active: formats.superscript, run: () => format("superscript") },
+      { icon: Subscript, label: t({ id: "editor.subscript", message: "Subscript" }), keys: `${mod},`, active: formats.subscript, run: () => format("subscript") },
+      { icon: Superscript, label: t({ id: "editor.superscript", message: "Superscript" }), keys: `${mod}.`, active: formats.superscript, run: () => format("superscript") },
     ],
     [
-      { icon: LinkIcon, label: formats.link ? "Edit link" : "Add link", keys: `${mod}K`, active: !!formats.link, run: openLink },
-      { icon: List, label: "Bulleted list", active: formats.list === "bullet", run: () => list("bullet") },
-      { icon: ListOrdered, label: "Numbered list", active: formats.list === "number", run: () => list("number") },
-      { icon: Quote, label: "Quote", active: formats.quote, run: toggleQuote },
-      { icon: Code, label: "Code", keys: `${mod}E`, active: formats.code, run: () => format("code") },
+      { icon: LinkIcon, label: formats.link ? t({ id: "editor.edit_link", message: "Edit link" }) : t({ id: "editor.add_link", message: "Add link" }), keys: `${mod}K`, active: !!formats.link, run: openLink },
+      { icon: List, label: t({ id: "editor.bullets", message: "Bulleted list" }), active: formats.list === "bullet", run: () => list("bullet") },
+      { icon: ListOrdered, label: t({ id: "editor.numbers", message: "Numbered list" }), active: formats.list === "number", run: () => list("number") },
+      { icon: Quote, label: t({ id: "editor.quote", message: "Quote" }), active: formats.quote, run: toggleQuote },
+      { icon: Code, label: t({ id: "editor.code", message: "Code" }), keys: `${mod}E`, active: formats.code, run: () => format("code") },
     ],
-    [{ icon: RemoveFormatting, label: "Clear formatting", run: clear }],
+    [{ icon: RemoveFormatting, label: t({ id: "editor.clear", message: "Clear formatting" }), run: clear }],
   ];
 
   return (
-    <div role="toolbar" aria-label="Formatting" className="flex flex-wrap items-center gap-x-0.5 gap-y-1 border-b px-3 py-1.5">
+    <div role="toolbar" aria-label={t({ id: "editor.formatting", message: "Formatting" })} className="flex flex-wrap items-center gap-x-0.5 gap-y-1 border-b px-3 py-1.5">
       {groups.map((group, i) => (
         <div key={i} className={cn("flex shrink-0 items-center gap-0.5", i > 0 && "ml-1 border-l pl-1.5")}>
           {group.map(({ icon: Icon, label, keys, active, run }) => (
@@ -562,7 +563,7 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
     <div
       ref={box}
       role={edit ? "dialog" : undefined}
-      aria-label={edit ? (edit.key ? "Edit link" : "Add link") : undefined}
+      aria-label={edit ? (edit.key ? t({ id: "editor.edit_link", message: "Edit link" }) : t({ id: "editor.add_link", message: "Add link" })) : undefined}
       onMouseEnter={keepHover}
       // Leaving the card by keyboard, to anything but the text, hides it.
       onBlur={(e) => {
@@ -594,8 +595,8 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
                 close();
               }
             }}
-            placeholder="https://… or name@example.com"
-            aria-label="Link address"
+            placeholder={t({ id: "editor.link_placeholder", message: "https://… or name@example.com" })}
+            aria-label={t({ id: "editor.link_address", message: "Link address" })}
             aria-invalid={edit.invalid || undefined}
             className={cn(
               "h-7 w-64 min-w-0 flex-1 rounded-md border bg-background px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
@@ -603,10 +604,10 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
             )}
           />
           <button type="button" onClick={apply} className={cn(button, "bg-primary text-primary-foreground hover:opacity-90")}>
-            {edit.key ? "Save" : "Add"}
+            {edit.key ? t({ id: "common.save", message: "Save" }) : t({ id: "editor.add", message: "Add" })}
           </button>
           {edit.key && (
-            <button type="button" onClick={() => removeLink(edit.key!)} title="Remove link" aria-label="Remove link" className={cn(button, "px-1.5 text-muted-foreground hover:bg-accent hover:text-foreground")}>
+            <button type="button" onClick={() => removeLink(edit.key!)} title={t({ id: "editor.remove_link", message: "Remove link" })} aria-label={t({ id: "editor.remove_link", message: "Remove link" })} className={cn(button, "px-1.5 text-muted-foreground hover:bg-accent hover:text-foreground")}>
               <Unlink className="size-3.5" />
             </button>
           )}
@@ -618,7 +619,7 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
               href={view.url}
               target="_blank"
               rel="noopener noreferrer"
-              title={`Open ${shownUrl(view.url)}`}
+              title={t({ id: "editor.open_link", message: `Open ${shownUrl(view.url)}` })}
               className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
             >
               <LinkIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
@@ -632,8 +633,8 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
                 setHover(null);
                 setEdit({ key: view.key, draft: shownUrl(view.url), rect: null });
               }}
-              title="Edit link"
-              aria-label="Edit link"
+              title={t({ id: "editor.edit_link", message: "Edit link" })}
+              aria-label={t({ id: "editor.edit_link", message: "Edit link" })}
               className={cn(button, "px-1.5 text-muted-foreground hover:bg-accent hover:text-foreground")}
             >
               <Pencil className="size-3.5" />
@@ -641,8 +642,8 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
             <button
               type="button"
               onClick={() => removeLink(view.key)}
-              title="Remove link"
-              aria-label="Remove link"
+              title={t({ id: "editor.remove_link", message: "Remove link" })}
+              aria-label={t({ id: "editor.remove_link", message: "Remove link" })}
               className={cn(button, "px-1.5 text-muted-foreground hover:bg-accent hover:text-foreground")}
             >
               <Unlink className="size-3.5" />

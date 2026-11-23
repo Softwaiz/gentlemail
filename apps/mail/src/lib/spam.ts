@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { deleteMessageForever, type MessageRow } from "./db";
 import { domainOf } from "./db";
 import { newId, now } from "./util";
+import { t } from "@lingui/core/macro";
 
 /*
  * Spam handling.
@@ -80,4 +81,24 @@ export async function purgeOldSpam() {
     .all<MessageRow>();
   for (const m of results) await deleteMessageForever(m);
   return results.length;
+}
+
+/**
+ * A stored spam reason (English, as the API returns it) in the reader's language. Unknown
+ * text (from an older version, say) is shown as stored.
+ */
+export function spamReasonText(stored: string | null): string {
+  if (!stored) return "";
+  const score = stored.match(/^High spam score \((.+)\)\.$/);
+  if (score) return t({ id: "spam.score", message: `High spam score (${score[1]}).` });
+  const known: Record<string, string> = {
+    "You marked this sender as spam.": t({ id: "spam.sender_blocked", message: "You marked this sender as spam." }),
+    "Flagged as spam before it reached us.": t({ id: "spam.flagged", message: "Flagged as spam before it reached us." }),
+    "The sender's domain didn't confirm it sent this (DMARC failed).": t({
+      id: "spam.dmarc",
+      message: "The sender's domain didn't confirm it sent this (DMARC failed).",
+    }),
+    "You marked it as spam, so this sender is blocked.": t({ id: "spam.marked", message: "You marked it as spam, so this sender is blocked." }),
+  };
+  return known[stored] ?? stored;
 }

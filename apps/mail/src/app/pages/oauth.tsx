@@ -3,7 +3,7 @@ import type { RequestInfo } from "rwsdk/worker";
 import { appName } from "@/app/components/brand";
 import { AccessEditor, type AccessTargets } from "@/app/components/key-dialog";
 import { Button } from "@/app/components/ui/button";
-import { json, redirect, requireUser, withFlash } from "@/app/http";
+import { flashText, json, redirect, requireUser, withFlash } from "@/app/http";
 import { AuthCard } from "@/app/pages/auth";
 import { grantsFromForm } from "@/lib/apikeys";
 import type { User } from "@/lib/auth";
@@ -24,6 +24,8 @@ import {
   registerClient,
   revokeToken,
 } from "@/lib/oauth";
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 
 /*
  * OAuth for the MCP endpoint: discovery documents, client registration, the
@@ -161,18 +163,23 @@ type Authorization = {
 async function readAuthorization(p: URLSearchParams, origin: string): Promise<Authorization | { fatal: string } | { redirect: string }> {
   const client = await getClient(p.get("client_id") ?? "");
   if (!client)
-    return { fatal: "This app isn't registered on this server, or its registration expired. Remove the server in the app and add it again." };
+    return {
+      fatal: t({
+        id: "oauth.not_registered",
+        message: "This app isn't registered on this server, or its registration expired. Remove the server in the app and add it again.",
+      }),
+    };
   const uris = clientRedirectUris(client);
   const redirectUri = p.get("redirect_uri") ?? (uris.length === 1 ? uris[0] : "");
   if (!redirectUri || !redirectMatches(uris, redirectUri))
-    return { fatal: "The app asked to send you back to an address it didn't register. Nothing was shared." };
+    return { fatal: t({ id: "oauth.bad_redirect", message: "The app asked to send you back to an address it didn't register. Nothing was shared." }) };
 
   const state = p.get("state");
   const local = isLoopback(new URL(redirectUri));
   const broken = (error: string, detail: string) =>
     local
       ? { redirect: redirectWith(redirectUri, origin, state, { error, error_description: `${detail[0].toUpperCase()}${detail.slice(1)}.` }) }
-      : { fatal: `The app's sign-in request is broken (${detail}). Nothing was shared. Tell the app's makers, or try another app.` };
+      : { fatal: t({ id: "oauth.broken", message: `The app's sign-in request is broken (${detail}). Nothing was shared. Tell the app's makers, or try another app.` }) };
   if (p.get("response_type") !== "code") return broken("unsupported_response_type", "only response_type=code is supported");
   const challenge = p.get("code_challenge") ?? "";
   if (!/^[A-Za-z0-9_-]{43,128}$/.test(challenge) || p.get("code_challenge_method") !== "S256")
@@ -216,16 +223,16 @@ async function targetsFor(user: User) {
  */
 function destination(uri: string): { where: string; note: string; site: boolean } {
   const u = new URL(uri);
-  if (u.protocol === "http:") return { where: u.host, note: "An app on this computer, not a website.", site: false };
-  if (u.protocol === "https:") return { where: u.hostname, note: "A website.", site: true };
+  if (u.protocol === "http:") return { where: u.host, note: t({ id: "oauth.dest_local", message: "An app on this computer, not a website." }), site: false };
+  if (u.protocol === "https:") return { where: u.hostname, note: t({ id: "oauth.dest_site", message: "A website." }), site: true };
   const where = uri.split(/[?#]/)[0];
-  return { where, note: `Not a website: an app installed on this device, which opens links starting with ${u.protocol}`, site: false };
+  return {
+    where,
+    note: t({ id: "oauth.dest_app", message: `Not a website: an app installed on this device, which opens links starting with ${u.protocol}` }),
+    site: false,
+  };
 }
 
-/** The consent screen's errors, by code: its ?err= is never shown as written, so a link can't put words on it. */
-const CONSENT_ERRORS: Record<string, string> = {
-  nothing_ticked: "Tick Read, Organize or Send on at least one line, or choose Cancel.",
-};
 
 export async function AuthorizePage(ri: RequestInfo) {
   const denied = requireUser(ri);
@@ -235,9 +242,9 @@ export async function AuthorizePage(ri: RequestInfo) {
   if ("redirect" in req) return redirect(req.redirect);
   if ("fatal" in req)
     return (
-      <AuthCard title="Can't connect this app" err={req.fatal}>
+      <AuthCard title={t({ id: "oauth.cant_connect", message: "Can't connect this app" })} err={req.fatal}>
         <a href="/" className="text-sm font-medium underline-offset-4 hover:underline">
-          Back to your mail
+          {t({ id: "oauth.back", message: "Back to your mail" })}
         </a>
       </AuthCard>
     );
@@ -252,25 +259,35 @@ export async function AuthorizePage(ri: RequestInfo) {
   const { targets, allowAll } = await targetsFor(user);
   // An admin may give all mailboxes or a domain even before any mailbox exists.
   const shareable = allowAll || targets.domains.length > 0 || targets.mailboxes.length > 0;
-  const err = CONSENT_ERRORS[url.searchParams.get("err") ?? ""] ?? null;
+  const err = flashText(url.searchParams.get("err"), ["nothing_ticked"]);
   const strong = "font-medium text-foreground";
 
   const dest = destination(req.redirectUri);
 
   return (
-    <AuthCard title="Connect an assistant" err={err}>
+    <AuthCard title={t({ id: "oauth.title", message: "Connect an assistant" })} err={err}>
       <p className="text-sm leading-relaxed text-muted-foreground">
-        An app that calls itself <span className={strong}>“{req.client.name}”</span> wants to use mail as{" "}
-        <span className={strong}>{user.email}</span>. Choose what it may read, organize and send. You can disconnect it at any time under
-        Security.
+        <Trans id="oauth.intro">
+          An app that calls itself <span className={strong}>“{req.client.name}”</span> wants to use mail as{" "}
+          <span className={strong}>{user.email}</span>. Choose what it may read, organize and send. You can disconnect it at any time
+          under Security.
+        </Trans>
       </p>
       {/* Anyone can register an app under any name, so the address is what to check. */}
       <div className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-3 text-sm">
-        <div className="text-xs text-muted-foreground">If you allow it, access is given to</div>
+        <div className="text-xs text-muted-foreground">{t({ id: "oauth.given_to", message: "If you allow it, access is given to" })}</div>
         <div className="mt-1 break-all font-mono text-base font-semibold text-foreground">{dest.where}</div>
         <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          {dest.note} The app picks its own name, so check this address instead{dest.site ? ": for Claude it is the website claude.ai" : ""}. If
-          you didn't just start connecting an assistant yourself, choose Cancel.
+          {dest.note}{" "}
+          {dest.site
+            ? t({
+                id: "oauth.check_site",
+                message: "The app picks its own name, so check this address instead: for Claude it is the website claude.ai. If you didn't just start connecting an assistant yourself, choose Cancel.",
+              })
+            : t({
+                id: "oauth.check",
+                message: "The app picks its own name, so check this address instead. If you didn't just start connecting an assistant yourself, choose Cancel.",
+              })}
         </div>
       </div>
       <form method="post" className="mt-4 grid gap-4">
@@ -280,14 +297,14 @@ export async function AuthorizePage(ri: RequestInfo) {
         {shareable ? (
           <AccessEditor targets={targets} initial={{}} allowAll={allowAll} />
         ) : (
-          <p className="text-sm text-muted-foreground">You can't open any mailbox yet, so there is nothing to share. Ask an admin.</p>
+          <p className="text-sm text-muted-foreground">{t({ id: "oauth.nothing", message: "You can't open any mailbox yet, so there is nothing to share. Ask an admin." })}</p>
         )}
         <div className="grid grid-cols-2 gap-2">
           <Button type="submit" name="decision" value="allow" size="lg" disabled={!shareable}>
-            Allow
+            {t({ id: "oauth.allow", message: "Allow" })}
           </Button>
           <Button type="submit" name="decision" value="deny" size="lg" variant="outline">
-            Cancel
+            {t({ id: "common.cancel", message: "Cancel" })}
           </Button>
         </div>
       </form>

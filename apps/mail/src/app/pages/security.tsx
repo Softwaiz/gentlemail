@@ -9,6 +9,8 @@ import { safeNext } from "@/app/http";
 import { type Grant, listActiveGrants, listConnections } from "@/lib/apikeys";
 import { isMfaRequired, recoveryCodesLeft } from "@/lib/mfa";
 import { publicUrl } from "@/lib/webhooks";
+import { dateLocale } from "@/lib/util";
+import { t } from "@lingui/core/macro";
 
 /* ---------- /account/security: the signed-in person's own two-step verification ---------- */
 
@@ -39,30 +41,36 @@ export async function SecurityPage({ ctx, request }: RequestInfo) {
   const back = next ? safeNext(next) : null;
 
   return (
-    <Shell user={user} folder="security" flash={flashFrom(request)}>
-      <PageHeader title="Security" sub={user.email} />
+    <Shell user={user} folder="security" flash={flashFrom(request, { msg: ["recovery_used"], err: ["recovery_last"] })}>
+      <PageHeader title={t({ id: "security.title", message: "Security" })} sub={user.email} />
       <div className="grid max-w-3xl gap-6">
         {user.mustSetUpMfa && (
           <div role="alert" className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
-            <span className="font-medium">Your admin requires two-step verification.</span>{" "}
-            {back ? "Set it up below; then you go back to where you were." : "Set it up below to open your mail."}
+            <span className="font-medium">{t({ id: "security.required", message: "Your admin requires two-step verification." })}</span>{" "}
+            {back
+              ? t({ id: "security.required_back", message: "Set it up below; then you go back to where you were." })
+              : t({ id: "security.required_mail", message: "Set it up below to open your mail." })}
           </div>
         )}
         {!user.mustSetUpMfa && row?.mfa_enabled_at && back && back !== "/" && (
           <div role="status" className="rounded-md border px-4 py-3 text-sm">
-            Two-step verification is on.{" "}
+            {t({ id: "security.on", message: "Two-step verification is on." })}{" "}
             <a href={back} className="font-medium underline underline-offset-4">
-              Continue where you were
+              {t({ id: "security.continue", message: "Continue where you were" })}
             </a>
           </div>
         )}
         <Section
-          title="Two-step verification"
-          description={required ? "Required for everyone on this server." : "Recommended. Your admin may also require it."}
+          title={t({ id: "security.mfa_title", message: "Two-step verification" })}
+          description={
+            required
+              ? t({ id: "security.mfa_required", message: "Required for everyone on this server." })
+              : t({ id: "security.mfa_recommended", message: "Recommended. Your admin may also require it." })
+          }
         >
           <MfaPanel
             enabled={!!row?.mfa_enabled_at}
-            enabledAt={row?.mfa_enabled_at ? new Date(row.mfa_enabled_at).toLocaleDateString("en-GB", { dateStyle: "medium", timeZone: "UTC" }) : null}
+            enabledAt={row?.mfa_enabled_at ? new Date(row.mfa_enabled_at).toLocaleDateString(dateLocale(), { dateStyle: "medium", timeZone: "UTC" }) : null}
             codesLeft={codesLeft}
             required={required}
             email={user.email}

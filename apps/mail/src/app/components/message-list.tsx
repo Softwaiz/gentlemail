@@ -7,6 +7,8 @@ import { type MailAction, updateMessages } from "@/app/actions/mail";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { plural, t } from "@lingui/core/macro";
+import { folderName } from "@/lib/folders";
 
 export type ListItem = {
   /** Thread id, or message id in search results. */
@@ -62,7 +64,7 @@ export function MessageList({ mailboxId, folder, scope, items, showFolder }: Pro
         else if (r?.message) toast.success(r.message);
         setSelected(new Set());
       } catch {
-        toast.error("That didn't work. Check your connection and try again.");
+        toast.error(t({ id: "common.failed_connection", message: "That didn't work. Check your connection and try again." }));
       }
     });
 
@@ -80,27 +82,27 @@ export function MessageList({ mailboxId, folder, scope, items, showFolder }: Pro
         <Checkbox
           checked={all ? true : some ? "indeterminate" : false}
           onCheckedChange={(v) => setSelected(v ? new Set(items.map((i) => i.key)) : new Set())}
-          aria-label="Select all"
+          aria-label={t({ id: "list.select_all", message: "Select all" })}
           className="mr-3"
         />
         {selected.size === 0 ? (
-          <span className="text-[13px] text-muted-foreground">Select conversations to act on several at once</span>
+          <span className="text-[13px] text-muted-foreground">{t({ id: "list.select_hint", message: "Select conversations to act on several at once" })}</span>
         ) : (
           <>
-            <span className="mr-2 text-[13px] font-medium tabular-nums">{selected.size} selected</span>
-            {m.archive && <Bulk icon={Archive} label="Archive" onClick={() => run("archive", keys)} />}
-            {m.inbox && <Bulk icon={Inbox} label="Move to inbox" onClick={() => run("inbox", keys)} />}
-            {m.notSpam && <Bulk icon={ShieldCheck} label="Not spam" onClick={() => run("inbox", keys)} />}
+            <span className="mr-2 text-[13px] font-medium tabular-nums">{t({ id: "list.selected", message: plural(selected.size, { one: "# selected", other: "# selected" }) })}</span>
+            {m.archive && <Bulk icon={Archive} label={t({ id: "action.archive", message: "Archive" })} onClick={() => run("archive", keys)} />}
+            {m.inbox && <Bulk icon={Inbox} label={t({ id: "action.to_inbox", message: "Move to inbox" })} onClick={() => run("inbox", keys)} />}
+            {m.notSpam && <Bulk icon={ShieldCheck} label={t({ id: "action.not_spam", message: "Not spam" })} onClick={() => run("inbox", keys)} />}
             {anyUnread ? (
-              <Bulk icon={MailOpen} label="Mark read" onClick={() => run("read", keys)} />
+              <Bulk icon={MailOpen} label={t({ id: "action.mark_read", message: "Mark read" })} onClick={() => run("read", keys)} />
             ) : (
-              <Bulk icon={Mail} label="Mark unread" onClick={() => run("unread", keys)} />
+              <Bulk icon={Mail} label={t({ id: "action.mark_unread", message: "Mark unread" })} onClick={() => run("unread", keys)} />
             )}
-            {m.spam && <Bulk icon={OctagonAlert} label="Spam" onClick={() => run("spam", keys)} />}
+            {m.spam && <Bulk icon={OctagonAlert} label={t({ id: "action.spam", message: "Spam" })} onClick={() => run("spam", keys)} />}
             {m.forever ? (
-              <Bulk icon={Trash2} label="Delete forever" danger onClick={() => run("delete", keys)} />
+              <Bulk icon={Trash2} label={t({ id: "action.delete_forever", message: "Delete forever" })} danger onClick={() => run("delete", keys)} />
             ) : (
-              <Bulk icon={Trash2} label="Trash" danger onClick={() => run("trash", keys)} />
+              <Bulk icon={Trash2} label={t({ id: "action.trash", message: "Trash" })} danger onClick={() => run("trash", keys)} />
             )}
           </>
         )}
@@ -127,12 +129,12 @@ export function MessageList({ mailboxId, folder, scope, items, showFolder }: Pro
                   return n;
                 })
               }
-              aria-label={`Select ${i.subject}`}
+              aria-label={t({ id: "list.select_one", message: `Select ${i.subject}` })}
             />
             <button
               type="button"
               onClick={() => run(i.starred ? "unstar" : "star", [i.key])}
-              aria-label={i.starred ? "Remove star" : "Star"}
+              aria-label={i.starred ? t({ id: "action.unstar", message: "Remove star" }) : t({ id: "action.star", message: "Star" })}
               className="hidden text-muted-foreground/60 hover:text-foreground sm:block"
             >
               <Star className={cn("size-4", i.starred && "fill-violet text-violet")} />
@@ -147,31 +149,31 @@ export function MessageList({ mailboxId, folder, scope, items, showFolder }: Pro
               </span>
               <span className="col-span-2 row-start-2 min-w-0 truncate md:col-span-1 md:row-start-auto">
                 {showFolder && (
-                  <span className="mr-2 rounded-sm bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground capitalize">{i.folder}</span>
+                  <span className="mr-2 rounded-sm bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground">{folderName(i.folder)}</span>
                 )}
-                <span className={i.unread ? "font-semibold" : "font-medium"}>{i.subject || "(no subject)"}</span>
+                <span className={i.unread ? "font-semibold" : "font-medium"}>{i.subject || t({ id: "common.no_subject", message: "(no subject)" })}</span>
                 <span className="ml-2 text-muted-foreground">{i.snippet}</span>
               </span>
               <span className="flex items-center gap-2 justify-self-end text-xs whitespace-nowrap text-muted-foreground tabular-nums md:group-hover:invisible">
-                {i.attachments && <Paperclip className="size-3.5" aria-label="Has attachments" />}
+                {i.attachments && <Paperclip className="size-3.5" aria-label={t({ id: "list.has_attachments", message: "Has attachments" })} />}
                 <time className={cn(i.unread && "font-semibold text-foreground")}>{i.date}</time>
               </span>
             </a>
             {/* Quick actions replace the date on hover (desktop). */}
             <div className="absolute top-1/2 right-3 hidden -translate-y-1/2 items-center gap-0.5 rounded-md bg-accent md:group-hover:flex md:group-focus-within:flex">
-              {m.archive && <Quick icon={Archive} label="Archive" onClick={() => run("archive", [i.key])} />}
-              {m.inbox && <Quick icon={Inbox} label="Move to inbox" onClick={() => run("inbox", [i.key])} />}
-              {m.notSpam && <Quick icon={ShieldCheck} label="Not spam" onClick={() => run("inbox", [i.key])} />}
+              {m.archive && <Quick icon={Archive} label={t({ id: "action.archive", message: "Archive" })} onClick={() => run("archive", [i.key])} />}
+              {m.inbox && <Quick icon={Inbox} label={t({ id: "action.to_inbox", message: "Move to inbox" })} onClick={() => run("inbox", [i.key])} />}
+              {m.notSpam && <Quick icon={ShieldCheck} label={t({ id: "action.not_spam", message: "Not spam" })} onClick={() => run("inbox", [i.key])} />}
               {i.unread ? (
-                <Quick icon={MailOpen} label="Mark read" onClick={() => run("read", [i.key])} />
+                <Quick icon={MailOpen} label={t({ id: "action.mark_read", message: "Mark read" })} onClick={() => run("read", [i.key])} />
               ) : (
-                <Quick icon={Mail} label="Mark unread" onClick={() => run("unread", [i.key])} />
+                <Quick icon={Mail} label={t({ id: "action.mark_unread", message: "Mark unread" })} onClick={() => run("unread", [i.key])} />
               )}
-              {m.spam && <Quick icon={OctagonAlert} label="Spam" onClick={() => run("spam", [i.key])} />}
+              {m.spam && <Quick icon={OctagonAlert} label={t({ id: "action.spam", message: "Spam" })} onClick={() => run("spam", [i.key])} />}
               {m.forever ? (
-                <Quick icon={Trash2} label="Delete forever" onClick={() => run("delete", [i.key])} />
+                <Quick icon={Trash2} label={t({ id: "action.delete_forever", message: "Delete forever" })} onClick={() => run("delete", [i.key])} />
               ) : (
-                <Quick icon={Trash2} label="Trash" onClick={() => run("trash", [i.key])} />
+                <Quick icon={Trash2} label={t({ id: "action.trash", message: "Trash" })} onClick={() => run("trash", [i.key])} />
               )}
             </div>
           </li>

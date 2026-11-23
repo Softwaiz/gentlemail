@@ -1,11 +1,13 @@
 import { Archive, Inbox, OctagonAlert, PenLine, Send, Settings, Shield, Trash2, Webhook } from "lucide-react";
 import type { User } from "@/lib/auth";
-import { FOLDERS, type Folder, switcherGroups, unreadByFolder } from "@/lib/db";
+import { FOLDERS, type Folder, folderName, switcherGroups, unreadByFolder } from "@/lib/db";
+import { plural, t } from "@lingui/core/macro";
 import { cn } from "@/lib/utils";
 import { LogoMark, Wordmark, hasLogo } from "./brand";
 import { MailboxSwitcher } from "./mailbox-switcher";
 import { SidebarNav } from "./mobile-nav";
 import { Toaster } from "./ui/sonner";
+import { type FlashCode, flashText } from "@/app/http";
 import { UserMenu } from "./user-menu";
 
 export { appName } from "./brand";
@@ -68,7 +70,7 @@ function NavItem({
             "rounded-sm px-1.5 text-[11px] leading-[18px] font-bold tabular-nums",
             strong ? "bg-lime text-lime-ink" : "bg-sidebar-accent text-sidebar-foreground/80 group-hover:bg-sidebar",
           )}
-          aria-label={`${count} unread`}
+          aria-label={t({ id: "shell.unread_count", message: plural(count, { one: "# unread", other: "# unread" }) })}
         >
           {count}
         </span>
@@ -107,7 +109,7 @@ export async function Shell({ user, mailboxId, folder, flash, bleed, children }:
             current && (
               <a
                 href={`/mb/${current.id}/compose`}
-                aria-label="New message"
+                aria-label={t({ id: "shell.new_message", message: "New message" })}
                 className="grid size-9 place-items-center rounded-md bg-lime text-lime-ink md:hidden"
               >
                 <PenLine className="size-4" />
@@ -131,9 +133,9 @@ export async function Shell({ user, mailboxId, folder, flash, bleed, children }:
                 style={{ "--i": 2 } as React.CSSProperties}
                 className="nav-item mb-3 flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-lime font-semibold text-lime-ink transition hover:bg-[#f0ff5b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet max-md:h-12"
               >
-                <PenLine className="size-4" /> New message
+                <PenLine className="size-4" /> {t({ id: "shell.new_message", message: "New message" })}
               </a>
-              <nav aria-label="Folders" className="flex flex-col gap-0.5">
+              <nav aria-label={t({ id: "shell.folders", message: "Folders" })} className="flex flex-col gap-0.5">
                 {FOLDERS.map((f, n) => (
                   <NavItem
                     key={f.id}
@@ -144,16 +146,16 @@ export async function Shell({ user, mailboxId, folder, flash, bleed, children }:
                     strong={f.id === "inbox"}
                     i={3 + n}
                   >
-                    {f.label}
+                    {folderName(f.id)}
                   </NavItem>
                 ))}
                 <NavItem href={`/mb/${current.id}/settings`} active={folder === "settings"} icon={Settings} i={3 + FOLDERS.length}>
-                  Mailbox settings
+                  {t({ id: "shell.mailbox_settings", message: "Mailbox settings" })}
                 </NavItem>
               </nav>
             </>
           )}
-          {all.length === 0 && <p className="px-3 text-xs text-sidebar-muted">No mailboxes yet.</p>}
+          {all.length === 0 && <p className="px-3 text-xs text-sidebar-muted">{t({ id: "shell.no_mailboxes", message: "No mailboxes yet." })}</p>}
 
           <div
             className="nav-item mt-auto flex flex-col gap-1 border-t border-sidebar-border pt-3"
@@ -162,14 +164,14 @@ export async function Shell({ user, mailboxId, folder, flash, bleed, children }:
             {user.role === "admin" && (
               <>
                 <NavItem href="/admin" active={folder === "admin"} icon={Shield}>
-                  Admin
+                  {t({ id: "shell.admin", message: "Admin" })}
                 </NavItem>
                 <NavItem href="/admin/api" active={folder === "api"} icon={Webhook}>
-                  API &amp; webhooks
+                  {t({ id: "shell.api", message: "API & webhooks" })}
                 </NavItem>
               </>
             )}
-            <UserMenu name={user.name} email={user.email} isAdmin={user.role === "admin"} />
+            <UserMenu name={user.name} email={user.email} isAdmin={user.role === "admin"} language={user.language} />
             {user.role === "admin" && (
               <a
                 href="https://github.com/Softwaiz/gentlemail/blob/main/CHANGELOG.md"
@@ -243,7 +245,8 @@ export function PageHeader({
   );
 }
 
-export const flashFrom = (request: Request) => {
+/** The messages a redirect asked this page to show, among the codes it accepts (see FLASH in http.ts). */
+export const flashFrom = (request: Request, accepted: { msg: readonly FlashCode[]; err: readonly FlashCode[] }) => {
   const u = new URL(request.url);
-  return { msg: u.searchParams.get("msg"), err: u.searchParams.get("err") };
+  return { msg: flashText(u.searchParams.get("msg"), accepted.msg), err: flashText(u.searchParams.get("err"), accepted.err) };
 };

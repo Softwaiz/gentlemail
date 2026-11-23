@@ -14,7 +14,7 @@ import { ActionButton, ActionForm, ConfirmAction, FormDialog } from "@/app/compo
 import { Code, CodeSamples, type Sample } from "@/app/components/code-samples";
 import { FormSelect, type Option } from "@/app/components/form-select";
 import { type AccessTargets, type AccessValue, EditKeyAccessDialog, NewKeyDialog } from "@/app/components/key-dialog";
-import { PageHeader, Shell, flashFrom } from "@/app/components/shell";
+import { PageHeader, Shell } from "@/app/components/shell";
 import { Field, Section, StatusBadge, cardRow, cardTable, cardTableHeader } from "@/app/components/section";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
@@ -29,12 +29,14 @@ import { type Mailbox } from "@/lib/db";
 import { formatDate } from "@/lib/util";
 import { cn } from "@/lib/utils";
 import { type DeliveryRow, EVENTS, type WebhookRow, publicUrl } from "@/lib/webhooks";
+import { plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 
 const listMailboxes = async () =>
   (await env.DB.prepare("SELECT id, address FROM mailboxes ORDER BY address").all<Pick<Mailbox, "id" | "address">>()).results;
 
 const mailboxOptions = (list: { id: string; address: string }[]): Option[] => [
-  { value: "all", label: "All mailboxes" },
+  { value: "all", label: t({ id: "developers.all_mailboxes", message: "All mailboxes" }) },
   ...list.map((m) => ({ value: m.id, label: m.address })),
 ];
 
@@ -44,17 +46,17 @@ function HookFields({ mailboxes, hook }: { mailboxes: { id: string; address: str
   return (
     <>
       {hook && <input type="hidden" name="id" value={hook.id} />}
-      <Field label="Name">
-        <Input name="name" placeholder="Invoice processor" defaultValue={hook?.name} required autoFocus={!hook} />
+      <Field label={t({ id: "developers.name", message: "Name" })}>
+        <Input name="name" placeholder={t({ id: "developers.invoice_processor", message: "Invoice processor" })} defaultValue={hook?.name} required autoFocus={!hook} />
       </Field>
-      <Field label="URL" hint="Must be https. We POST each event here.">
-        <Input name="url" type="url" placeholder="https://agents.example.com/hooks/mail" defaultValue={hook?.url} required />
+      <Field label={t({ id: "developers.url", message: "URL" })} hint={t({ id: "developers.must_https_we_post", message: "Must be https. We POST each event here." })}>
+        <Input name="url" type="url" placeholder={t({ id: "developers.https_agents_example_com", message: "https://agents.example.com/hooks/mail" })} defaultValue={hook?.url} required />
       </Field>
-      <Field label="Mailbox">
-        <FormSelect name="mailbox_id" options={mailboxOptions(mailboxes)} defaultValue={hook?.mailbox_id ?? "all"} aria-label="Mailbox" />
+      <Field label={t({ id: "developers.mailbox", message: "Mailbox" })}>
+        <FormSelect name="mailbox_id" options={mailboxOptions(mailboxes)} defaultValue={hook?.mailbox_id ?? "all"} aria-label={t({ id: "developers.mailbox", message: "Mailbox" })} />
       </Field>
       <fieldset className="grid gap-2">
-        <legend className="mb-1.5 text-sm font-medium">Events</legend>
+        <legend className="mb-1.5 text-sm font-medium">{t({ id: "developers.events", message: "Events" })}</legend>
         {EVENTS.map((e) => (
           <label key={e.id} className="flex items-center gap-2.5 text-sm">
             <Checkbox name="events" value={e.id} defaultChecked={events.has(e.id)} />
@@ -82,7 +84,7 @@ const mono = (s: string) => <code className="font-mono">{s}</code>;
 /** Send, read and webhooks, each with the SDK and over HTTP. `base` is this instance's URL. */
 const samples = (base: string, example: string): Sample[] => [
   {
-    title: "Send an email",
+    title: t({ id: "developers.send_email", message: "Send an email" }),
     sdk: `import { GentleMail } from "gentlemail";
 
 const mail = new GentleMail({ url: "${base}", apiKey: process.env.GENTLEMAIL_KEY });
@@ -105,20 +107,20 @@ await mail.send({
     "attachments": [{ "filename": "invoice.pdf", "content": "<base64>", "content_type": "application/pdf" }]
   }'`,
     sdkNote: (
-      <>
+      <Trans id="developers.send_sdk_note">
         Optional: {mono("html")}, {mono("cc")}, {mono("bcc")}, {mono("signature: true")}. To answer in the same thread, use{" "}
         {mono("mail.messages.reply(message, { text })")}.
-      </>
+      </Trans>
     ),
     httpNote: (
-      <>
+      <Trans id="developers.send_http_note">
         Optional: {mono("html")}, {mono("cc")}, {mono("bcc")}, {mono("signature: true")}, and {mono("reply_to_message_id")} to
         answer in the same thread.
-      </>
+      </Trans>
     ),
   },
   {
-    title: "Read mail",
+    title: t({ id: "developers.read_mail", message: "Read mail" }),
     sdk: `const mailboxes = await mail.mailboxes.list();       // the ones this key can use
 const unread = await mail.messages.list({ mailbox: "${example}", unread: true });
 const message = await mail.messages.get(unread[0].id);  // full text and HTML
@@ -130,11 +132,11 @@ GET  /api/v1/messages?mailbox=${example}&folder=inbox&unread=true&since=2026-11-
 GET  /api/v1/messages/{id}             full text, raw HTML, attachment links
 GET  /api/v1/attachments/{id}          file bytes
 POST /api/v1/messages/{id}  {"action":"archive"}   read, unread, star, unstar, archive, trash, spam, inbox`,
-    sdkNote: <>Reading needs a key with the Read permission on that mailbox, marking and moving needs Organize, and sending needs Send.</>,
-    httpNote: <>Reading needs a key with the Read permission on that mailbox, marking and moving needs Organize, and sending needs Send.</>,
+    sdkNote: <>{t({ id: "developers.reading_needs_key_read", message: "Reading needs a key with the Read permission on that mailbox, marking and moving needs Organize, and sending needs Send." })}</>,
+    httpNote: <>{t({ id: "developers.reading_needs_key_read", message: "Reading needs a key with the Read permission on that mailbox, marking and moving needs Organize, and sending needs Send." })}</>,
   },
   {
-    title: "Receive webhooks",
+    title: t({ id: "developers.receive_webhooks", message: "Receive webhooks" }),
     sdk: `import { verifyWebhook } from "gentlemail";
 
 export default {
@@ -157,16 +159,18 @@ X-GentleMail-Signature: v1=<hex HMAC-SHA256(secret, timestamp + "." + body)>
 { "id": "...", "event": "message.received", "created_at": "...",
   "data": { "id", "thread_id", "mailbox", "from", "to", "subject", "text", "attachments": [{ "url", ... }], ... } }`,
     sdkNote: (
-      <>
+      <Trans id="developers.webhook_sdk_note">
         {mono("verifyWebhook")} checks the signature and refuses events older than five minutes. Answer with any 2xx within 10
         seconds; anything else is retried after 1 min, 5 min, 30 min, 2 h, 6 h and 12 h.
-      </>
+      </Trans>
     ),
     httpNote: (
       <>
-        Check the signature and reject timestamps older than five minutes. Answer with any 2xx status within 10 seconds;
-        anything else is retried after 1 min, 5 min, 30 min, 2 h, 6 h and 12 h. Attachment URLs need a key with the Read
-        permission.
+        {t({
+          id: "developers.webhook_http_note",
+          message:
+            "Check the signature and reject timestamps older than five minutes. Answer with any 2xx status within 10 seconds; anything else is retried after 1 min, 5 min, 30 min, 2 h, 6 h and 12 h. Attachment URLs need a key with the Read permission.",
+        })}
       </>
     ),
   },
@@ -179,7 +183,10 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
   const { results: domains } = await env.DB.prepare("SELECT id, name FROM domains ORDER BY name").all<{ id: string; name: string }>();
   const targets: AccessTargets = { domains, mailboxes };
   const names = targetNames(targets);
-  const label = (id: string | null) => (id ? (names.get(`mailbox:${id}`) ?? "deleted mailbox") : "All mailboxes");
+  const label = (id: string | null) =>
+    id
+      ? (names.get(`mailbox:${id}`) ?? t({ id: "developers.deleted_mailbox", message: "deleted mailbox" }))
+      : t({ id: "developers.all_mailboxes", message: "All mailboxes" });
 
   const { results: keys } = await env.DB.prepare(
     "SELECT * FROM api_keys WHERE user_id IS NULL ORDER BY revoked_at IS NOT NULL, created_at DESC",
@@ -202,25 +209,25 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
   const example = mailboxes[0]?.address ?? "hello@example.com";
 
   return (
-    <Shell user={ctx.user!} folder="api" flash={flashFrom(request)}>
+    <Shell user={ctx.user!} folder="api">
       <PageHeader
-        title="API & webhooks"
-        sub="Let other programs send and read mail, and get notified the moment mail arrives."
+        title={t({ id: "developers.api_webhooks", message: "API & webhooks" })}
+        sub={t({ id: "developers.let_other_programs_send", message: "Let other programs send and read mail, and get notified the moment mail arrives." })}
       />
 
       <div className="grid gap-6">
         <Section
-          title="API keys"
-          description="Give each key Read, Organize and/or Send on all mailboxes, whole domains or the mailboxes you pick."
+          title={t({ id: "developers.api_keys", message: "API keys" })}
+          description={t({ id: "developers.give_each_key_read", message: "Give each key Read, Organize and/or Send on all mailboxes, whole domains or the mailboxes you pick." })}
           action={<NewKeyDialog targets={targets} />}
         >
           {/* Phones and tablets: each key is a small card (name, key and buttons; access; last use). */}
           <Table className={cardTable}>
             <TableHeader className={cardTableHeader}>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Access</TableHead>
-                <TableHead>Last used</TableHead>
+                <TableHead>{t({ id: "developers.name", message: "Name" })}</TableHead>
+                <TableHead>{t({ id: "developers.access", message: "Access" })}</TableHead>
+                <TableHead>{t({ id: "developers.last_used", message: "Last used" })}</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -235,35 +242,36 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
                     <div className="font-mono text-xs text-muted-foreground">{k.prefix}…</div>
                   </TableCell>
                   <TableCell className="whitespace-normal max-lg:col-span-2 max-lg:row-start-2">
-                    {k.revoked_at ? <span className="text-muted-foreground">None</span> : <AccessSummary grants={grantsOf(k.id)} names={names} />}
+                    {k.revoked_at ? <span className="text-muted-foreground">{t({ id: "developers.none", message: "None" })}</span> : <AccessSummary grants={grantsOf(k.id)} names={names} />}
                   </TableCell>
                   <TableCell className="text-muted-foreground lg:min-w-28 lg:whitespace-normal max-lg:col-span-2 max-lg:row-start-3 max-lg:text-xs">
                     {k.last_used_at ? (
                       <>
-                        <span className="lg:hidden">Last used </span>
+                        <span className="lg:hidden">{t({ id: "connections.last_used", message: "Last used" })} </span>
                         {formatDate(k.last_used_at, true)}
                       </>
                     ) : (
                       <>
-                        Never<span className="lg:hidden"> used</span>
+                        <span className="max-lg:hidden">{t({ id: "connections.never", message: "Never" })}</span>
+                        <span className="lg:hidden">{t({ id: "connections.never_used", message: "Never used" })}</span>
                       </>
                     )}
                   </TableCell>
                   <TableCell className="text-right max-lg:col-start-2 max-lg:row-start-1 max-lg:self-start">
                     {k.revoked_at ? (
-                      <span className="text-xs text-muted-foreground">Revoked</span>
+                      <span className="text-xs text-muted-foreground">{t({ id: "developers.revoked", message: "Revoked" })}</span>
                     ) : (
                       <div className="flex justify-end gap-1">
                         <EditKeyAccessDialog keyId={k.id} name={k.name} targets={targets} initial={grantValue(grantsOf(k.id))} />
                         <ConfirmAction
                           trigger={
                             <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                              Revoke
+                              {t({ id: "developers.revoke", message: "Revoke" })}
                             </Button>
                           }
                           title={`Revoke “${k.name}”?`}
-                          description="Programs using this key are refused from the next request. This can't be undone."
-                          confirmLabel="Revoke key"
+                          description={t({ id: "developers.programs_using_key_are", message: "Programs using this key are refused from the next request. This can't be undone." })}
+                          confirmLabel={t({ id: "developers.revoke_key", message: "Revoke key" })}
                           action={revokeKeyAction}
                           args={[k.id]}
                         />
@@ -275,7 +283,7 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
               {keys.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="py-6 text-center whitespace-normal text-muted-foreground max-lg:block">
-                    No keys yet. Create one for each program that sends or reads mail.
+                    {t({ id: "developers.no_keys_yet_create", message: "No keys yet. Create one for each program that sends or reads mail." })}
                   </TableCell>
                 </TableRow>
               )}
@@ -292,19 +300,19 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
         />
 
         <Section
-          title="Webhooks"
-          description="We POST a signed JSON event to your URL when mail arrives or is sent. Failed deliveries are retried for about a day."
+          title={t({ id: "developers.webhooks", message: "Webhooks" })}
+          description={t({ id: "developers.we_post_signed_json", message: "We POST a signed JSON event to your URL when mail arrives or is sent. Failed deliveries are retried for about a day." })}
           action={
             <FormDialog
               trigger={
                 <Button>
-                  <Plus /> New webhook
+                  <Plus /> {t({ id: "developers.new_webhook", message: "New webhook" })}
                 </Button>
               }
-              title="New webhook"
-              description="You'll get its signing secret on the next screen."
+              title={t({ id: "developers.new_webhook", message: "New webhook" })}
+              description={t({ id: "developers.youll_get_signing_secret", message: "You'll get its signing secret on the next screen." })}
               action={createWebhookAction}
-              submitLabel="Add webhook"
+              submitLabel={t({ id: "developers.add_webhook", message: "Add webhook" })}
             >
               <HookFields mailboxes={mailboxes} />
             </FormDialog>
@@ -312,7 +320,7 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
         >
           {hooks.length === 0 ? (
             <p className="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-              No webhooks yet. Add one to start a workflow when mail arrives.
+              {t({ id: "developers.no_webhooks_yet_add", message: "No webhooks yet. Add one to start a workflow when mail arrives." })}
             </p>
           ) : (
             <ul className="divide-y rounded-md border">
@@ -325,7 +333,7 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
                     <span className="text-xs text-muted-foreground max-sm:order-3">{label(h.mailbox_id)}</span>
                     {h.failed > 0 && <span className="text-xs font-medium text-destructive max-sm:order-4">{h.failed} failed</span>}
                     <span className="max-sm:order-1">
-                      <StatusBadge on={!!h.active} onLabel="On" offLabel="Off" />
+                      <StatusBadge on={!!h.active} onLabel={t({ id: "developers.on", message: "On" })} offLabel={t({ id: "developers.off", message: "Off" })} />
                     </span>
                   </a>
                 </li>
@@ -335,42 +343,43 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
         </Section>
 
         <Section
-          title="Quick reference"
-          description="Use the JavaScript SDK, or call the HTTP API from any language. Each example runs as is with a key from above."
+          title={t({ id: "developers.quick_reference", message: "Quick reference" })}
+          description={t({ id: "developers.use_javascript_sdk_call", message: "Use the JavaScript SDK, or call the HTTP API from any language. Each example runs as is with a key from above." })}
         >
           <CodeSamples
             intro={{
               sdk: (
                 <>
-                  Install{" "}
-                  <a href={DOCS.npm} className={link}>
-                    gentlemail
-                  </a>{" "}
-                  from npm: typed, no dependencies, runs on Workers, Node 20+, Deno and Bun. It also checks webhook
-                  signatures for you.
+                  <Trans id="developers.sdk_intro">
+                    Install{" "}
+                    <a href={DOCS.npm} className={link}>
+                      gentlemail
+                    </a>{" "}
+                    from npm: typed, no dependencies, runs on Workers, Node 20+, Deno and Bun. It also checks webhook signatures for you.
+                  </Trans>
                   <Code>npm install gentlemail</Code>
                 </>
               ),
               http: (
-                <>
+                <Trans id="developers.http_intro">
                   Base URL <code className="font-mono text-foreground">{base}/api/v1</code>. Send the key as a Bearer token.
-                </>
+                </Trans>
               ),
             }}
             samples={samples(base, example)}
           />
           <p className="mt-6 border-t pt-4 text-sm text-muted-foreground">
-            Go further in the docs:{" "}
+            {t({ id: "developers.docs_more", message: "Go further in the docs:" })}{" "}
             <a href={DOCS.sdk} className={link}>
-              SDK guide
+              {t({ id: "developers.sdk_guide", message: "SDK guide" })}
             </a>
             {" · "}
             <a href={DOCS.api} className={link}>
-              API reference
+              {t({ id: "developers.api_reference", message: "API reference" })}
             </a>
             {" · "}
             <a href={DOCS.webhooks} className={link}>
-              Webhooks
+              {t({ id: "developers.webhooks", message: "Webhooks" })}
             </a>
           </p>
         </Section>
@@ -381,6 +390,14 @@ export async function DevelopersPage({ ctx, request }: RequestInfo) {
 
 /* ---------- /admin/webhooks/:id ---------- */
 
+/** A delivery's status in the reader's language; the stored value is a code (success, failed, pending). */
+const deliveryStatus = (s: string) =>
+  ({
+    success: t({ id: "developers.status_success", message: "success" }),
+    failed: t({ id: "developers.status_failed", message: "failed" }),
+    pending: t({ id: "developers.status_pending", message: "pending" }),
+  })[s] ?? s;
+
 const statusStyle: Record<string, string> = {
   success: "bg-lime/25 text-foreground dark:bg-lime/15 dark:text-lime",
   pending: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
@@ -388,7 +405,7 @@ const statusStyle: Record<string, string> = {
 };
 
 export async function WebhookPage(ri: RequestInfo) {
-  const { params, ctx, request } = ri;
+  const { params, ctx } = ri;
   const hook = await env.DB.prepare("SELECT * FROM webhooks WHERE id = ?").bind(params.id).first<WebhookRow>();
   if (!hook) return missing(ri, "webhook");
   const mailboxes = await listMailboxes();
@@ -399,58 +416,62 @@ export async function WebhookPage(ri: RequestInfo) {
     .all<DeliveryRow>();
 
   return (
-    <Shell user={ctx.user!} folder="api" flash={flashFrom(request)}>
-      <PageHeader title={hook.name} back={{ href: "/admin/api", label: "API & webhooks" }} sub={<span className="[overflow-wrap:anywhere]">{hook.url}</span>}>
+    <Shell user={ctx.user!} folder="api">
+      <PageHeader title={hook.name} back={{ href: "/admin/api", label: t({ id: "developers.api_webhooks", message: "API & webhooks" }) }} sub={<span className="[overflow-wrap:anywhere]">{hook.url}</span>}>
         <ActionButton variant="outline" action={testWebhookAction} args={[hook.id]}>
-          Send test event
+          {t({ id: "developers.send_test_event", message: "Send test event" })}
         </ActionButton>
       </PageHeader>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <Section title="Signing secret" description="Your receiver uses it to check that a request really comes from this app.">
+        <Section title={t({ id: "developers.signing_secret", message: "Signing secret" })} description={t({ id: "developers.receiver_uses_check_request", message: "Your receiver uses it to check that a request really comes from this app." })}>
           <details className="group">
-            <summary className="cursor-pointer text-sm font-medium select-none">Show secret</summary>
-            <input readOnly value={hook.secret} aria-label="Signing secret" className="mt-3 w-full rounded-md border bg-card px-3 py-2 font-mono text-sm select-all" />
+            <summary className="cursor-pointer text-sm font-medium select-none">{t({ id: "developers.show_secret", message: "Show secret" })}</summary>
+            <input readOnly value={hook.secret} aria-label={t({ id: "developers.signing_secret", message: "Signing secret" })} className="mt-3 w-full rounded-md border bg-card px-3 py-2 font-mono text-sm select-all" />
           </details>
           <div className="mt-4">
             <ConfirmAction
               trigger={
                 <Button variant="ghost" size="sm" className="-ml-3 text-muted-foreground">
-                  Generate a new secret
+                  {t({ id: "developers.generate_new_secret_2", message: "Generate a new secret" })}
                 </Button>
               }
-              title="Generate a new secret?"
-              description="The old one stops working right away, so deliveries fail until your receiver uses the new one."
-              confirmLabel="Generate secret"
+              title={t({ id: "developers.generate_new_secret", message: "Generate a new secret?" })}
+              description={t({ id: "developers.old_one_stops_working", message: "The old one stops working right away, so deliveries fail until your receiver uses the new one." })}
+              confirmLabel={t({ id: "developers.generate_secret", message: "Generate secret" })}
               action={rotateSecretAction}
               args={[hook.id]}
             />
           </div>
         </Section>
 
-        <Section title="Settings">
-          <ActionForm action={updateWebhookAction} submitLabel="Save webhook">
+        <Section title={t({ id: "developers.settings", message: "Settings" })}>
+          <ActionForm action={updateWebhookAction} submitLabel={t({ id: "developers.save_webhook", message: "Save webhook" })}>
             <HookFields mailboxes={mailboxes} hook={hook} />
             <label className="flex items-center gap-3 text-sm">
               <Switch name="active" defaultChecked={!!hook.active} />
-              <span className="font-medium">On</span>
+              <span className="font-medium">{t({ id: "developers.on", message: "On" })}</span>
             </label>
           </ActionForm>
         </Section>
 
-        <Section title="Recent deliveries" description="The last 30 attempts, newest first." className="xl:col-span-2">
+        <Section title={t({ id: "developers.recent_deliveries", message: "Recent deliveries" })} description={t({ id: "developers.last_30_attempts_newest", message: "The last 30 attempts, newest first." })} className="xl:col-span-2">
           {deliveries.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nothing sent yet. Use “Send test event” to try your receiver.</p>
+            <p className="text-sm text-muted-foreground">{t({ id: "developers.nothing_sent_yet_use", message: "Nothing sent yet. Use “Send test event” to try your receiver." })}</p>
           ) : (
             <ul className="divide-y rounded-md border">
               {deliveries.map((d) => (
                 <li key={d.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 text-sm">
-                  <span className={cn("rounded-sm px-2 py-0.5 text-xs font-semibold", statusStyle[d.status])}>{d.status}</span>
+                  <span className={cn("rounded-sm px-2 py-0.5 text-xs font-semibold", statusStyle[d.status])}>{deliveryStatus(d.status)}</span>
                   <span className="font-mono text-xs">{d.event}</span>
                   {/* Phones: status, event and date; then the response and Retry; then the error, in full. */}
                   <span className="text-xs text-muted-foreground tabular-nums max-sm:order-2 max-sm:grow max-sm:basis-1/2">
-                    {d.last_status ? `HTTP ${d.last_status}` : d.attempts ? "no response" : "queued"}, {d.attempts}{" "}
-                    {d.attempts === 1 ? "attempt" : "attempts"}
+                    {d.last_status
+                      ? `HTTP ${d.last_status}`
+                      : d.attempts
+                        ? t({ id: "developers.no_response", message: "no response" })
+                        : t({ id: "developers.queued", message: "queued" })}
+                    , {t({ id: "developers.attempts", message: plural(d.attempts, { one: "# attempt", other: "# attempts" }) })}
                   </span>
                   {d.last_error && (
                     <span className="min-w-0 flex-1 truncate text-xs text-destructive max-sm:order-4 max-sm:line-clamp-2 max-sm:basis-full max-sm:whitespace-normal max-sm:[overflow-wrap:anywhere]" title={d.last_error}>
@@ -460,7 +481,7 @@ export async function WebhookPage(ri: RequestInfo) {
                   <span className="ml-auto text-xs text-muted-foreground tabular-nums max-sm:order-1">{formatDate(d.created_at, true)}</span>
                   {d.status !== "success" && d.event !== "ping" && (
                     <ActionButton variant="ghost" size="sm" className="h-7 max-sm:order-3 max-sm:-my-1" action={retryDeliveryAction} args={[hook.id, d.id]}>
-                      Retry now
+                      {t({ id: "developers.retry_now", message: "Retry now" })}
                     </ActionButton>
                   )}
                 </li>
@@ -469,12 +490,12 @@ export async function WebhookPage(ri: RequestInfo) {
           )}
         </Section>
 
-        <Section title="Delete webhook" tone="danger" description="Stops all deliveries and removes their history." className="xl:col-span-2">
+        <Section title={t({ id: "developers.delete_webhook", message: "Delete webhook" })} tone="danger" description={t({ id: "developers.stops_all_deliveries_removes", message: "Stops all deliveries and removes their history." })} className="xl:col-span-2">
           <ConfirmAction
             trigger={<Button variant="destructive">Delete {hook.name}</Button>}
             title={`Delete ${hook.name}?`}
-            description="No more events are sent to this URL, and the delivery history is removed."
-            confirmLabel="Delete webhook"
+            description={t({ id: "developers.no_more_events_are", message: "No more events are sent to this URL, and the delivery history is removed." })}
+            confirmLabel={t({ id: "developers.delete_webhook", message: "Delete webhook" })}
             action={deleteWebhookAction}
             args={[hook.id]}
           />

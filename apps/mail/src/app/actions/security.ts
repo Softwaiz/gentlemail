@@ -7,6 +7,7 @@ import { appName } from "@/app/components/brand";
 import { formatSecret, newTotpSecret, otpauthUri, qrDataUrl, replaceRecoveryCodes, verifySecondFactor } from "@/lib/mfa";
 import { now } from "@/lib/util";
 import { endConnections } from "@/lib/apikeys";
+import { t } from "@lingui/core/macro";
 
 /*
  * Two-step verification: each person's own setup (Security page), and the
@@ -25,7 +26,7 @@ export const startMfaSetupAction = serverAction([
   signedInForMfaSetup,
   async (): Promise<ActionResult<{ secret: string; qr: string; uri: string }>> => {
     const user = me();
-    if (user.mfa) return fail("Two-step verification is already on.");
+    if (user.mfa) return fail(t({ id: "mfa.already_on", message: "Two-step verification is already on." }));
     const secret = newTotpSecret();
     await env.DB.prepare("UPDATE users SET mfa_secret = ?, mfa_last_step = NULL WHERE id = ? AND mfa_enabled_at IS NULL")
       .bind(secret, user.id)
@@ -41,9 +42,9 @@ export const confirmMfaSetupAction = serverAction([
   signedInForMfaSetup,
   async (form: FormData): Promise<ActionResult<{ codes: string[] }>> => {
     const user = me();
-    if (user.mfa) return fail("Two-step verification is already on.");
+    if (user.mfa) return fail(t({ id: "mfa.already_on", message: "Two-step verification is already on." }));
     const check = await verifySecondFactor(user.id, text(form, "code"), { pendingSetup: true });
-    if (!check.ok) return fail("That code didn't match. Check the time on your phone is set automatically, then try the newest code.");
+    if (!check.ok) return fail(t({ id: "mfa.setup_mismatch", message: "That code didn't match. Check the time on your phone is set automatically, then try the newest code." }));
     await env.DB.prepare("UPDATE users SET mfa_enabled_at = ? WHERE id = ? AND mfa_secret IS NOT NULL").bind(now(), user.id).run();
     const codes = await replaceRecoveryCodes(user.id);
     // The page re-renders after this; the panel keeps showing the codes (its state survives) until they're saved.
@@ -55,9 +56,9 @@ export const regenerateRecoveryCodesAction = serverAction([
   signedIn,
   async (form: FormData): Promise<ActionResult<{ codes: string[] }>> => {
     const user = me();
-    if (!user.mfa) return fail("Turn on two-step verification first.");
+    if (!user.mfa) return fail(t({ id: "mfa.turn_on_first", message: "Turn on two-step verification first." }));
     const check = await verifySecondFactor(user.id, text(form, "code"));
-    if (!check.ok) return fail("That code didn't match. Use the newest code from your app.");
+    if (!check.ok) return fail(t({ id: "mfa.mismatch", message: "That code didn't match. Use the newest code from your app." }));
     return ok(undefined, { data: { codes: await replaceRecoveryCodes(user.id) } });
   },
 ]);
@@ -68,9 +69,9 @@ export const disableMfaAction = serverAction([
     const user = me();
     if (!user.mfa) return ok();
     const check = await verifySecondFactor(user.id, text(form, "code"), { allowRecovery: true });
-    if (!check.ok) return fail("That code didn't match. Use the newest code from your app, or a recovery code.");
+    if (!check.ok) return fail(t({ id: "mfa.mismatch_recovery", message: "That code didn't match. Use the newest code from your app, or a recovery code." }));
     await env.DB.batch(clearMfa(user.id));
-    return ok("Two-step verification is off.");
+    return ok(t({ id: "mfa.off_done", message: "Two-step verification is off." }));
   },
 ]);
 
@@ -85,9 +86,9 @@ export const setRequireMfaAction = serverAction([
     return ok(
       on
         ? me().mfa
-          ? "Two-step verification is now required. People without it set it up the next time they open a page."
-          : "Two-step verification is now required, starting with you."
-        : "Two-step verification is now optional.",
+          ? t({ id: "mfa.required_now_others", message: "Two-step verification is now required. People without it set it up the next time they open a page." })
+          : t({ id: "mfa.required_now_you", message: "Two-step verification is now required, starting with you." })
+        : t({ id: "mfa.optional_now", message: "Two-step verification is now optional." }),
       on && !me().mfa ? { redirect: "/account/security" } : undefined,
     );
   },
@@ -97,10 +98,15 @@ export const setRequireMfaAction = serverAction([
 export const resetUserMfaAction = serverAction([
   adminOnly,
   async (userId: string): Promise<ActionResult> => {
-    if (userId === me().id) return fail("Use your own Security page to change your two-step verification.");
+    if (userId === me().id) return fail(t({ id: "mfa.reset_self", message: "Use your own Security page to change your two-step verification." }));
     const user = await env.DB.prepare("SELECT name FROM users WHERE id = ?").bind(userId).first<{ name: string }>();
-    if (!user) return fail("This user no longer exists.");
+    if (!user) return fail(t({ id: "errors.user_gone", message: "This user no longer exists." }));
     await env.DB.batch([...clearMfa(userId), env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(userId), ...endConnections(userId)]);
-    return ok(`Two-step verification reset for ${user.name}. They sign in with their password and set it up again; their assistants are disconnected.`);
+    return ok(
+      t({
+        id: "mfa.reset_done",
+        message: `Two-step verification reset for ${user.name}. They sign in with their password and set it up again; their assistants are disconnected.`,
+      }),
+    );
   },
 ]);

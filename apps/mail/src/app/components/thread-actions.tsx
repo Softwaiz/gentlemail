@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { type MailAction, markThreadRead, updateMessages } from "@/app/actions/mail";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/lib/utils";
+import { t } from "@lingui/core/macro";
 
 function useMailAction(mailboxId: string) {
   const [pending, start] = useTransition();
@@ -18,7 +19,7 @@ function useMailAction(mailboxId: string) {
         if (r?.message) toast.success(r.message);
         if (then) await navigate(then);
       } catch {
-        toast.error("That didn't work. Check your connection and try again.");
+        toast.error(t({ id: "common.failed_connection", message: "That didn't work. Check your connection and try again." }));
       }
     });
   return { run, pending };
@@ -48,36 +49,36 @@ export function ThreadToolbar({ mailboxId, threadId, folder }: { mailboxId: stri
     <div className={cn("flex flex-wrap items-center gap-1", pending && "pointer-events-none opacity-60")}>
       {folder === "spam" ? (
         <Button variant="ghost" size="sm" className={btn} onClick={() => act("inbox")}>
-          <ShieldCheck /> Not spam
+          <ShieldCheck /> {t({ id: "action.not_spam", message: "Not spam" })}
         </Button>
       ) : (
         folder !== "inbox" &&
         folder !== "sent" && (
           <Button variant="ghost" size="sm" className={btn} onClick={() => act("inbox")}>
-            <Inbox /> Move to inbox
+            <Inbox /> {t({ id: "action.to_inbox", message: "Move to inbox" })}
           </Button>
         )
       )}
       {folder !== "archive" && folder !== "sent" && folder !== "spam" && folder !== "trash" && (
         <Button variant="ghost" size="sm" className={btn} onClick={() => act("archive")}>
-          <Archive /> Archive
+          <Archive /> {t({ id: "action.archive", message: "Archive" })}
         </Button>
       )}
       <Button variant="ghost" size="sm" className={btn} onClick={() => act("unread")}>
-        <Mail /> Mark unread
+        <Mail /> {t({ id: "action.mark_unread", message: "Mark unread" })}
       </Button>
       {(folder === "inbox" || folder === "archive") && (
         <Button variant="ghost" size="sm" className={btn} onClick={() => act("spam")}>
-          <OctagonAlert /> Spam
+          <OctagonAlert /> {t({ id: "action.spam", message: "Spam" })}
         </Button>
       )}
       {folder === "trash" || folder === "spam" ? (
         <Button variant="ghost" size="sm" className={cn(btn, "text-destructive hover:text-destructive")} onClick={() => act("delete")}>
-          <Trash2 /> Delete forever
+          <Trash2 /> {t({ id: "action.delete_forever", message: "Delete forever" })}
         </Button>
       ) : (
         <Button variant="ghost" size="sm" className={cn(btn, "text-destructive hover:text-destructive")} onClick={() => act("trash")}>
-          <Trash2 /> Trash
+          <Trash2 /> {t({ id: "action.trash", message: "Trash" })}
         </Button>
       )}
     </div>
@@ -94,7 +95,7 @@ export function StarButton({ mailboxId, messageId, starred }: { mailboxId: strin
       className="text-muted-foreground"
       onClick={() => run({ ids: [messageId], scope: "message", action: starred ? "unstar" : "star" })}
     >
-      <Star className={cn(starred && "fill-violet text-violet")} /> {starred ? "Starred" : "Star"}
+      <Star className={cn(starred && "fill-violet text-violet")} /> {starred ? t({ id: "action.starred", message: "Starred" }) : t({ id: "action.star", message: "Star" })}
     </Button>
   );
 }

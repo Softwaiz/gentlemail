@@ -177,6 +177,11 @@ export const sendMessage = serverAction([
     const modeRaw = text(form, "mode");
     const mode = modeRaw === "reply" || modeRaw === "forward" ? modeRaw : null;
 
+    // Sent by mistake, most likely. A forward says something without a word added.
+    if (!body.trim() && !files.length && !(original && mode === "forward")) {
+      return fail(t({ id: "errors.empty_message", message: "Write a message or attach a file first." }));
+    }
+
     try {
       await sendMail({
         mailbox,

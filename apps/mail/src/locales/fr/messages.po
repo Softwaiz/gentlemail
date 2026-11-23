@@ -113,14 +113,14 @@ msgstr "{0, plural, one {Supprimez d'abord sa boîte mail.} other {Supprimez d'a
 #. js-lingui-explicit-id
 #. placeholder {0}: files.map((f) => f.name).join(", ")
 #. placeholder {1}: formatBytes(total)
-#: src/app/components/compose-form.tsx:38
+#: src/app/components/compose-form.tsx:42
 msgid "composer.files_over"
 msgstr "{0} ({1}, au-delà de la limite de 25 Mo)"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: files.map((f) => f.name).join(", ")
 #. placeholder {1}: formatBytes(total)
-#: src/app/components/compose-form.tsx:39
+#: src/app/components/compose-form.tsx:43
 msgid "composer.files"
 msgstr "{0} ({1})"
 
@@ -326,7 +326,7 @@ msgid "common.active"
 msgstr "Active"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:607
+#: src/app/components/rich-editor.tsx:609
 msgid "editor.add"
 msgstr "Ajouter"
 
@@ -353,7 +353,7 @@ msgstr "Ajouter le domaine"
 
 #. js-lingui-explicit-id
 #: src/app/components/rich-editor.tsx:331
-#: src/app/components/rich-editor.tsx:566
+#: src/app/components/rich-editor.tsx:568
 msgid "editor.add_link"
 msgstr "Ajouter un lien"
 
@@ -546,7 +546,7 @@ msgid "admin.password_min"
 msgstr "Au moins 10 caractères."
 
 #. js-lingui-explicit-id
-#: src/app/components/compose-form.tsx:32
+#: src/app/components/compose-form.tsx:36
 msgid "composer.attach"
 msgstr "Joindre des fichiers"
 
@@ -829,7 +829,7 @@ msgid "common.disabled"
 msgstr "Désactivée"
 
 #. js-lingui-explicit-id
-#: src/app/components/compose-form.tsx:44
+#: src/app/components/compose-form.tsx:48
 msgid "composer.discard"
 msgstr "Abandonner"
 
@@ -923,9 +923,9 @@ msgstr "Modifier les accès"
 
 #. js-lingui-explicit-id
 #: src/app/components/rich-editor.tsx:331
-#: src/app/components/rich-editor.tsx:566
-#: src/app/components/rich-editor.tsx:636
-#: src/app/components/rich-editor.tsx:637
+#: src/app/components/rich-editor.tsx:568
+#: src/app/components/rich-editor.tsx:638
+#: src/app/components/rich-editor.tsx:639
 msgid "editor.edit_link"
 msgstr "Modifier le lien"
 
@@ -1107,7 +1107,7 @@ msgid "settings.preview"
 msgstr "Aperçu"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:598
+#: src/app/components/rich-editor.tsx:600
 msgid "editor.link_placeholder"
 msgstr "https://… ou nom@exemple.com"
 
@@ -1241,7 +1241,7 @@ msgid "menu.theme_light"
 msgstr "Clair"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:599
+#: src/app/components/rich-editor.tsx:601
 msgid "editor.link_address"
 msgstr "Adresse du lien"
 
@@ -1405,7 +1405,7 @@ msgid "errors.message_title"
 msgstr "Message introuvable"
 
 #. js-lingui-explicit-id
-#: src/app/actions/mail.ts:200
+#: src/app/actions/mail.ts:205
 msgid "done.sent"
 msgstr "Message envoyé."
 
@@ -1782,7 +1782,7 @@ msgstr "Ne concerne que les membres. Les administrateurs ouvrent toutes les boî
 
 #. js-lingui-explicit-id
 #. placeholder {0}: shownUrl(view.url)
-#: src/app/components/rich-editor.tsx:622
+#: src/app/components/rich-editor.tsx:624
 msgid "editor.open_link"
 msgstr "Ouvrir {0}"
 
@@ -2045,10 +2045,10 @@ msgid "domains.remove_domain"
 msgstr "Retirer le domaine"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:610
-#: src/app/components/rich-editor.tsx:610
-#: src/app/components/rich-editor.tsx:645
-#: src/app/components/rich-editor.tsx:646
+#: src/app/components/rich-editor.tsx:612
+#: src/app/components/rich-editor.tsx:612
+#: src/app/components/rich-editor.tsx:647
+#: src/app/components/rich-editor.tsx:648
 msgid "editor.remove_link"
 msgstr "Retirer le lien"
 
@@ -2085,7 +2085,7 @@ msgid "thread.reply_all"
 msgstr "Répondre à tous"
 
 #. js-lingui-explicit-id
-#: src/app/actions/mail.ts:198
+#: src/app/actions/mail.ts:203
 msgid "done.reply_sent"
 msgstr "Réponse envoyée."
 
@@ -2166,7 +2166,7 @@ msgid "menu.theme_system"
 msgstr "Comme l'appareil"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:607
+#: src/app/components/rich-editor.tsx:609
 #: src/app/pages/compose.tsx:180
 msgid "common.save"
 msgstr "Enregistrer"
@@ -2265,7 +2265,7 @@ msgid "access.send"
 msgstr "envoyer"
 
 #. js-lingui-explicit-id
-#: src/app/components/compose-form.tsx:47
+#: src/app/components/compose-form.tsx:51
 msgid "composer.send"
 msgstr "Envoyer"
 
@@ -2297,12 +2297,12 @@ msgid "settings.sender_name"
 msgstr "Nom de l'expéditeur"
 
 #. js-lingui-explicit-id
-#: src/app/actions/mail.ts:222
+#: src/app/actions/mail.ts:227
 msgid "done.sender_removed"
 msgstr "Expéditeur retiré de la liste."
 
 #. js-lingui-explicit-id
-#: src/app/actions/mail.ts:195
+#: src/app/actions/mail.ts:200
 msgid "errors.send_failed"
 msgstr "L'envoi a échoué. Réessayez dans un instant."
 
@@ -2313,7 +2313,7 @@ msgid "errors.sending_disabled"
 msgstr "L'envoi depuis {0} est désactivé."
 
 #. js-lingui-explicit-id
-#: src/app/components/compose-form.tsx:47
+#: src/app/components/compose-form.tsx:51
 msgid "composer.sending"
 msgstr "Envoi…"
 
@@ -2348,7 +2348,7 @@ msgid "developers.settings"
 msgstr "Réglages"
 
 #. js-lingui-explicit-id
-#: src/app/actions/mail.ts:212
+#: src/app/actions/mail.ts:217
 msgid "done.settings_saved"
 msgstr "Réglages enregistrés."
 
@@ -2921,7 +2921,7 @@ msgid "errors.unknown_language"
 msgstr "Langue inconnue."
 
 #. js-lingui-explicit-id
-#: src/app/components/compose-form.tsx:40
+#: src/app/components/compose-form.tsx:44
 msgid "composer.files_limit"
 msgstr "Jusqu'à 25 Mo au total"
 
@@ -3027,6 +3027,11 @@ msgid "common.working"
 msgstr "En cours…"
 
 #. js-lingui-explicit-id
+#: src/app/actions/mail.ts:182
+msgid "errors.empty_message"
+msgstr "Écrivez d’abord un message ou joignez un fichier."
+
+#. js-lingui-explicit-id
 #: src/app/components/rich-editor.tsx:137
 msgid "editor.placeholder"
 msgstr "Écrivez votre message…"
@@ -3060,8 +3065,8 @@ msgstr "Vous ne pouvez pas vous retirer vous-même."
 #: src/app/actions/mail.ts:52
 #: src/app/actions/mail.ts:122
 #: src/app/actions/mail.ts:137
-#: src/app/actions/mail.ts:208
-#: src/app/actions/mail.ts:220
+#: src/app/actions/mail.ts:213
+#: src/app/actions/mail.ts:225
 msgid "errors.no_mailbox_access"
 msgstr "Vous n'avez pas accès à cette boîte mail."
 

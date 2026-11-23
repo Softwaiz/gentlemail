@@ -448,8 +448,10 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
             if (a && a.is(b)) link = { key: a.getKey(), url: a.getURL() };
           }
           setCaret((c) => (c?.key === link?.key && c?.url === link?.url ? c : link));
-          setHover((h) => (h && !$getNodeByKey(h.key) ? null : h));
         });
+        // React may run this later, while drawing, when nothing is being read from the editor:
+        // the lookup opens the state itself, or it throws and takes the page down.
+        setHover((h) => (h && !editorState.read(() => $getNodeByKey(h.key)) ? null : h));
         setTick((t) => t + 1); // the text moved: place the card again
       }),
       editor.registerRootListener((root, prev) => {

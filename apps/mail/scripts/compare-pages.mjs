@@ -13,7 +13,7 @@
  * look at when something differs.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { BASE, q, sha256, startWorker } from "../test/harness.mjs";
 
@@ -61,6 +61,9 @@ if (!existsSync(built)) {
   else run("npm", existsSync(join(baseApp, "package-lock.json")) ? ["ci"] : ["install", "--no-package-lock"], baseApp);
   build(baseApp);
   writeFileSync(built, "");
+  // Each base is a whole checkout and install: keep only this one.
+  for (const old of readdirSync(CACHE).filter((d) => d.startsWith("base-") && d !== `base-${sha}`)) rmSync(join(CACHE, old), { recursive: true, force: true });
+  run("git", ["worktree", "prune"], ROOT);
 } else step(`${ref} (${sha}) already built`);
 
 step("Building this tree");
@@ -68,7 +71,7 @@ build(APP);
 
 /* ---------- Pages ---------- */
 
-/** The made-up data both builds render: two domains, a turned-off mailbox, mail in each folder, an admin and a member. */
+/** The made-up data both builds render: two domains, a turned-off mailbox, mail in each folder, an admin, a member and someone with no mailbox. */
 function seed() {
   const t = 1795000000000; // fixed, so dates read the same in both
   const rows = [
@@ -78,11 +81,13 @@ function seed() {
     `INSERT INTO mailboxes (id, address, display_name, active, created_at) VALUES ('mA2', 'two@alpha.test', 'Two', 0, ${t});`,
     `INSERT INTO mailboxes (id, address, display_name, active, created_at) VALUES ('mB1', 'one@beta.test', 'Beta', 1, ${t});`,
   ];
-  for (const [id, email, role, mailboxes] of [["uAdmin", "admin@alpha.test", "admin", []], ["uMember", "member@alpha.test", "member", ["mA1"]]]) {
+  for (const [id, email, role, mailboxes] of [["uAdmin", "admin@alpha.test", "admin", []], ["uMember", "member@alpha.test", "member", ["mA1"]], ["uNobody", "nobody@beta.test", "member", []]]) {
     rows.push(`INSERT INTO users (id, email, name, password_hash, role, created_at) VALUES (${q(id)}, ${q(email)}, ${q(id)}, 'x', ${q(role)}, ${t});`);
     rows.push(`INSERT INTO sessions (id, user_id, expires_at, created_at) VALUES (${q(sha256(`session-${id}`))}, ${q(id)}, ${Date.now() + 3600e3}, ${t});`);
     for (const mb of mailboxes) rows.push(`INSERT INTO mailbox_members (mailbox_id, user_id) VALUES (${q(mb)}, ${q(id)});`);
   }
+  // An AI assistant asking to connect.
+  rows.push(`INSERT INTO oauth_clients (id, name, redirect_uris, created_at) VALUES ('client1', 'Made-up assistant', '["https://assistant.test/back"]', ${t});`);
   // An admin whose password was right and whose two-step code is still due.
   rows.push(`INSERT INTO login_challenges (id, user_id, next, expires_at) VALUES (${q(sha256("challenge-uAdmin"))}, 'uAdmin', '/', ${Date.now() + 600e3});`);
   const mail = [["mA1", "inbox", 0], ["mA1", "inbox", 0], ["mA1", "inbox", 1], ["mA1", "archive", 0], ["mA1", "spam", 0], ["mA1", "sent", 1], ["mB1", "inbox", 0]];
@@ -96,6 +101,12 @@ function seed() {
 }
 
 const session = (user) => ({ Cookie: `kb_session=session-${user}` });
+
+/** What the made-up assistant sends people to. */
+const consent = `/oauth/authorize?${new URLSearchParams({
+  response_type: "code", client_id: "client1", redirect_uri: "https://assistant.test/back", state: "s",
+  code_challenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", code_challenge_method: "S256",
+})}`;
 
 const french = { "Accept-Language": "fr" };
 
@@ -111,17 +122,19 @@ const SCENARIOS = {
     pages: [
       "/mb/mA1/inbox", "/mb/mA1/sent", "/mb/mA1/archive", "/mb/mA1/spam", "/mb/mA1/trash", "/mb/mA1/settings",
       "/mb/mA1/compose", "/mb/mA1/thread/t0?f=inbox", "/mb/mA2/inbox", "/mb/mB1/inbox", "/mb/mA1/inbox?q=Subject",
-      "/admin", "/admin/api", "/account/security", "404 /mb/nope/inbox", "404 /nope",
+      "/admin", "/admin/api", "/account/security", "404 /mb/nope/inbox", "404 /nope", consent, "/oauth/authorize?client_id=nope",
     ],
   },
   adminFrench: {
     headers: { ...session("uAdmin"), ...french },
-    pages: ["/mb/mA1/inbox", "/mb/mA1/settings", "/admin", "/account/security", "404 /nope"],
+    pages: ["/mb/mA1/inbox", "/mb/mA1/settings", "/admin", "/account/security", "404 /nope", consent],
   },
   member: {
     headers: session("uMember"),
     pages: ["/mb/mA1/inbox", "/mb/mA1/settings", "/account/security", "403 /admin", "403 /mb/mB1/inbox"],
   },
+  /** Signed in, with no mailbox to open. */
+  noMailbox: { headers: session("uNobody"), pages: ["303 /", "/no-mailbox"] },
   signedOut: {
     pages: [
       "/login", "/login?err=signin_timeout&next=/mb", "401 POST /login email=nobody@alpha.test&password=wrong&next=/mb",
@@ -149,7 +162,7 @@ const PAGES = Object.entries(SCENARIOS).flatMap(([who, { pages }]) =>
   pages.map((p) => {
     const [, status, post, path, form] = p.match(/^(?:(\d{3}) )?(POST )?(\S+)(?: (.*))?$/);
     const name = `${who}_${[post, path, form].join("").replace(/[^\w]+/g, "_")}`.replace(/_+/g, "_").replace(/_$/, "");
-    return { who, path, body: post && new URLSearchParams(form), status: Number(status ?? 200), name: `${name}.html` };
+    return { who, path, body: post && new URLSearchParams(form), status: Number(status ?? 200), name: `${name.slice(0, 100)}.html` };
   }),
 );
 

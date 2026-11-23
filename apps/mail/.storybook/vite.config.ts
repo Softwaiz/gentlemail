@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { lingui } from "@lingui/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
@@ -68,17 +68,34 @@ function serverFunctions(file: string): Fake[] {
   return fakes;
 }
 
+/** The names a file of specific answers exports. */
+function answerNames(file: string): string[] {
+  const { program, errors } = parseSync(file, readFileSync(file, "utf8"));
+  if (errors.length) throw new Error(`Storybook can't read ${file}: ${errors[0].message}`);
+  return program.body.flatMap((node) => {
+    if (node.type !== "ExportNamedDeclaration" || node.exportKind === "type") return [];
+    const { declaration } = node;
+    if (declaration?.type === "VariableDeclaration") return declaration.declarations.flatMap(({ id }) => (id.type === "Identifier" ? [id.name] : []));
+    if (declaration?.type === "FunctionDeclaration") return declaration.id ? [declaration.id.name] : [];
+    return node.specifiers.flatMap((s) => (s.exportKind !== "type" && s.exported.type === "Identifier" ? [s.exported.name] : []));
+  });
+}
+
 /**
  * Server actions are replaced by fakes, generated from each module in src/app/actions/:
  * every serverAction answers { ok: true }, every serverQuery answers nothing (components keep
  * what the story gave them). The "Server" toolbar makes them fail or be slow instead.
- * fakes/actions/<module>.ts can give specific answers; what it exports replaces the generated fake.
+ * fakes/actions/<module>.ts can give specific answers; what it exports replaces the generated fake, and must be an action there.
  * A module exporting anything else at runtime stops the build: no story may reach real server code.
  */
 function fakeServerActions(): Plugin {
   return {
     name: "gentlemail:fake-server-actions",
     enforce: "pre",
+    buildStart() {
+      for (const file of readdirSync(ANSWERS))
+        if (!existsSync(`${ACTIONS}/${file}`)) throw new Error(`.storybook/fakes/actions/${file} answers for src/app/actions/${file}, which doesn't exist.`);
+    },
     async resolveId(id, importer, options) {
       if (!importer || importer.includes("/node_modules/")) return null;
       // Where the import really leads, however it's written ("@/app/actions/mail", "../actions/mail").
@@ -95,12 +112,15 @@ function fakeServerActions(): Plugin {
       const name = id.slice(VIRTUAL.length);
       const file = `${ACTIONS}/${name}.ts`;
       this.addWatchFile(file);
-      const lines = serverFunctions(file).map(({ name: what, kind }) => `export const ${what} = override.${what} ?? fake${kind}(${JSON.stringify(what)});`);
+      const fakes = serverFunctions(file);
       const custom = `${ANSWERS}/${name}.ts`;
+      const answered = existsSync(custom) ? answerNames(custom) : [];
+      const unknown = answered.find((a) => !fakes.some((f) => f.name === a));
+      if (unknown) throw new Error(`.storybook/fakes/actions/${name}.ts answers for ${unknown}, which isn't in src/app/actions/${name}.ts.`);
       return [
         `import { fakeAction, fakeQuery } from ${JSON.stringify(here("./fakes/server.ts"))};`,
-        existsSync(custom) ? `import * as override from ${JSON.stringify(custom)};` : "const override = {};",
-        ...lines,
+        ...(answered.length ? [`export { ${answered.join(", ")} } from ${JSON.stringify(custom)};`] : []),
+        ...fakes.filter((f) => !answered.includes(f.name)).map((f) => `export const ${f.name} = fake${f.kind}(${JSON.stringify(f.name)});`),
       ].join("\n");
     },
     // A fake is made from its actions module, and from the file of specific answers: when either

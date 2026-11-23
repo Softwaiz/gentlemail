@@ -33,6 +33,8 @@ export function stayOnStory() {
   w.__staysOnStory = true;
   window.addEventListener("submit", onSubmit);
   window.addEventListener("click", onClick);
+  // A middle click opens a link in a new tab, without a click event.
+  window.addEventListener("auxclick", (e) => e.button === 1 && onClick(e));
   // Cookies are shared by every port of localhost: one set here (the theme) would reach the app running locally.
   Object.defineProperty(document, "cookie", {
     configurable: true,

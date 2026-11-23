@@ -9,18 +9,19 @@ export async function answer<T>(result: T, error = "Something went wrong on the 
   return server.mode === "fail" ? { ok: false, error } : result;
 }
 
-/** The fake for a serverAction with no specific answer: logs its input, then answers ok. */
+/** The fake for a serverAction with no specific answer: answers ok. Logs its name, never its input (it can be a password). */
 export const fakeAction =
   (name: string) =>
-  async (...input: unknown[]) => {
-    console.info(`[fake] ${name}`, ...input);
+  async () => {
+    console.info(`[fake] ${name}`);
     return answer({ ok: true as const });
   };
 
-/** The fake for a serverQuery with no specific answer: answers nothing, so components keep their data. */
+/** The fake for a serverQuery with no specific answer: answers nothing, so components keep their data. Failing, it throws: a query has no error answer. */
 export const fakeQuery =
   (name: string) =>
-  async (...input: unknown[]) => {
-    console.info(`[fake] ${name}`, ...input);
-    return answer(undefined);
+  async () => {
+    console.info(`[fake] ${name}`);
+    await answer(undefined);
+    if (server.mode === "fail") throw new Error("Something went wrong on the server.");
   };

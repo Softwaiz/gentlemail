@@ -96,7 +96,7 @@ export const WithError: Story = { args: { flash: { err: "That mailbox is turned 
 
 /** Opens the mailbox switcher: both domains, the turned-off mailbox dimmed. */
 export const SwitcherOpen: Story = {
-  globals: { language: "en" }, // the check reads the English labels
+  globals: { language: "en", viewport: { value: "desktop" } }, // the check reads the English labels; on a phone the switcher is in the menu
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByLabelText("Switch mailbox"));
     await expect(await screen.findByText("old-support")).toBeInTheDocument();

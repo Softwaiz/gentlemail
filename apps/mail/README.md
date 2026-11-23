@@ -256,7 +256,7 @@ Run from `apps/mail` with `npm run <script>` (or `pnpm <script>`).
 | `clean` | Delete Vite's cache (`node_modules/.vite`), the fix when the dev server reports a missing module |
 | `release` | Clean, apply remote migrations, build and deploy in one go (calls pnpm; needs a Cloudflare login) |
 | `dev:init` / `worker:run` | RedwoodSDK helpers: prepare the dev environment, and run a script inside the Worker environment (`npm run worker:run ./path/to/script.ts`) |
-| `storybook` | Storybook on http://localhost:6006: every screen and component with made-up data (see [Storybook](#storybook)) |
+| `storybook` | Storybook on http://localhost:6006: screens and components with made-up data (see [Storybook](#storybook)) |
 | `build-storybook` | Static Storybook build into `storybook-static/` |
 | `compare-pages` | Builds this tree and the commit it left `origin/dev` at (or another branch: `npm run compare-pages -- main`), renders the same pages from the same made-up data in both, and compares the HTML |
 
@@ -277,7 +277,7 @@ Outbound mail is simulated locally (written under `.wrangler/tmp/email`).
 npm run storybook
 # open http://localhost:6006
 ```
-Every screen and component, in each of its states, with made-up data: no account, database or seed. The toolbar switches the theme, the language, the app name (the GentleMail logo, or an instance with its own name), the width (phone, tablet, desktop) and how server actions answer (succeed, fail, slow). Controls lists each property, marks the required ones and lets you change them live; that's a try-out, nothing is written back to the code.
+Screens and components, in each of their states, with made-up data: no account, database or seed. So far: the foundations (`components/ui`), sign-in and first-run setup, the sidebar and the message list. The other screens follow; new and changed ones come with their stories. The toolbar switches the theme, the language, the app name (the GentleMail logo, or an instance with its own name), the width (phone, tablet, desktop) and how server actions answer (succeed, fail, slow). Controls lists each property, marks the required ones and lets you change them live; that's a try-out, nothing is written back to the code.
 
 How it fits the code:
 

@@ -1,0 +1,4 @@
+/* The app's styles, plus the classes only stories use: the app's own build leaves those out (see styles.css). */
+@import "../src/app/styles.css";
+@source "../src/**/*.stories.tsx";
+@source "./**/*.{ts,tsx}";

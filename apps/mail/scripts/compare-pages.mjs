@@ -3,16 +3,19 @@
  * (origin/dev by default), renders the same pages from the same made-up data in both, and
  * compares the HTML. Run it when splitting a page into a loader and a view.
  *
- *   npm run compare-pages               # against origin/dev
+ *   npm run compare-pages               # against where this branch left origin/dev
  *   npm run compare-pages -- main       # against another branch, tag or commit
  *
- * The base is built once per commit in .compare-pages/ at the repository root (a git worktree,
- * ignored by git; not under node_modules, where Vite would treat the source as a dependency).
- * The rendered pages are kept there too, to look at when something differs.
+ * The base is the last commit this branch shares with that ref (fetched first when it's a remote
+ * branch), so what others merged since doesn't count as a difference. It's built once per commit in
+ * .compare-pages/ at the repository root (a git worktree, ignored by git; not under node_modules,
+ * where Vite would treat the source as a dependency). The rendered pages are kept there too, to
+ * look at when something differs.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { q, sha256, startWorker } from "../test/harness.mjs";
 
 const APP = resolve(import.meta.dirname, "..");
 const ROOT = resolve(APP, "../..");
@@ -26,7 +29,15 @@ const build = (app) => run(join(app, "node_modules/.bin/vite"), ["build"], app);
 
 /* ---------- Builds ---------- */
 
-const sha = run("git", ["rev-parse", "--short", ref], ROOT);
+const [remote, ...branch] = ref.split("/");
+if (branch.length && run("git", ["remote"], ROOT).split("\n").includes(remote)) {
+  try {
+    run("git", ["fetch", "--quiet", remote, branch.join("/")], ROOT);
+  } catch {
+    console.warn(`Couldn't fetch ${ref}: comparing with the copy fetched last.`);
+  }
+}
+const sha = run("git", ["rev-parse", "--short", run("git", ["merge-base", "HEAD", ref], ROOT)], ROOT);
 const baseRoot = join(CACHE, `base-${sha}`);
 const baseApp = join(baseRoot, "apps/mail");
 if (!existsSync(join(baseApp, "dist/worker/wrangler.json"))) {
@@ -44,8 +55,7 @@ build(APP);
 /* ---------- Pages ---------- */
 
 /** The made-up data both builds render: two domains, a turned-off mailbox, mail in each folder, an admin and a member. */
-async function seed(app) {
-  const { sha256, q } = await import(join(app, "test/harness.mjs"));
+function seed() {
   const t = 1795000000000; // fixed, so dates read the same in both
   const rows = [
     `INSERT INTO domains (id, name, active, created_at) VALUES ('dA', 'alpha.test', 1, ${t});`,
@@ -59,6 +69,8 @@ async function seed(app) {
     rows.push(`INSERT INTO sessions (id, user_id, expires_at, created_at) VALUES (${q(sha256(`session-${id}`))}, ${q(id)}, ${Date.now() + 3600e3}, ${t});`);
     for (const mb of mailboxes) rows.push(`INSERT INTO mailbox_members (mailbox_id, user_id) VALUES (${q(mb)}, ${q(id)});`);
   }
+  // An admin whose password was right and whose two-step code is still due.
+  rows.push(`INSERT INTO login_challenges (id, user_id, next, expires_at) VALUES (${q(sha256("challenge-uAdmin"))}, 'uAdmin', '/', ${Date.now() + 600e3});`);
   const mail = [["mA1", "inbox", 0], ["mA1", "inbox", 0], ["mA1", "inbox", 1], ["mA1", "archive", 0], ["mA1", "spam", 0], ["mA1", "sent", 1], ["mB1", "inbox", 0]];
   mail.forEach(([mb, folder, read], i) =>
     rows.push(
@@ -69,51 +81,86 @@ async function seed(app) {
   return rows.join("\n");
 }
 
-/** Who opens which page. Add a page here when you split it. */
-const PAGES = {
-  admin: [
-    "/mb/mA1/inbox", "/mb/mA1/sent", "/mb/mA1/archive", "/mb/mA1/spam", "/mb/mA1/trash", "/mb/mA1/settings",
-    "/mb/mA1/compose", "/mb/mA1/thread/t0?f=inbox", "/mb/mA2/inbox", "/mb/mB1/inbox", "/mb/mA1/inbox?q=Subject",
-    "/admin", "/admin/api", "/account/security", "/mb/nope/inbox", "/nope",
-  ],
-  member: ["/mb/mA1/inbox", "/mb/mA1/settings", "/account/security", "/admin", "/mb/mB1/inbox"],
-  signedOut: ["/login", "/login?err=Wrong%20email%20or%20password.&next=/mb", "/setup", "/login/verify", "/mb/mA1/inbox"],
+const session = (user) => ({ Cookie: `kb_session=session-${user}` });
+
+/**
+ * Who opens which page, on which data. A page must answer 200; write the status in front when it
+ * shouldn't ("303 /setup"), so a page that starts redirecting fails instead of comparing two redirects.
+ * Add a page here when you split it.
+ */
+const SCENARIOS = {
+  admin: {
+    headers: session("uAdmin"),
+    pages: [
+      "/mb/mA1/inbox", "/mb/mA1/sent", "/mb/mA1/archive", "/mb/mA1/spam", "/mb/mA1/trash", "/mb/mA1/settings",
+      "/mb/mA1/compose", "/mb/mA1/thread/t0?f=inbox", "/mb/mA2/inbox", "/mb/mB1/inbox", "/mb/mA1/inbox?q=Subject",
+      "/admin", "/admin/api", "/account/security", "404 /mb/nope/inbox", "404 /nope",
+    ],
+  },
+  member: {
+    headers: session("uMember"),
+    pages: ["/mb/mA1/inbox", "/mb/mA1/settings", "/account/security", "403 /admin", "403 /mb/mB1/inbox"],
+  },
+  signedOut: {
+    pages: ["/login", "/login?err=Wrong%20email%20or%20password.&next=/mb", "303 /setup", "303 /login/verify", "303 /mb/mA1/inbox"],
+  },
+  /** The password was right; the two-step code is due. */
+  codeDue: {
+    headers: { Cookie: "kb_mfa=challenge-uAdmin" },
+    pages: ["/login/verify", "/login/verify?err=That%20code%20didn't%20work.%204%20tries%20left."],
+  },
+  /** A new instance: nobody has an account yet. */
+  firstRun: {
+    empty: true,
+    bindings: { SETUP_TOKEN: "made-up" },
+    pages: ["/setup", "/setup?err=Invalid%20setup%20token.", "303 /login"],
+  },
+  firstRunNoToken: { empty: true, pages: ["/setup"] },
 };
 
+const PAGES = Object.entries(SCENARIOS).flatMap(([who, { pages }]) =>
+  pages.map((p) => {
+    const [, status, path] = p.match(/^(?:(\d{3}) )?(.*)$/);
+    return { who, path, status: Number(status ?? 200), name: `${who}${path.replace(/[^\w]+/g, "_")}.html` };
+  }),
+);
+
 /** Removes what differs between any two builds or requests, so only real changes are left. */
-const normalize = (html, root) =>
+const normalize = (html, root, version) =>
   html
     .replace(/nonce="[^"]*"/g, 'nonce=""') // new on every request
     // Page data is cut into chunks of a fixed size, so a path can be split in two: join them first.
     .replaceAll('")</script><script nonce="">(self.__FLIGHT_DATA||=[]).push("', "")
     .replaceAll(root, "<root>") // dev builds write source paths into the page data
+    .replace(version, "<version>") // the version admins see, with or without "+dev"
     .replace(/\/assets\/[\w.-]+?-[\w-]{8}\.(js|css)/g, "/assets/<hashed>.$1"); // build hashes
 
-/**
- * Starts a tree's built Worker from inside that tree. Miniflare names the Worker's modules
- * relative to the current folder: from outside, the names start with "../" and workerd
- * refuses to start ("internal error").
- */
-async function start(app) {
-  const { startWorker } = await import(join(app, "test/harness.mjs"));
-  process.chdir(app);
-  return startWorker(await seed(app));
+/** Matches the version in a tree's package.json, as its build writes it. */
+function versionOf(app) {
+  const { version } = JSON.parse(readFileSync(join(app, "package.json"), "utf8"));
+  return new RegExp(`(?<![\\w.])${version.replace(/[.+]/g, "\\$&")}(\\+dev)?(?![\\w.+-])`, "g");
 }
 
+/**
+ * Renders every page from a tree's built Worker, started from inside that tree. Miniflare names
+ * the Worker's modules relative to the current folder: from outside, the names start with "../"
+ * and workerd refuses to start ("internal error").
+ */
 async function render(app, root, out) {
-  const { mf, request } = await start(app);
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
-  try {
-    for (const [who, paths] of Object.entries(PAGES))
-      for (const path of paths) {
-        const headers = who === "signedOut" ? {} : { Cookie: `kb_session=session-u${who[0].toUpperCase()}${who.slice(1)}` };
-        const r = await request(path, { headers });
-        const name = `${who}${path.replace(/[^\w]+/g, "_")}.html`;
-        writeFileSync(join(out, name), `${r.status} ${r.headers.get("location") ?? ""}\n${normalize(await r.text(), root)}`);
+  process.chdir(app);
+  const version = versionOf(app);
+  for (const [who, { headers = {}, empty, bindings }] of Object.entries(SCENARIOS)) {
+    const { mf, request } = await startWorker(empty ? "" : seed(), { app, bindings });
+    try {
+      for (const page of PAGES.filter((p) => p.who === who)) {
+        const r = await request(page.path, { headers });
+        writeFileSync(join(out, page.name), `${r.status} ${r.headers.get("location") ?? ""}\n${normalize(await r.text(), root, version)}`);
       }
-  } finally {
-    await mf.dispose();
+    } finally {
+      await mf.dispose();
+    }
   }
 }
 
@@ -125,20 +172,26 @@ await render(APP, ROOT, headOut);
 
 /* ---------- Comparison ---------- */
 
-const names = Object.entries(PAGES).flatMap(([who, paths]) => paths.map((p) => `${who}${p.replace(/[^\w]+/g, "_")}.html`));
-const differ = names.filter((n) => readFileSync(join(baseOut, n), "utf8") !== readFileSync(join(headOut, n), "utf8"));
+const read = (dir, { name }) => readFileSync(join(dir, name), "utf8");
+const statusOf = (html) => Number(html.slice(0, 3));
+let same = 0;
+const details = [];
 
 console.log();
-for (const n of names) {
-  const status = readFileSync(join(headOut, n), "utf8").split("\n", 1)[0];
-  console.log(`${differ.includes(n) ? "✗ differs  " : "✓ identical"}  ${status.padEnd(5)} ${n}`);
+for (const page of PAGES) {
+  const a = read(baseOut, page);
+  const b = read(headOut, page);
+  const wrong = [[ref, a], ["this", b]].filter(([, html]) => statusOf(html) !== page.status);
+  if (wrong.length) {
+    // Two redirects are the same whatever the page draws: that's not a comparison.
+    for (const [where, html] of wrong) details.push(`${page.name}: expected ${page.status}, ${where} answered ${html.split("\n", 1)[0].trim()}`);
+  } else if (a !== b) {
+    let i = 0;
+    while (a[i] === b[i]) i++;
+    details.push(`${page.name}, first difference:\n  ${ref}: …${a.slice(Math.max(0, i - 120), i + 120)}…\n  this: …${b.slice(Math.max(0, i - 120), i + 120)}…`);
+  } else same++;
+  console.log(`${wrong.length ? "✗ status   " : a !== b ? "✗ differs  " : "✓ identical"}  ${statusOf(b)}  ${page.name}`);
 }
-for (const n of differ) {
-  const a = readFileSync(join(baseOut, n), "utf8");
-  const b = readFileSync(join(headOut, n), "utf8");
-  let i = 0;
-  while (a[i] === b[i]) i++;
-  console.log(`\n${n}, first difference:\n  ${ref}: …${a.slice(Math.max(0, i - 120), i + 120)}…\n  this: …${b.slice(Math.max(0, i - 120), i + 120)}…`);
-}
-console.log(`\n${names.length - differ.length} of ${names.length} pages identical to ${ref}. Pages kept in ${join(CACHE, "pages")}.`);
-process.exit(differ.length ? 1 : 0);
+for (const d of details) console.log(`\n${d}`);
+console.log(`\n${same} of ${PAGES.length} pages identical to ${ref} (${sha}). Pages kept in ${join(CACHE, "pages")}.`);
+process.exit(details.length ? 1 : 0);

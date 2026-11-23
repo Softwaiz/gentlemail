@@ -1,10 +1,13 @@
 import type { Decorator, Preview } from "@storybook/react-vite";
-import "../src/app/styles.css";
+import "./styles.css";
 import { Toaster } from "../src/app/components/ui/sonner";
+import { stayOnStory } from "./fakes/browser";
 import { env } from "./fakes/cloudflare-workers";
 import { type ServerMode, server } from "./fakes/server";
 
-/** Theme, app name and how the fake server answers, from the toolbar (or a story's parameters). */
+stayOnStory();
+
+/** Theme, app name and how the fake server answers, from the toolbar (or a story's parameters). `parameters.toaster: false` for what brings its own Toaster. */
 const withApp: Decorator = (Story, { globals, parameters }) => {
   document.documentElement.dataset.theme = globals.theme ?? "dark";
   env.APP_NAME = globals.name ?? "GentleMail";
@@ -12,7 +15,7 @@ const withApp: Decorator = (Story, { globals, parameters }) => {
   return (
     <>
       <Story />
-      <Toaster />
+      {parameters.toaster !== false && <Toaster />}
     </>
   );
 };
@@ -26,7 +29,7 @@ const preview: Preview = {
     },
     name: {
       description: "APP_NAME: the GentleMail logo, or an instance with its own name",
-      toolbar: { title: "Name", icon: "tag", items: ["GentleMail", "Acme Mail"], dynamicTitle: true },
+      toolbar: { title: "Name", icon: "edit", items: ["GentleMail", "Acme Mail"], dynamicTitle: true },
     },
     server: {
       description: "How fake server actions answer",

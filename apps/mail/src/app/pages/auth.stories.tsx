@@ -6,7 +6,7 @@ import { LoginView, SetupView, VerifyView } from "./auth-views";
 
 /*
  * The sign-in screens, from auth-views.tsx: the same views the pages render, given made-up values.
- * In the app the forms post to the Worker; here nothing is sent.
+ * In the app the forms post to the Worker; here nothing is sent (.storybook/fakes/browser.ts).
  */
 
 const meta = {
@@ -19,6 +19,25 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const SignIn: Story = {};
+/** Submitting stays on the story: what was typed is never posted. */
+export const NothingIsSent: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const submitted: boolean[] = [];
+    // Runs after the guard, which was added to window first.
+    const seen = (e: Event) => submitted.push(e.defaultPrevented);
+    window.addEventListener("submit", seen);
+    try {
+      await userEvent.type(canvas.getByLabelText("Email"), "ada@example.com");
+      await userEvent.type(canvas.getByLabelText("Password"), "correct horse");
+      await userEvent.click(canvas.getByRole("button", { name: "Sign in" }));
+      await expect(submitted).toEqual([true]);
+      await expect(canvas.getByLabelText("Email")).toHaveValue("ada@example.com");
+    } finally {
+      window.removeEventListener("submit", seen);
+    }
+  },
+};
 export const WrongPassword: Story = { args: { err: "Wrong email or password." } };
 export const TimedOut: Story = { args: { err: "Your sign-in timed out. Enter your password again." } };
 export const TooManyCodes: Story = { args: { err: "Too many wrong codes. Enter your password again." } };

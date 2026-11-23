@@ -65,10 +65,11 @@ export const RadiusAndSpacing: StoryObj = {
   render: () => (
     <div className="grid gap-8 bg-background p-8 text-foreground">
       <div className="flex flex-wrap items-end gap-6">
-        {["sm", "md", "lg", "xl"].map((r) => (
+        {/* Whole class names: Tailwind only builds the ones it can read, and doesn't write --radius-* as variables. */}
+        {["rounded-sm", "rounded-md", "rounded-lg", "rounded-xl"].map((r) => (
           <div key={r} className="grid justify-items-center gap-2 text-xs">
-            <span className="size-16 border-2 border-primary bg-muted" style={{ borderRadius: `var(--radius-${r})` }} />
-            radius-{r}
+            <span className={`size-16 border-2 border-primary bg-muted ${r}`} />
+            {r}
           </div>
         ))}
       </div>

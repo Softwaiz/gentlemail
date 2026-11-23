@@ -33,6 +33,7 @@ const Placeholder = () => (
 const meta = {
   title: "App/Sidebar and frame",
   component: ShellView,
+  parameters: { toaster: false }, // the frame has its own
   args: {
     user: admin,
     groups,

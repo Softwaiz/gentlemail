@@ -256,7 +256,7 @@ Run from `apps/mail` with `npm run <script>` (or `pnpm <script>`).
 | `dev:init` / `worker:run` | RedwoodSDK helpers: prepare the dev environment, and run a script inside the Worker environment (`npm run worker:run ./path/to/script.ts`) |
 | `storybook` | Storybook on http://localhost:6006: every screen and component with made-up data (see [Storybook](#storybook)) |
 | `build-storybook` | Static Storybook build into `storybook-static/` |
-| `compare-pages` | Builds this tree and `origin/dev` (or the branch given: `npm run compare-pages -- main`), renders the same pages from the same made-up data in both, and compares the HTML |
+| `compare-pages` | Builds this tree and the commit it left `origin/dev` at (or another branch: `npm run compare-pages -- main`), renders the same pages from the same made-up data in both, and compares the HTML |
 
 ## Local development
 ```sh
@@ -280,10 +280,10 @@ How it fits the code:
 
 - **Stories sit beside what they show** (`button.stories.tsx` next to `button.tsx`).
 - **Pages are split in two**: the page in `<page>.tsx` loads (database, request, redirects), and a view in `<page>-views.tsx` only draws what it's given. Stories use the view. A page not split yet has stories for the components on it. Splitting moves the markup unchanged; a redesign comes in its own pull request.
-- **Nothing in a story reaches the server.** `.storybook/vite.config.ts` replaces every `serverAction` and `serverQuery` in `src/app/actions/` with a fake: an action answers `{ ok: true }`, a query answers nothing. `.storybook/fakes/actions/<module>.ts` gives specific answers (see `mail.ts`). Anything else exported from an actions module stops the build. `cloudflare:workers` is a stub holding only plain settings (`APP_NAME`), and rwsdk's client `navigate` only logs.
+- **Nothing in a story reaches the server.** `.storybook/vite.config.ts` replaces every `serverAction` and `serverQuery` in `src/app/actions/` with a fake: an action answers `{ ok: true }`, a query answers nothing. `.storybook/fakes/actions/<module>.ts` gives specific answers (see `mail.ts`). Anything else exported from an actions module stops the build. `cloudflare:workers` is a stub holding only plain settings (`APP_NAME`), and rwsdk's client `navigate` only logs. Forms and links to the app's pages stay on the story too (`.storybook/fakes/browser.ts`).
 - **Made-up data has fixed dates** (`"09:41"`, `"Yesterday"`), never "now", so stories look the same every day.
 - **Checks in `play` functions test state, not motion**: that a menu is open (`aria-expanded`), not that it has finished sliding in. Wait for what fades in (`waitFor`).
-- **When you split a page, run `npm run compare-pages`**: every page must come out identical to `dev`. Add the page to `PAGES` in `scripts/compare-pages.mjs` if it isn't there.
+- **When you split a page, run `npm run compare-pages`**: every page must come out identical to `dev`. Add the page to `SCENARIOS` in `scripts/compare-pages.mjs` if it isn't there.
 
 ## License
 [MIT](https://github.com/Softwaiz/gentlemail/blob/main/LICENSE) © Softwaiz

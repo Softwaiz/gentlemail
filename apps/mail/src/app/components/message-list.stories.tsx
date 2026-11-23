@@ -67,6 +67,7 @@ export const SearchResults: Story = {
 
 /** Selects two threads and archives them: the fake server answers, and a toast says what happened. */
 export const ArchiveTwo: Story = {
+  parameters: { server: "ok" }, // whatever the toolbar says: the check below expects this answer
   play: async ({ canvasElement, step, parameters }) => {
     const canvas = within(canvasElement);
     await step("Select two threads", async () => {

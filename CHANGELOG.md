@@ -24,6 +24,7 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 
 ### Fixed
 - Very long messages in scripts such as Chinese or Japanese are saved properly: the Sent copy, and received mail, measured their size in characters while the database counts bytes. A long sent message could go out and then fail to be saved, showing "Sending failed" and inviting a second send. Its HTML now goes to storage, as for received mail. ([#32](https://github.com/Softwaiz/gentlemail/pull/32))
+- On phones, the buttons that act on the selected conversations (Archive, Spam, Trash and the others) have names for screen readers; they were announced only as "button". ([#38](https://github.com/Softwaiz/gentlemail/pull/38))
 
 ### Upgrading
 - New migration `0010_user_language.sql` (each person's language). With the Deploy button's setup it's applied on the push; otherwise run `npx wrangler d1 migrations apply DB --remote` right after deploying, or signing in fails.

@@ -16,8 +16,8 @@ export const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 export const q = (v) => (v === null ? "NULL" : typeof v === "number" ? String(v) : `'${String(v).replaceAll("'", "''")}'`);
 
 /** The migrations, one statement at a time (they hold no triggers, so ";" at a line end ends a statement). */
-function migrationStatements() {
-  const dir = join(APP, "migrations");
+function migrationStatements(app) {
+  const dir = join(app, "migrations");
   return readdirSync(dir)
     .filter((f) => f.endsWith(".sql"))
     .sort()
@@ -30,22 +30,25 @@ function migrationStatements() {
     );
 }
 
-/** Starts the Worker with the migrations and `seed` (SQL statements, one per line ending in ";") applied. */
-export async function startWorker(seed) {
-  const config = JSON.parse(readFileSync(join(APP, "dist/worker/wrangler.json"), "utf8"));
+/**
+ * Starts the Worker with the migrations and `seed` (SQL statements, one per line ending in ";") applied.
+ * `app` is the built apps/mail folder to run (this one by default), `bindings` adds to its settings.
+ */
+export async function startWorker(seed, { app = APP, bindings = {} } = {}) {
+  const config = JSON.parse(readFileSync(join(app, "dist/worker/wrangler.json"), "utf8"));
   const mf = new Miniflare({
-    scriptPath: join(APP, "dist/worker", config.main),
+    scriptPath: join(app, "dist/worker", config.main),
     modules: true,
     modulesRules: [{ type: "ESModule", include: ["**/*.js", "**/*.mjs"] }],
     compatibilityDate: config.compatibility_date,
     compatibilityFlags: config.compatibility_flags,
-    bindings: { ...config.vars, PUBLIC_URL: BASE },
+    bindings: { ...config.vars, PUBLIC_URL: BASE, ...bindings },
     d1Databases: { DB: "test" },
     r2Buckets: { MAIL_BUCKET: "test" },
     email: { send_email: [{ name: "EMAIL" }] },
     ratelimits: Object.fromEntries((config.ratelimits ?? []).map((r) => [r.name, { namespace_id: r.namespace_id, simple: r.simple }])),
   });
   const db = await mf.getD1Database("DB");
-  await db.batch([...migrationStatements(), ...seed.split(/;\n/)].filter((st) => st.trim()).map((st) => db.prepare(st)));
+  await db.batch([...migrationStatements(app), ...seed.split(/;\n/)].filter((st) => st.trim()).map((st) => db.prepare(st)));
   return { mf, db, request: (path, init) => mf.dispatchFetch(BASE + path, { redirect: "manual", ...init }) };
 }

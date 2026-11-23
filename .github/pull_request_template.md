@@ -22,6 +22,7 @@ Base branch: dev. Only a hotfix goes into main.
 - [ ] Lines under **Unreleased** in [CHANGELOG.md](../blob/dev/CHANGELOG.md) (Added / Changed / Fixed / Security / Removed, plus **Upgrading** for a migration or a manual step), or no line because nobody would notice
 - [ ] Docs updated for what people see or do, or nothing in the docs changes
 - [ ] From `apps/mail`: `npx tsc --noEmit`, `npm run build` and `npm test` pass; tried locally
+- [ ] A new or changed screen or component has its stories (`npm run storybook`); a page split into a view shows `npm run compare-pages` identical
 - [ ] A schema change is a new numbered migration, never an edit to a released one
 - [ ] A change to API keys, the API or MCP adds its cases to `test/api-access.test.mjs` or `test/mcp.test.mjs`
 - [ ] No secrets, account IDs or deployment-specific domains

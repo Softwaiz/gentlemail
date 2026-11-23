@@ -183,7 +183,7 @@ msgid "admin.mailbox_created"
 msgstr "{address} créée."
 
 #. js-lingui-explicit-id
-#: src/app/components/shell.tsx:73
+#: src/app/components/shell-view.tsx:82
 msgid "shell.unread_count"
 msgstr "{count, plural, one {# non lu} other {# non lus}}"
 
@@ -203,7 +203,7 @@ msgid "keys.included"
 msgstr "{label} : inclus par une ligne plus large"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:224
+#: src/app/pages/auth.tsx:76
 msgid "verify.code_wrong"
 msgstr "{left, plural, one {Ce code ne fonctionne pas. Encore # essai.} other {Ce code ne fonctionne pas. Encore # essais.}}"
 
@@ -397,7 +397,7 @@ msgid "domains.admin"
 msgstr "Administration"
 
 #. js-lingui-explicit-id
-#: src/app/components/shell.tsx:167
+#: src/app/components/shell-view.tsx:174
 msgid "shell.admin"
 msgstr "Administration"
 
@@ -499,7 +499,7 @@ msgid "developers.api_webhooks"
 msgstr "API et webhooks"
 
 #. js-lingui-explicit-id
-#: src/app/components/shell.tsx:170
+#: src/app/components/shell-view.tsx:177
 msgid "shell.api"
 msgstr "API et webhooks"
 
@@ -656,7 +656,7 @@ msgid "nav.close"
 msgstr "Fermer le menu"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:179
+#: src/app/pages/auth-views.tsx:146
 msgid "verify.code"
 msgstr "Code"
 
@@ -724,7 +724,7 @@ msgid "keys.copy_key"
 msgstr "Copiez votre clé"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:286
+#: src/app/pages/auth-views.tsx:221
 msgid "setup.submit"
 msgstr "Créer le compte administrateur"
 
@@ -739,7 +739,7 @@ msgid "admin.create_mailbox"
 msgstr "Créer la boîte mail"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:271
+#: src/app/pages/auth-views.tsx:206
 msgid "setup.title"
 msgstr "Créer le compte administrateur"
 
@@ -930,7 +930,7 @@ msgid "editor.edit_link"
 msgstr "Modifier le lien"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:109
+#: src/app/pages/auth-views.tsx:98
 msgid "signin.email"
 msgstr "E-mail"
 
@@ -947,7 +947,7 @@ msgid "admin.enter_valid_login_email"
 msgstr "Saisissez un e-mail de connexion valide."
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:174
+#: src/app/pages/auth-views.tsx:141
 msgid "verify.intro"
 msgstr "Saisissez le code à 6 chiffres de votre application d'authentification pour <0>{email}</0>."
 
@@ -999,7 +999,7 @@ msgid "spam.flagged"
 msgstr "Signalé comme spam avant de nous parvenir."
 
 #. js-lingui-explicit-id
-#: src/app/components/shell.tsx:138
+#: src/app/components/shell-view.tsx:145
 msgid "shell.folders"
 msgstr "Dossiers"
 
@@ -1158,7 +1158,7 @@ msgid "developers.sdk_intro"
 msgstr "Installez <0>gentlemail</0> depuis npm : typé, sans dépendances, fonctionne sur Workers, Node 20+, Deno et Bun. Il vérifie aussi pour vous la signature des webhooks."
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:300
+#: src/app/pages/auth.tsx:112
 msgid "setup.token_wrong"
 msgstr "Jeton de configuration invalide."
 
@@ -1251,7 +1251,7 @@ msgid "domains.live_lookup_public_dns"
 msgstr "Consultation en direct du DNS public. Rechargez la page après une modification."
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:258
+#: src/app/pages/auth-views.tsx:197
 msgid "setup.no_token_local"
 msgstr "En local, mettez <0>SETUP_TOKEN=…</0> dans <1>.dev.vars</1>."
 
@@ -1268,7 +1268,7 @@ msgid "admin.login_email"
 msgstr "E-mail de connexion"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:279
+#: src/app/pages/auth-views.tsx:214
 msgid "setup.email"
 msgstr "E-mail de connexion"
 
@@ -1284,7 +1284,7 @@ msgid "mfa.file_made"
 msgstr "Créés le {0}. Chaque code fonctionne une fois, à la place du code de votre application d'authentification."
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:38
+#: src/app/pages/auth-views.tsx:28
 msgid "auth.tagline"
 msgstr "Le courrier de tous vos domaines"
 
@@ -1320,7 +1320,7 @@ msgid "settings.title"
 msgstr "Réglages de la boîte mail"
 
 #. js-lingui-explicit-id
-#: src/app/components/shell.tsx:153
+#: src/app/components/shell-view.tsx:160
 msgid "shell.mailbox_settings"
 msgstr "Réglages de la boîte mail"
 
@@ -1531,8 +1531,8 @@ msgid "composer.title_new"
 msgstr "Nouveau message"
 
 #. js-lingui-explicit-id
-#: src/app/components/shell.tsx:112
-#: src/app/components/shell.tsx:136
+#: src/app/components/shell-view.tsx:119
+#: src/app/components/shell-view.tsx:143
 msgid "shell.new_message"
 msgstr "Nouveau message"
 
@@ -1575,7 +1575,7 @@ msgid "access.none"
 msgstr "Aucun accès"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:198
+#: src/app/pages/auth-views.tsx:165
 msgid "verify.recovery_hint"
 msgstr "Pas d'accès à votre application ? Tapez l'un de vos codes de secours (comme <0>abcde-23456</0>) dans la même case. Chacun fonctionne une fois."
 
@@ -1616,7 +1616,7 @@ msgid "admin.no_mailboxes_yet"
 msgstr "Aucune boîte mail pour l'instant."
 
 #. js-lingui-explicit-id
-#: src/app/components/shell.tsx:158
+#: src/app/components/shell-view.tsx:165
 msgid "shell.no_mailboxes"
 msgstr "Aucune boîte mail pour l'instant."
 
@@ -1852,17 +1852,17 @@ msgid "admin.password"
 msgstr "Mot de passe"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:122
+#: src/app/pages/auth-views.tsx:111
 msgid "signin.password"
 msgstr "Mot de passe"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:282
+#: src/app/pages/auth-views.tsx:217
 msgid "setup.password"
 msgstr "Mot de passe (10 caractères ou plus)"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:305
+#: src/app/pages/auth.tsx:117
 msgid "setup.password_short"
 msgstr "Mot de passe trop court : utilisez 10 caractères ou plus."
 
@@ -1969,7 +1969,7 @@ msgid "developers.receive_webhooks"
 msgstr "Recevoir des webhooks"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:49
+#: src/app/pages/auth-views.tsx:39
 msgid "auth.pitch"
 msgstr "Recevez, lisez et répondez au courrier de tous vos domaines au même endroit. Vos messages restent sur votre propre compte Cloudflare."
 
@@ -2323,7 +2323,7 @@ msgid "folder.sent"
 msgstr "Envoyés"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:254
+#: src/app/pages/auth-views.tsx:193
 msgid "setup.no_token"
 msgstr "Définissez d'abord un jeton de configuration à usage unique, puis rechargez cette page :"
 
@@ -2353,7 +2353,7 @@ msgid "done.settings_saved"
 msgstr "Réglages enregistrés."
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:252
+#: src/app/pages/auth-views.tsx:191
 msgid "setup.title_no_token"
 msgstr "Configuration"
 
@@ -2363,7 +2363,7 @@ msgid "domains.setup_status"
 msgstr "Configuration et état"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:273
+#: src/app/pages/auth-views.tsx:208
 msgid "setup.token"
 msgstr "Jeton de configuration"
 
@@ -2388,12 +2388,12 @@ msgid "password.show_token"
 msgstr "Afficher le jeton de configuration"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:106
+#: src/app/pages/auth-views.tsx:95
 msgid "signin.title"
 msgstr "Connexion"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:134
+#: src/app/pages/auth-views.tsx:123
 msgid "signin.submit"
 msgstr "Se connecter"
 
@@ -2844,7 +2844,7 @@ msgid "admin.two_step"
 msgstr "Deux étapes"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:172
+#: src/app/pages/auth-views.tsx:139
 msgid "verify.title"
 msgstr "Validation en deux étapes"
 
@@ -2931,7 +2931,7 @@ msgid "developers.url"
 msgstr "URL"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:203
+#: src/app/pages/auth-views.tsx:170
 msgid "verify.other_account"
 msgstr "Utiliser un autre compte"
 
@@ -2966,7 +2966,7 @@ msgid "admin.users"
 msgstr "Utilisateurs"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:194
+#: src/app/pages/auth-views.tsx:161
 msgid "verify.submit"
 msgstr "Vérifier"
 
@@ -3032,7 +3032,7 @@ msgid "editor.placeholder"
 msgstr "Écrivez votre message…"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:151
+#: src/app/pages/auth.tsx:42
 msgid "signin.wrong_credentials"
 msgstr "E-mail ou mot de passe incorrect."
 
@@ -3117,7 +3117,7 @@ msgid "keys.your_mailboxes"
 msgstr "Vos boîtes mail"
 
 #. js-lingui-explicit-id
-#: src/app/pages/auth.tsx:276
+#: src/app/pages/auth-views.tsx:211
 msgid "setup.name"
 msgstr "Votre nom"
 

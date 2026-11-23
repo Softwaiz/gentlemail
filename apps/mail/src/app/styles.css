@@ -2,6 +2,10 @@
 @import "tw-animate-css";
 @import "@fontsource-variable/google-sans/index.css";
 
+/* Classes only stories use stay out of the app's CSS: .storybook/styles.css adds them. */
+@source not "./**/*.stories.tsx";
+@source not "../../.storybook";
+
 /*
  * Theme: dark by default; each person can pick Light or System in their user menu.
  * The choice is a cookie the server reads to set <html data-theme> and color-scheme

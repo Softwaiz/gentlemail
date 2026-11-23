@@ -99,6 +99,7 @@ function SignInFlow() {
 /** Plays by itself. Step through it, or stop at any screen, from the Interactions panel. */
 export const Flow: StoryObj = {
   render: () => <SignInFlow />,
+  parameters: { controls: { disable: true } },
   play: async ({ canvasElement, step }) => {
     const canvas = within(canvasElement);
     await step("Sign in with a wrong password", async () => {

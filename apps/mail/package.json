@@ -21,7 +21,8 @@
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
     "storybook": "storybook dev -p 6006 --no-open",
-    "build-storybook": "storybook build -o storybook-static"
+    "build-storybook": "storybook build -o storybook-static",
+    "compare-pages": "node scripts/compare-pages.mjs"
   },
   "dependencies": {
     "@fontsource-variable/google-sans": "^5.3.2",

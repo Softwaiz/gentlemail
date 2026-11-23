@@ -64,4 +64,10 @@ coverage
 *.temp
 
 # Wrangler
-.wranglerstorybook-static
+.wrangler
+
+# Storybook build
+storybook-static
+
+# Page comparison builds (apps/mail/scripts/compare-pages.mjs)
+.compare-pages

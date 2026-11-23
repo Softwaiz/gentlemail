@@ -22,7 +22,7 @@ Website: https://gentlemail.dev · [Deploy guide](https://gentlemail.dev/docs/de
 7. [Test it end to end](#6-test-it-end-to-end)
 8. [Configuration](#configuration) · [Updating](#updating) · [Troubleshooting](#troubleshooting)
 9. [Features](#features) · [Spam](#spam) · [API & webhooks](#api--webhooks) · [Security](#security-of-displayed-mail)
-10. [Tech stack](#tech-stack) · [Database and migrations](#database-and-migrations) · [Layout](#layout) · [Scripts](#scripts) · [Local development](#local-development)
+10. [Tech stack](#tech-stack) · [Database and migrations](#database-and-migrations) · [Layout](#layout) · [Scripts](#scripts) · [Local development](#local-development) · [Storybook](#storybook)
 
 ## What you need
 - A **Cloudflare account on the Workers Paid plan** ($5/month). It includes the outbound email.
@@ -211,6 +211,8 @@ apps/mail/
 ├── migrations/              D1 schema as numbered SQL files, applied in order
 ├── public/                  static files (favicon)
 ├── types/                   ambient TypeScript types
+├── .storybook/              Storybook: its own Vite config, toolbar, and the fakes stories use (see Storybook)
+├── scripts/                 compare-pages.mjs (see Storybook)
 └── src/
     ├── worker.tsx           Worker entry (fetch, email, scheduled) and every route
     ├── client.tsx           browser entry (hydrates client components)
@@ -222,8 +224,9 @@ apps/mail/
     │   ├── api.ts           public REST API (/api/v1)
     │   ├── actions/         server functions: serverAction (mutations), serverQuery (reads);
     │   │                    each checks access itself (guards.ts), whatever page it is posted to
-    │   ├── pages/           pages (server components): mailbox, compose, admin, domains, developers, auth, errors
-    │   └── components/      shared UI; ui/ holds the shadcn components
+    │   ├── pages/           pages (server components): mailbox, compose, admin, domains, developers, auth, errors;
+    │   │                    a split page draws through a view in <page>-views.tsx (see Storybook)
+    │   └── components/      shared UI; ui/ holds the shadcn components; *.stories.tsx beside what they show
     └── lib/
         ├── db.ts            row types and shared queries (mailbox access, attachments…)
         ├── auth.ts          PBKDF2 passwords, D1 sessions
@@ -251,6 +254,9 @@ Run from `apps/mail` with `npm run <script>` (or `pnpm <script>`).
 | `clean` | Delete Vite's cache (`node_modules/.vite`), the fix when the dev server reports a missing module |
 | `release` | Clean, apply remote migrations, build and deploy in one go (calls pnpm; needs a Cloudflare login) |
 | `dev:init` / `worker:run` | RedwoodSDK helpers: prepare the dev environment, and run a script inside the Worker environment (`npm run worker:run ./path/to/script.ts`) |
+| `storybook` | Storybook on http://localhost:6006: every screen and component with made-up data (see [Storybook](#storybook)) |
+| `build-storybook` | Static Storybook build into `storybook-static/` |
+| `compare-pages` | Builds this tree and `origin/dev` (or the branch given: `npm run compare-pages -- main`), renders the same pages from the same made-up data in both, and compares the HTML |
 
 ## Local development
 ```sh
@@ -262,6 +268,22 @@ npm run dev
 curl -X POST "http://localhost:5173/cdn-cgi/handler/email?from=a@example.org&to=hello@your-domain" --data-binary @some.eml
 ```
 Outbound mail is simulated locally (written under `.wrangler/tmp/email`).
+
+## Storybook
+```sh
+npm run storybook
+# open http://localhost:6006
+```
+Every screen and component, in each of its states, with made-up data: no account, database or seed. The toolbar switches the theme, the app name (the GentleMail logo, or an instance with its own name), the width (phone, tablet, desktop) and how server actions answer (succeed, fail, slow). Controls lists each property, marks the required ones and lets you change them live; that's a try-out, nothing is written back to the code.
+
+How it fits the code:
+
+- **Stories sit beside what they show** (`button.stories.tsx` next to `button.tsx`).
+- **Pages are split in two**: the page in `<page>.tsx` loads (database, request, redirects), and a view in `<page>-views.tsx` only draws what it's given. Stories use the view. A page not split yet has stories for the components on it. Splitting moves the markup unchanged; a redesign comes in its own pull request.
+- **Nothing in a story reaches the server.** `.storybook/vite.config.ts` replaces every `serverAction` and `serverQuery` in `src/app/actions/` with a fake: an action answers `{ ok: true }`, a query answers nothing. `.storybook/fakes/actions/<module>.ts` gives specific answers (see `mail.ts`). Anything else exported from an actions module stops the build. `cloudflare:workers` is a stub holding only plain settings (`APP_NAME`), and rwsdk's client `navigate` only logs.
+- **Made-up data has fixed dates** (`"09:41"`, `"Yesterday"`), never "now", so stories look the same every day.
+- **Checks in `play` functions test state, not motion**: that a menu is open (`aria-expanded`), not that it has finished sliding in. Wait for what fades in (`waitFor`).
+- **When you split a page, run `npm run compare-pages`**: every page must come out identical to `dev`. Add the page to `PAGES` in `scripts/compare-pages.mjs` if it isn't there.
 
 ## License
 [MIT](https://github.com/Softwaiz/gentlemail/blob/main/LICENSE) © Softwaiz

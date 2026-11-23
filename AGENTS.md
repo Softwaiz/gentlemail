@@ -41,6 +41,8 @@ A release promotes what is in `dev` into `main`. [`release.yml`](.github/workflo
 - **Schema changes are new numbered files in `apps/mail/migrations/`** (`npx wrangler d1 migrations create DB name`). Never edit a migration that has been released. Deploys apply pending migrations.
 - **The browser changes data only through server functions**: `serverAction` for writes and `serverQuery` for reads, in `src/app/actions/`. Each one checks access itself (`signedIn`, `adminOnly`, mailbox access). Page renders only read. Plain routes are kept for sign-in, file downloads and the public `/api/v1`. Sign-in includes the OAuth endpoints for AI assistants and their consent form (`/oauth/*`), whose answer is a redirect to the app.
 - **Access is checked on the server, every time**, whatever page a form was posted from.
+- **Every screen and component has stories** ([Storybook](apps/mail/README.md#storybook), `npm run storybook`): a new one comes with its stories, a changed one updates them, in the same pull request. Made-up data only, with fixed dates; checks on state, not on animation.
+- **Pages load, views draw.** A page in `src/app/pages/` reads the database and the request, then renders a view (`<page>-views.tsx`) that only draws its props, so stories can show it. Splitting a page moves its markup unchanged, and `npm run compare-pages` must show every page identical to `dev`.
 - **No secrets, account IDs or deployment-specific domains in this repository.** `apps/mail/wrangler.jsonc` stays a template, and `.dev.vars` is never committed.
 
 ## Before opening a pull request

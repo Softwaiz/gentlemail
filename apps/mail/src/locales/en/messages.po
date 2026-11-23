@@ -327,7 +327,7 @@ msgid "common.active"
 msgstr "Active"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:609
+#: src/app/components/rich-editor.tsx:637
 msgid "editor.add"
 msgstr "Add"
 
@@ -353,8 +353,8 @@ msgid "admin.add_domain_2"
 msgstr "Add domain"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:331
-#: src/app/components/rich-editor.tsx:568
+#: src/app/components/rich-editor.tsx:350
+#: src/app/components/rich-editor.tsx:596
 msgid "editor.add_link"
 msgstr "Add link"
 
@@ -578,12 +578,12 @@ msgid "settings.blocked"
 msgstr "Blocked senders"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:321
+#: src/app/components/rich-editor.tsx:340
 msgid "editor.bold"
 msgstr "Bold"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:332
+#: src/app/components/rich-editor.tsx:351
 msgid "editor.bullets"
 msgstr "Bulleted list"
 
@@ -642,7 +642,7 @@ msgid "switcher.choose"
 msgstr "Choose a mailbox"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:337
+#: src/app/components/rich-editor.tsx:356
 msgid "editor.clear"
 msgstr "Clear formatting"
 
@@ -662,7 +662,7 @@ msgid "verify.code"
 msgstr "Code"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:335
+#: src/app/components/rich-editor.tsx:354
 msgid "editor.code"
 msgstr "Code"
 
@@ -923,10 +923,10 @@ msgid "keys.edit_access"
 msgstr "Edit access"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:331
-#: src/app/components/rich-editor.tsx:568
-#: src/app/components/rich-editor.tsx:638
-#: src/app/components/rich-editor.tsx:639
+#: src/app/components/rich-editor.tsx:350
+#: src/app/components/rich-editor.tsx:596
+#: src/app/components/rich-editor.tsx:666
+#: src/app/components/rich-editor.tsx:667
 msgid "editor.edit_link"
 msgstr "Edit link"
 
@@ -1010,7 +1010,7 @@ msgid "admin.someone_who_lost_their"
 msgstr "For someone who lost their phone and their recovery codes. Two-step is turned off and they're signed out everywhere; they sign in with their password and set it up again."
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:341
+#: src/app/components/rich-editor.tsx:360
 msgid "editor.formatting"
 msgstr "Formatting"
 
@@ -1108,7 +1108,7 @@ msgid "settings.preview"
 msgstr "How it looks"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:600
+#: src/app/components/rich-editor.tsx:628
 msgid "editor.link_placeholder"
 msgstr "https://… or name@example.com"
 
@@ -1179,7 +1179,7 @@ msgid "connections.disconnect_body"
 msgstr "It is refused from its next request. To use it again, connect it again and sign in."
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:322
+#: src/app/components/rich-editor.tsx:341
 msgid "editor.italic"
 msgstr "Italic"
 
@@ -1242,7 +1242,7 @@ msgid "menu.theme_light"
 msgstr "Light"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:601
+#: src/app/components/rich-editor.tsx:629
 msgid "editor.link_address"
 msgstr "Link address"
 
@@ -1396,7 +1396,8 @@ msgid "nav.menu"
 msgstr "Menu"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:132
+#: src/app/components/editor-safety-net.tsx:36
+#: src/app/components/rich-editor.tsx:139
 msgid "editor.message"
 msgstr "Message"
 
@@ -1716,7 +1717,7 @@ msgid "developers.nothing_sent_yet_use"
 msgstr "Nothing sent yet. Use “Send test event” to try your receiver."
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:333
+#: src/app/components/rich-editor.tsx:352
 msgid "editor.numbers"
 msgstr "Numbered list"
 
@@ -1783,7 +1784,7 @@ msgstr "Only applies to members. Admins open every mailbox."
 
 #. js-lingui-explicit-id
 #. placeholder {0}: shownUrl(view.url)
-#: src/app/components/rich-editor.tsx:624
+#: src/app/components/rich-editor.tsx:652
 msgid "editor.open_link"
 msgstr "Open {0}"
 
@@ -1934,7 +1935,7 @@ msgid "developers.quick_reference"
 msgstr "Quick reference"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:334
+#: src/app/components/rich-editor.tsx:353
 msgid "editor.quote"
 msgstr "Quote"
 
@@ -2046,10 +2047,10 @@ msgid "domains.remove_domain"
 msgstr "Remove domain"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:612
-#: src/app/components/rich-editor.tsx:612
-#: src/app/components/rich-editor.tsx:647
-#: src/app/components/rich-editor.tsx:648
+#: src/app/components/rich-editor.tsx:640
+#: src/app/components/rich-editor.tsx:640
+#: src/app/components/rich-editor.tsx:675
+#: src/app/components/rich-editor.tsx:676
 msgid "editor.remove_link"
 msgstr "Remove link"
 
@@ -2167,7 +2168,7 @@ msgid "menu.theme_system"
 msgstr "Same as device"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:609
+#: src/app/components/rich-editor.tsx:637
 #: src/app/pages/compose.tsx:180
 msgid "common.save"
 msgstr "Save"
@@ -2508,7 +2509,7 @@ msgid "developers.stops_all_deliveries_removes"
 msgstr "Stops all deliveries and removes their history."
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:324
+#: src/app/components/rich-editor.tsx:343
 msgid "editor.strikethrough"
 msgstr "Strikethrough"
 
@@ -2518,7 +2519,7 @@ msgid "composer.subject"
 msgstr "Subject"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:327
+#: src/app/components/rich-editor.tsx:346
 msgid "editor.subscript"
 msgstr "Subscript"
 
@@ -2528,7 +2529,7 @@ msgid "developers.status_success"
 msgstr "success"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:328
+#: src/app/components/rich-editor.tsx:347
 msgid "editor.superscript"
 msgstr "Superscript"
 
@@ -2604,6 +2605,11 @@ msgstr "The app picks its own name, so check this address instead. If you didn't
 #: src/app/pages/oauth.tsx:182
 msgid "oauth.broken"
 msgstr "The app's sign-in request is broken ({detail}). Nothing was shared. Tell the app's makers, or try another app."
+
+#. js-lingui-explicit-id
+#: src/app/components/editor-safety-net.tsx:30
+msgid "editor.failed"
+msgstr "The editor stopped working, so formatting is off. Your text is kept below: finish it and send, or copy it and reload the page."
 
 #. js-lingui-explicit-id
 #: src/app/pages/developers.tsx:458
@@ -2902,7 +2908,7 @@ msgid "admin.type_exact_address_confirm"
 msgstr "Type the exact address to confirm."
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:323
+#: src/app/components/rich-editor.tsx:342
 msgid "editor.underline"
 msgstr "Underline"
 
@@ -3033,7 +3039,7 @@ msgid "errors.empty_message"
 msgstr "Write a message or attach a file first."
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:137
+#: src/app/components/rich-editor.tsx:144
 msgid "editor.placeholder"
 msgstr "Write your message…"
 

@@ -5,7 +5,7 @@ import styles from "./styles.css?url";
 
 export const Document: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   // The theme cookie is read here, so the first paint already has the right colours.
-  <html lang="en" data-theme={themeFrom(requestInfo.request.headers.get("Cookie"))}>
+  <html lang={requestInfo.ctx.i18n?.locale ?? "en"} data-theme={themeFrom(requestInfo.request.headers.get("Cookie"))}>
     <head>
       <meta charSet="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />

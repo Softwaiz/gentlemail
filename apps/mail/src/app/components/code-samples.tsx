@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { t } from "@lingui/core/macro";
 
 export type Flavor = "sdk" | "http";
 
@@ -48,14 +49,14 @@ export function CodeSamples({
   };
 
   const options: { id: Flavor; label: string }[] = [
-    { id: "sdk", label: "JavaScript SDK" },
+    { id: "sdk", label: t({ id: "code.sdk", message: "JavaScript SDK" }) },
     { id: "http", label: "HTTP" },
   ];
 
   return (
     <div className="grid gap-5 text-sm *:min-w-0">
       <div className="grid gap-3">
-        <div role="group" aria-label="Show examples for" className="inline-flex w-fit rounded-md border bg-muted/40 p-0.5">
+        <div role="group" aria-label={t({ id: "code.show_for", message: "Show examples for" })} className="inline-flex w-fit rounded-md border bg-muted/40 p-0.5">
           {options.map((o) => (
             <button
               key={o.id}

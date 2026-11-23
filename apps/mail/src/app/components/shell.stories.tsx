@@ -20,8 +20,8 @@ const groups: SwitcherGroup[] = [
   },
 ];
 
-const admin = { name: "Ada Lovelace", email: "ada@softwaiz.test", role: "admin" as const };
-const member = { name: "Grace Hopper", email: "grace@acme.test", role: "member" as const };
+const admin = { name: "Ada Lovelace", email: "ada@softwaiz.test", role: "admin" as const, language: null };
+const member = { name: "Grace Hopper", email: "grace@acme.test", role: "member" as const, language: null };
 
 const Placeholder = () => (
   <>
@@ -88,11 +88,15 @@ export const LongAddress: Story = {
   },
 };
 
+/** In French, the language saved on the account. */
+export const French: Story = { args: { user: { ...admin, language: "fr" } }, globals: { language: "fr" } };
+
 export const WithMessage: Story = { args: { flash: { msg: "Settings saved." } } };
 export const WithError: Story = { args: { flash: { err: "That mailbox is turned off. Turn it on to send from it." } } };
 
 /** Opens the mailbox switcher: both domains, the turned-off mailbox dimmed. */
 export const SwitcherOpen: Story = {
+  globals: { language: "en" }, // the check reads the English labels
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByLabelText("Switch mailbox"));
     await expect(await screen.findByText("old-support")).toBeInTheDocument();
@@ -105,7 +109,7 @@ export const Phone: Story = { globals: { viewport: { value: "phone" } } };
 
 /** The menu opened from the top bar, items coming in one after another. */
 export const PhoneMenuOpen: Story = {
-  globals: { viewport: { value: "phone" } },
+  globals: { language: "en", viewport: { value: "phone" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByLabelText("Open menu"));

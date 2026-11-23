@@ -3,6 +3,7 @@
 import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { t } from "@lingui/core/macro";
 
 /*
  * The sidebar's top bar and its panel. On phones the menu button opens the panel as a
@@ -50,7 +51,7 @@ export function SidebarNav({
       <div className="flex items-center gap-2 px-2 pt-1 md:pb-3">
         <div className="flex flex-1">{brand}</div>
         {action}
-        <button type="button" aria-label="Open menu" aria-expanded={open} aria-controls="nav-panel" onClick={() => setOpen(true)} className={cn(iconButton, "md:hidden")}>
+        <button type="button" aria-label={t({ id: "nav.open", message: "Open menu" })} aria-expanded={open} aria-controls="nav-panel" onClick={() => setOpen(true)} className={cn(iconButton, "md:hidden")}>
           <Menu className="size-5" />
         </button>
       </div>
@@ -60,7 +61,7 @@ export function SidebarNav({
         className={cn("nav-panel scrollbar-thin flex flex-1 flex-col gap-1", open && "is-open")}
         role={open ? "dialog" : undefined}
         aria-modal={open || undefined}
-        aria-label={open ? "Menu" : undefined}
+        aria-label={open ? t({ id: "nav.menu", message: "Menu" }) : undefined}
         onClick={(e) => {
           if ((e.target as HTMLElement).closest("a")) setOpen(false);
         }}
@@ -68,7 +69,7 @@ export function SidebarNav({
         {/* Phones only: the open menu's own top bar, the close button where the menu button was. */}
         <div className="nav-item flex items-center gap-2 px-2 pt-1 pb-4 md:hidden" style={{ "--i": 0 } as React.CSSProperties}>
           <div className="flex flex-1">{brand}</div>
-          <button type="button" aria-label="Close menu" onClick={() => setOpen(false)} className={iconButton}>
+          <button type="button" aria-label={t({ id: "nav.close", message: "Close menu" })} onClick={() => setOpen(false)} className={iconButton}>
             <X className="size-5" />
           </button>
         </div>

@@ -20,6 +20,10 @@ import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { domainOf } from "@/lib/util";
 import { cn } from "@/lib/utils";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
+import { i18n } from "@/lib/i18n";
 
 export type AccessTargets = {
   domains: { id: string; name: string }[];
@@ -30,10 +34,10 @@ export type AccessValue = Record<string, Record<Perm, boolean>>;
 
 /** The permissions, in column order (the server's Scope; kept here, as this file runs in the browser). */
 type Perm = "read" | "organize" | "send";
-const PERMS: { perm: Perm; label: string }[] = [
-  { perm: "read", label: "Read" },
-  { perm: "organize", label: "Organize" },
-  { perm: "send", label: "Send" },
+const PERMS: { perm: Perm; label: MessageDescriptor }[] = [
+  { perm: "read", label: msg({ id: "keys.read", message: "Read" }) },
+  { perm: "organize", label: msg({ id: "keys.organize", message: "Organize" }) },
+  { perm: "send", label: msg({ id: "keys.send", message: "Send" }) },
 ];
 const NONE: Record<Perm, boolean> = { read: false, organize: false, send: false };
 /** An address may wrap after its "@" (on phones) rather than mid-word. */
@@ -93,7 +97,7 @@ export function AccessEditor({
   const cell = (target: string, perm: Perm, inherited: boolean, label: string) =>
     inherited ? (
       <>
-        <Checkbox checked disabled aria-label={`${label}: included by a broader line`} />
+        <Checkbox checked disabled aria-label={t({ id: "keys.included", message: `${label}: included by a broader line` })} />
         {own(target, perm) && <input type="hidden" name={perm} value={target} />}
       </>
     ) : (
@@ -123,9 +127,9 @@ export function AccessEditor({
         <div className={cn("text-sm max-sm:[overflow-wrap:anywhere] sm:truncate", level === 0 && "font-medium")}>{breakAfterAt(title)}</div>
         {hint && <div className="text-xs text-muted-foreground max-sm:[overflow-wrap:anywhere] sm:truncate">{hint}</div>}
       </div>
-      {PERMS.map(({ perm }) => (
+      {PERMS.map(({ perm, label }) => (
         <div key={perm} className="grid place-items-center">
-          {cell(target, perm, inherited[perm], `${title}: ${perm}`)}
+          {cell(target, perm, inherited[perm], `${title}: ${i18n._(label)}`)}
         </div>
       ))}
     </div>
@@ -137,21 +141,21 @@ export function AccessEditor({
       {targets.mailboxes.length > 8 && (
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter mailboxes" aria-label="Filter mailboxes" className="pl-8" />
+          <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t({ id: "keys.filter_mailboxes", message: "Filter mailboxes" })} aria-label={t({ id: "keys.filter_mailboxes", message: "Filter mailboxes" })} className="pl-8" />
         </div>
       )}
       <div className="overflow-hidden rounded-md border">
         <div className={cn("grid gap-2 border-b px-3 py-1.5 text-[11px] font-medium text-muted-foreground sm:text-xs", COLUMNS)}>
-          <span>Access to</span>
+          <span>{t({ id: "keys.access", message: "Access to" })}</span>
           {PERMS.map(({ perm, label }) => (
             <span key={perm} className="text-center">
-              {label}
+              {i18n._(label)}
             </span>
           ))}
         </div>
         <div className="max-h-[45vh] divide-y overflow-y-auto">
           {allowAll &&
-            row({ target: "all", title: "All mailboxes", hint: "Every mailbox, now and later", inherited: NONE, level: 0 })}
+            row({ target: "all", title: t({ id: "keys.all_mailboxes", message: "All mailboxes" }), hint: t({ id: "keys.every_mailbox_now_later", message: "Every mailbox, now and later" }), inherited: NONE, level: 0 })}
           {groups.map((g) => {
             const dKey = g.domain ? `domain:${g.domain.id}` : "";
             const dInherited = allOn;
@@ -166,13 +170,17 @@ export function AccessEditor({
                 {g.domain ? (
                   row({
                     target: dKey,
-                    title: `All of ${g.domain.name}`,
-                    hint: "Includes mailboxes added to this domain later",
+                    title: t({ id: "access.all_of", message: `All of ${g.domain.name}` }),
+                    hint: t({ id: "keys.includes_mailboxes_added_domain", message: "Includes mailboxes added to this domain later" }),
                     inherited: dInherited,
                     level: 0,
                   })
                 ) : (
-                  <div className="bg-muted/40 px-3 py-2 text-sm font-medium">{targets.domains.length ? "Other mailboxes" : allowAll ? "Mailboxes" : "Your mailboxes"}</div>
+                  <div className="bg-muted/40 px-3 py-2 text-sm font-medium">{targets.domains.length
+                      ? t({ id: "keys.other_mailboxes", message: "Other mailboxes" })
+                      : allowAll
+                        ? t({ id: "keys.mailboxes", message: "Mailboxes" })
+                        : t({ id: "keys.your_mailboxes", message: "Your mailboxes" })}</div>
                 )}
                 {g.mailboxes.map((m) =>
                   row({ target: `mailbox:${m.id}`, title: m.address, inherited: mInherited, level: 1, hidden: !matches(m) }),
@@ -183,9 +191,11 @@ export function AccessEditor({
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        <strong className="font-medium text-foreground">Read</strong>: search and read messages and attachments.{" "}
-        <strong className="font-medium text-foreground">Organize</strong>: mark read or unread, star, archive, move to spam or trash.{" "}
-        <strong className="font-medium text-foreground">Send</strong>: send from the mailbox.
+        <Trans id="keys.perms_help">
+          <strong className="font-medium text-foreground">Read</strong>: search and read messages and attachments.{" "}
+          <strong className="font-medium text-foreground">Organize</strong>: mark read or unread, star, archive, move to spam or trash.{" "}
+          <strong className="font-medium text-foreground">Send</strong>: send from the mailbox.
+        </Trans>
       </p>
     </div>
   );
@@ -214,31 +224,31 @@ export function NewKeyDialog({ targets }: { targets: AccessTargets }) {
     >
       <DialogTrigger asChild>
         <Button>
-          <Plus /> New key
+          <Plus /> {t({ id: "keys.new_key", message: "New key" })}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-xl">
         {created ? (
           <div className="grid gap-5">
             <DialogHeader>
-              <DialogTitle>Copy your key</DialogTitle>
+              <DialogTitle>{t({ id: "keys.copy_key", message: "Copy your key" })}</DialogTitle>
               <DialogDescription>
                 This is the only time “{created.name}” is shown. Only a fingerprint is stored, so keep it in your program's secrets now.
               </DialogDescription>
             </DialogHeader>
             <div className="flex gap-2">
-              <Input readOnly value={created.key} aria-label="New API key" className="font-mono text-xs" onFocus={(e) => e.target.select()} />
+              <Input readOnly value={created.key} aria-label={t({ id: "keys.new_api_key", message: "New API key" })} className="font-mono text-xs" onFocus={(e) => e.target.select()} />
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => navigator.clipboard.writeText(created.key).then(() => setCopied(true))}
               >
-                {copied ? <Check /> : <Copy />} {copied ? "Copied" : "Copy"}
+                {copied ? <Check /> : <Copy />} {copied ? t({ id: "common.copied", message: "Copied" }) : t({ id: "common.copy", message: "Copy" })}
               </Button>
             </div>
             <DialogFooter>
               <DialogClose asChild>
-                <Button type="button">Done</Button>
+                <Button type="button">{t({ id: "keys.done", message: "Done" })}</Button>
               </DialogClose>
             </DialogFooter>
           </div>
@@ -251,23 +261,23 @@ export function NewKeyDialog({ targets }: { targets: AccessTargets }) {
             }}
           >
             <DialogHeader>
-              <DialogTitle>New API key</DialogTitle>
-              <DialogDescription>Give each program its own key and only the access it needs. You can change it later.</DialogDescription>
+              <DialogTitle>{t({ id: "keys.new_api_key", message: "New API key" })}</DialogTitle>
+              <DialogDescription>{t({ id: "keys.give_each_program_own", message: "Give each program its own key and only the access it needs. You can change it later." })}</DialogDescription>
             </DialogHeader>
             <div className="grid gap-1.5">
-              <Label htmlFor="key-name">Name</Label>
-              <Input id="key-name" name="name" placeholder="Invoice agent" required autoFocus />
+              <Label htmlFor="key-name">{t({ id: "keys.name", message: "Name" })}</Label>
+              <Input id="key-name" name="name" placeholder={t({ id: "keys.invoice_agent", message: "Invoice agent" })} required autoFocus />
             </div>
             <AccessEditor targets={targets} initial={{}} />
             <FormError error={error} />
             <DialogFooter>
               <DialogClose asChild>
                 <Button type="button" variant="outline">
-                  Cancel
+                  {t({ id: "keys.cancel", message: "Cancel" })}
                 </Button>
               </DialogClose>
               <Button type="submit" disabled={pending}>
-                {pending ? "Creating…" : "Create key"}
+                {pending ? t({ id: "keys.creating", message: "Creating…" }) : t({ id: "keys.create", message: "Create key" })}
               </Button>
             </DialogFooter>
           </form>
@@ -301,7 +311,7 @@ export function EditKeyAccessDialog({
     >
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm">
-          Edit access
+          {t({ id: "keys.edit_access", message: "Edit access" })}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-xl">
@@ -314,7 +324,7 @@ export function EditKeyAccessDialog({
         >
           <DialogHeader>
             <DialogTitle>Access for “{name}”</DialogTitle>
-            <DialogDescription>Programs using this key keep the same key; the new access applies from their next request.</DialogDescription>
+            <DialogDescription>{t({ id: "keys.programs_using_key_keep", message: "Programs using this key keep the same key; the new access applies from their next request." })}</DialogDescription>
           </DialogHeader>
           {/* Remount with fresh values each time the dialog opens. */}
           {open && <AccessEditor targets={targets} initial={initial} />}
@@ -322,11 +332,11 @@ export function EditKeyAccessDialog({
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="outline">
-                Cancel
+                {t({ id: "keys.cancel", message: "Cancel" })}
               </Button>
             </DialogClose>
             <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : "Save access"}
+              {pending ? t({ id: "common.saving", message: "Saving…" }) : t({ id: "keys.save_access", message: "Save access" })}
             </Button>
           </DialogFooter>
         </form>

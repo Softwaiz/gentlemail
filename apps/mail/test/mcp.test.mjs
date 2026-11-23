@@ -274,6 +274,15 @@ describe("consent screen", () => {
     assert.match(res.headers.get("content-security-policy"), /form-action 'self' http:\/\/127\.0\.0\.1:6666/);
   });
 
+  test("shows only its own message code from the link", async () => {
+    const { body: client } = await register();
+    const path = `/oauth/authorize?${authorizeParams(client, pkce().challenge)}`;
+    const consent = async (err) => (await request(`${path}&err=${err}`, { headers: { Cookie: cookie("uMember") } })).text();
+    assert.match(await consent("nothing_ticked"), /Tick Read, Organize or Send on at least one line, or choose Cancel/);
+    for (const other of ["too_many_codes", "signin_timeout", "recovery_used", "recovery_last"])
+      assert.doesNotMatch(await consent(other), /role="alert"/, other);
+  });
+
   test("an admin may grant all mailboxes", async () => {
     const { body: client } = await register();
     const res = await request(`/oauth/authorize?${authorizeParams(client, pkce().challenge)}`, { headers: { Cookie: cookie("uAdmin") } });

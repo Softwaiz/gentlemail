@@ -36,7 +36,7 @@ export default defineConfig({
       lastUpdated: true,
       sidebar: [
         { label: "Start here", items: ["index", "deploy", "updating"] },
-        { label: "Using GentleMail", items: ["guides/two-step", "guides/spam", "mcp"] },
+        { label: "Using GentleMail", items: ["guides/two-step", "guides/spam", "guides/languages", "mcp"] },
         {
           label: "API",
           items: ["api", "sdk", { label: "SDK changelog", link: "/sdk/changelog/" }, "api/keys", "api/send", "api/read", "api/errors"],

@@ -14,5 +14,6 @@ type Story = StoryObj<typeof meta>;
 
 export const TwoStepCode: Story = {};
 export const WrongCode: Story = { args: { err: "That code didn't work. 4 tries left." } };
+export const French: Story = { globals: { language: "fr" } };
 export const LongEmail: Story = { args: { email: "someone.with.a.very.long.address@a-long-subdomain.example-company.com" } };
 export const TwoStepOnPhone: Story = { globals: { viewport: { value: "phone" } } };

@@ -15,6 +15,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover";
 import type { SwitcherGroup } from "@/lib/db";
 import { cn } from "@/lib/utils";
+import { plural, t } from "@lingui/core/macro";
 
 /** Current mailbox at the top of the sidebar; opens a list of every mailbox, grouped by domain. */
 export function MailboxSwitcher({
@@ -47,14 +48,14 @@ export function MailboxSwitcher({
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger
         className="flex w-full items-center gap-3 rounded-md border border-sidebar-border px-3 py-2.5 text-left outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-violet data-[state=open]:bg-sidebar-accent"
-        aria-label="Switch mailbox"
+        aria-label={t({ id: "switcher.label", message: "Switch mailbox" })}
       >
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13.5px] font-semibold text-sidebar-foreground">
-            {current ? current.name : "Choose a mailbox"}
+            {current ? current.name : t({ id: "switcher.choose", message: "Choose a mailbox" })}
           </span>
           <span className="block truncate text-xs text-sidebar-muted">
-            {current ? current.address : `${total} available`}
+            {current ? current.address : t({ id: "switcher.available", message: plural(total, { one: "# available", other: "# available" }) })}
           </span>
         </span>
         <ChevronsUpDown className="size-4 shrink-0 text-sidebar-muted" />
@@ -64,9 +65,9 @@ export function MailboxSwitcher({
           // Match on the address and the sender name.
           filter={(value, search) => (value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0)}
         >
-          {total > 6 && <CommandInput placeholder="Find a mailbox…" />}
+          {total > 6 && <CommandInput placeholder={t({ id: "switcher.find", message: "Find a mailbox…" })} />}
           <CommandList className="max-h-[360px]">
-            <CommandEmpty>No mailbox matches.</CommandEmpty>
+            <CommandEmpty>{t({ id: "switcher.none", message: "No mailbox matches." })}</CommandEmpty>
             {groups.map((g) => (
               <CommandGroup key={g.domain} heading={g.domain}>
                 {g.mailboxes.map((m) => (

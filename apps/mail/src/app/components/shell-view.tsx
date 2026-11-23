@@ -1,6 +1,7 @@
 import { Archive, Inbox, OctagonAlert, PenLine, Send, Settings, Shield, Trash2, Webhook } from "lucide-react";
 import type { User } from "@/lib/auth";
-import { FOLDERS, type Folder, type SwitcherGroup } from "@/lib/db";
+import { FOLDERS, type Folder, type SwitcherGroup, folderName } from "@/lib/db";
+import { plural, t } from "@lingui/core/macro";
 import { cn } from "@/lib/utils";
 import { LogoMark, Wordmark, hasLogo } from "./brand";
 import { MailboxSwitcher } from "./mailbox-switcher";
@@ -14,8 +15,8 @@ import { UserMenu } from "./user-menu";
  */
 
 export type ShellViewProps = {
-  /** Who is signed in. Admins also see Admin, API & webhooks and the version. */
-  user: Pick<User, "name" | "email" | "role">;
+  /** Who is signed in, and the language saved on the account. Admins also see Admin, API & webhooks and the version. */
+  user: Pick<User, "name" | "email" | "role" | "language">;
   /** The mailboxes this person can open, by domain, with their inbox unread counts. */
   groups: SwitcherGroup[];
   /** The mailbox open now, if any: its folders show. */
@@ -78,7 +79,7 @@ function NavItem({
             "rounded-sm px-1.5 text-[11px] leading-[18px] font-bold tabular-nums",
             strong ? "bg-lime text-lime-ink" : "bg-sidebar-accent text-sidebar-foreground/80 group-hover:bg-sidebar",
           )}
-          aria-label={`${count} unread`}
+          aria-label={t({ id: "shell.unread_count", message: plural(count, { one: "# unread", other: "# unread" }) })}
         >
           {count}
         </span>
@@ -115,7 +116,7 @@ export function ShellView({ user, groups, mailboxId, unread = {}, folder, flash,
             current && (
               <a
                 href={`/mb/${current.id}/compose`}
-                aria-label="New message"
+                aria-label={t({ id: "shell.new_message", message: "New message" })}
                 className="grid size-9 place-items-center rounded-md bg-lime text-lime-ink md:hidden"
               >
                 <PenLine className="size-4" />
@@ -139,9 +140,9 @@ export function ShellView({ user, groups, mailboxId, unread = {}, folder, flash,
                 style={{ "--i": 2 } as React.CSSProperties}
                 className="nav-item mb-3 flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-lime font-semibold text-lime-ink transition hover:bg-[#f0ff5b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet max-md:h-12"
               >
-                <PenLine className="size-4" /> New message
+                <PenLine className="size-4" /> {t({ id: "shell.new_message", message: "New message" })}
               </a>
-              <nav aria-label="Folders" className="flex flex-col gap-0.5">
+              <nav aria-label={t({ id: "shell.folders", message: "Folders" })} className="flex flex-col gap-0.5">
                 {FOLDERS.map((f, n) => (
                   <NavItem
                     key={f.id}
@@ -152,16 +153,16 @@ export function ShellView({ user, groups, mailboxId, unread = {}, folder, flash,
                     strong={f.id === "inbox"}
                     i={3 + n}
                   >
-                    {f.label}
+                    {folderName(f.id)}
                   </NavItem>
                 ))}
                 <NavItem href={`/mb/${current.id}/settings`} active={folder === "settings"} icon={Settings} i={3 + FOLDERS.length}>
-                  Mailbox settings
+                  {t({ id: "shell.mailbox_settings", message: "Mailbox settings" })}
                 </NavItem>
               </nav>
             </>
           )}
-          {all.length === 0 && <p className="px-3 text-xs text-sidebar-muted">No mailboxes yet.</p>}
+          {all.length === 0 && <p className="px-3 text-xs text-sidebar-muted">{t({ id: "shell.no_mailboxes", message: "No mailboxes yet." })}</p>}
 
           <div
             className="nav-item mt-auto flex flex-col gap-1 border-t border-sidebar-border pt-3"
@@ -170,14 +171,14 @@ export function ShellView({ user, groups, mailboxId, unread = {}, folder, flash,
             {user.role === "admin" && (
               <>
                 <NavItem href="/admin" active={folder === "admin"} icon={Shield}>
-                  Admin
+                  {t({ id: "shell.admin", message: "Admin" })}
                 </NavItem>
                 <NavItem href="/admin/api" active={folder === "api"} icon={Webhook}>
-                  API &amp; webhooks
+                  {t({ id: "shell.api", message: "API & webhooks" })}
                 </NavItem>
               </>
             )}
-            <UserMenu name={user.name} email={user.email} isAdmin={user.role === "admin"} />
+            <UserMenu name={user.name} email={user.email} isAdmin={user.role === "admin"} language={user.language} />
             {user.role === "admin" && (
               <a
                 href="https://github.com/Softwaiz/gentlemail/blob/main/CHANGELOG.md"

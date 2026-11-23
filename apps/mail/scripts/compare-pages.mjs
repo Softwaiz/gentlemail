@@ -15,7 +15,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { q, sha256, startWorker } from "../test/harness.mjs";
+import { BASE, q, sha256, startWorker } from "../test/harness.mjs";
 
 const APP = resolve(import.meta.dirname, "..");
 const ref = process.argv[2] ?? "origin/dev";
@@ -97,9 +97,12 @@ function seed() {
 
 const session = (user) => ({ Cookie: `kb_session=session-${user}` });
 
+const french = { "Accept-Language": "fr" };
+
 /**
  * Who opens which page, on which data. A page must answer 200; write the status in front when it
  * shouldn't ("303 /setup"), so a page that starts redirecting fails instead of comparing two redirects.
+ * "POST /login email=…" sends a form: errors come back on the page that was posted to.
  * Add a page here when you split it.
  */
 const SCENARIOS = {
@@ -111,31 +114,42 @@ const SCENARIOS = {
       "/admin", "/admin/api", "/account/security", "404 /mb/nope/inbox", "404 /nope",
     ],
   },
+  adminFrench: {
+    headers: { ...session("uAdmin"), ...french },
+    pages: ["/mb/mA1/inbox", "/mb/mA1/settings", "/admin", "/account/security", "404 /nope"],
+  },
   member: {
     headers: session("uMember"),
     pages: ["/mb/mA1/inbox", "/mb/mA1/settings", "/account/security", "403 /admin", "403 /mb/mB1/inbox"],
   },
   signedOut: {
-    pages: ["/login", "/login?err=Wrong%20email%20or%20password.&next=/mb", "303 /setup", "303 /login/verify", "303 /mb/mA1/inbox"],
+    pages: [
+      "/login", "/login?err=signin_timeout&next=/mb", "401 POST /login email=nobody@alpha.test&password=wrong&next=/mb",
+      "303 /setup", "303 /login/verify", "303 /mb/mA1/inbox",
+    ],
   },
+  signedOutFrench: { headers: french, pages: ["/login", "401 POST /login email=nobody@alpha.test&password=wrong"] },
   /** The password was right; the two-step code is due. */
-  codeDue: {
-    headers: { Cookie: "kb_mfa=challenge-uAdmin" },
-    pages: ["/login/verify", "/login/verify?err=That%20code%20didn't%20work.%204%20tries%20left."],
-  },
+  codeDue: { headers: { Cookie: "kb_mfa=challenge-uAdmin" }, pages: ["/login/verify", "401 POST /login/verify code=000000"] },
+  codeDueFrench: { headers: { Cookie: "kb_mfa=challenge-uAdmin", ...french }, pages: ["/login/verify"] },
   /** A new instance: nobody has an account yet. */
   firstRun: {
     empty: true,
     bindings: { SETUP_TOKEN: "made-up" },
-    pages: ["/setup", "/setup?err=Invalid%20setup%20token.", "303 /login"],
+    pages: [
+      "/setup", "403 POST /setup token=wrong&name=Ada&email=ada@alpha.test&password=long-enough",
+      "400 POST /setup token=made-up&name=Ada&email=ada@alpha.test&password=short", "303 /login",
+    ],
   },
+  firstRunFrench: { empty: true, bindings: { SETUP_TOKEN: "made-up" }, headers: french, pages: ["/setup"] },
   firstRunNoToken: { empty: true, pages: ["/setup"] },
 };
 
 const PAGES = Object.entries(SCENARIOS).flatMap(([who, { pages }]) =>
   pages.map((p) => {
-    const [, status, path] = p.match(/^(?:(\d{3}) )?(.*)$/);
-    return { who, path, status: Number(status ?? 200), name: `${who}${path.replace(/[^\w]+/g, "_")}.html` };
+    const [, status, post, path, form] = p.match(/^(?:(\d{3}) )?(POST )?(\S+)(?: (.*))?$/);
+    const name = `${who}_${[post, path, form].join("").replace(/[^\w]+/g, "_")}`.replace(/_+/g, "_").replace(/_$/, "");
+    return { who, path, body: post && new URLSearchParams(form), status: Number(status ?? 200), name: `${name}.html` };
   }),
 );
 
@@ -169,7 +183,8 @@ async function render(app, root, out) {
     const { mf, request } = await startWorker(empty ? "" : seed(), { app, bindings });
     try {
       for (const page of PAGES.filter((p) => p.who === who)) {
-        const r = await request(page.path, { headers });
+        const { path, body } = page;
+        const r = await request(path, body ? { method: "POST", body: String(body), headers: { ...headers, Origin: BASE, "Content-Type": "application/x-www-form-urlencoded" } } : { headers });
         writeFileSync(join(out, page.name), `${r.status} ${r.headers.get("location") ?? ""}\n${normalize(await r.text(), root, version)}`);
       }
     } finally {

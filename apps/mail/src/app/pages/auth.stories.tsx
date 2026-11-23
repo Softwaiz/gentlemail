@@ -23,6 +23,7 @@ export const SignIn: Story = {};
 
 /** Submitting stays on the story: what was typed is never posted. */
 export const NothingIsSent: Story = {
+  globals: { language: "en" }, // the check reads the English labels
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const submitted: boolean[] = [];
@@ -41,9 +42,11 @@ export const NothingIsSent: Story = {
   },
 };
 
-export const WrongPassword: Story = { args: { err: "Wrong email or password." } };
+/** After a wrong password the email stays, and the cursor waits in the password. */
+export const WrongPassword: Story = { args: { email: "ada@example.com", err: "Wrong email or password.", wrong: true } };
 export const TimedOut: Story = { args: { err: "Your sign-in timed out. Enter your password again." } };
 export const TooManyCodes: Story = { args: { err: "Too many wrong codes. Enter your password again." } };
+export const French: Story = { globals: { language: "fr" } };
 export const SignInOnPhone: Story = { globals: { viewport: { value: "phone" } } };
 
 /* ---------- The whole flow ---------- */
@@ -66,7 +69,7 @@ function SignInFlow() {
     setPage((n) => n + 1);
     if (step.at === "login") {
       const email = String(form.get("email"));
-      if (form.get("password") !== PASSWORD) setStep({ at: "login", err: "Wrong email or password." });
+      if (form.get("password") !== PASSWORD) setStep({ at: "login", email, err: "Wrong email or password." });
       else setStep({ at: "verify", email, tries: 5 });
     } else if (step.at === "verify") {
       if (form.get("code") === CODE) setStep({ at: "inbox", email: step.email });
@@ -81,7 +84,7 @@ function SignInFlow() {
 
   return (
     <div onSubmitCapture={onSubmit}>
-      {step.at === "login" && <LoginView key={page} next="/" err={step.err} />}
+      {step.at === "login" && <LoginView key={page} next="/" email={step.email} err={step.err} wrong={!!step.email} />}
       {step.at === "verify" && <VerifyView key={page} email={step.email!} err={step.err} />}
       {step.at === "inbox" && (
         <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -104,6 +107,7 @@ function SignInFlow() {
 export const Flow: StoryObj = {
   render: () => <SignInFlow />,
   parameters: { controls: { disable: true } },
+  globals: { language: "en" },
   play: async ({ canvasElement, step }) => {
     const canvas = within(canvasElement);
     await step("Sign in with a wrong password", async () => {
@@ -113,7 +117,7 @@ export const Flow: StoryObj = {
       await expect(await canvas.findByRole("alert")).toHaveTextContent("Wrong email or password.");
     });
     await step("Sign in with the right one", async () => {
-      await userEvent.type(canvas.getByLabelText("Email"), "ada@example.com");
+      await expect(canvas.getByLabelText("Email")).toHaveValue("ada@example.com"); // kept
       await userEvent.type(canvas.getByLabelText("Password"), PASSWORD);
       await userEvent.click(canvas.getByRole("button", { name: "Sign in" }));
       await expect(await canvas.findByText("Two-step verification")).toBeVisible();

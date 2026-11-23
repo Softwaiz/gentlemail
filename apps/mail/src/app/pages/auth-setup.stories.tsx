@@ -14,4 +14,9 @@ type Story = StoryObj<typeof meta>;
 
 export const FirstRunSetup: Story = {};
 export const SetupWithoutToken: Story = { args: { hasToken: false } };
-export const InvalidSetupToken: Story = { args: { err: "Invalid setup token." } };
+/** What was typed stays, except the token and the password. */
+export const InvalidSetupToken: Story = { args: { err: "Invalid setup token.", bad: "token", name: "Ada Lovelace", email: "ada@example.com" } };
+export const PasswordTooShort: Story = {
+  args: { err: "Password too short: use 10 characters or more.", bad: "password", name: "Ada Lovelace", email: "ada@example.com" },
+};
+export const French: Story = { globals: { language: "fr" } };

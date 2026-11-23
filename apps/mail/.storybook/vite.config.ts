@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { lingui } from "@lingui/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, normalizePath, parseSync, type Plugin } from "vite";
 
@@ -113,7 +114,8 @@ function fakeServerActions(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [fakeServerActions(), tailwindcss()],
+  // lingui compiles t`…` / msg`…` macros, as in the app's config.
+  plugins: [lingui({ macroTransform: true }), fakeServerActions(), tailwindcss()],
   resolve: {
     alias: {
       "cloudflare:workers": here("./fakes/cloudflare-workers.ts"),

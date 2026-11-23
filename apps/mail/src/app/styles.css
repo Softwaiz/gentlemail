@@ -195,6 +195,11 @@
   }
 }
 
+/* ── Password field (components/password-input.tsx) ──────────────────────────
+   The icon animation is in the component (motion/react). */
+/* Edge's own reveal button would sit next to ours. */
+input::-ms-reveal { display: none; }
+
 /* ── Composer (components/rich-editor.tsx) ──────────────────────────────────
    Lexical's theme classes. Close to what recipients see: quotes and code get
    the same look as the inline styles the server adds (lib/compose-html.ts). */

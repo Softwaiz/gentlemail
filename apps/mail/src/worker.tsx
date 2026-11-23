@@ -1,6 +1,8 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { render, route } from "rwsdk/router";
-import { defineApp, type RequestInfo } from "rwsdk/worker";
+import { defineApp, requestInfo, type RequestInfo } from "rwsdk/worker";
+import type { I18n } from "@lingui/core";
+import { chooseLocale, createI18n, followRequestI18n, isLocale, localeCookie, localeFromCookie } from "@/lib/i18n";
 
 import { Document } from "@/app/document";
 import { setCommonHeaders } from "@/app/headers";
@@ -40,8 +42,12 @@ import {
   tokenHandler,
 } from "@/app/pages/oauth";
 import { purgeExpiredOAuth } from "@/lib/oauth";
+import { t } from "@lingui/core/macro";
 
-export type AppContext = { user: User | null };
+export type AppContext = { user: User | null; i18n: I18n };
+
+// Translations follow the request being answered (lib/i18n.ts).
+followRequestI18n(() => requestInfo.ctx.i18n ?? createI18n("en"));
 
 async function home({ ctx }: RequestInfo) {
   const boxes = await listMailboxesForUser(ctx.user!);
@@ -52,8 +58,16 @@ async function home({ ctx }: RequestInfo) {
 const app = defineApp([
   setCommonHeaders(),
   checkOrigin,
-  async ({ ctx, request }) => {
+  async ({ ctx, request, response }) => {
     ctx.user = await getUserFromRequest(request);
+    ctx.i18n = createI18n(chooseLocale(ctx.user, request));
+    // Signed in: this device's cookie follows the account (cleared for "Same as browser"), so its
+    // sign-in page does too next time. Page loads only: a request that changes the language (the
+    // user menu) sets the cookie itself.
+    const saved = isLocale(ctx.user?.language) ? ctx.user.language : null;
+    if (request.method === "GET" && ctx.user && localeFromCookie(request.headers.get("Cookie")) !== saved) {
+      response.headers.append("Set-Cookie", localeCookie(saved, request));
+    }
   },
 
   // Raw (non-HTML-document) endpoints
@@ -89,11 +103,11 @@ const app = defineApp([
     route("/no-mailbox", [
       requireUser,
       () => (
-        <AuthCard title="No mailbox yet">
-          <p className="text-sm text-muted-foreground">Ask an admin to give you access to a mailbox, then sign in again.</p>
+        <AuthCard title={t({ id: "nomailbox.title", message: "No mailbox yet" })}>
+          <p className="text-sm text-muted-foreground">{t({ id: "nomailbox.body", message: "Ask an admin to give you access to a mailbox, then sign in again." })}</p>
           <form method="post" action="/logout" className="mt-5">
             <Button variant="outline" className="w-full">
-              Log out
+              {t({ id: "menu.logout", message: "Log out" })}
             </Button>
           </form>
         </AuthCard>

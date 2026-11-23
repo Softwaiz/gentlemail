@@ -67,7 +67,9 @@ export const SearchResults: Story = {
 
 /** Selects two threads and archives them: the fake server answers, and a toast says what happened. */
 export const ArchiveTwo: Story = {
-  parameters: { server: "ok" }, // whatever the toolbar says: the check below expects this answer
+  // Whatever the toolbar says: the check below expects this answer, in English.
+  parameters: { server: "ok" },
+  globals: { language: "en" },
   play: async ({ canvasElement, step, parameters }) => {
     const canvas = within(canvasElement);
     await step("Select two threads", async () => {
@@ -95,6 +97,7 @@ export const ArchiveFails: Story = { ...ArchiveTwo, parameters: { server: "fail"
 export const NotSpam: Story = {
   ...Spam,
   parameters: { server: "ok" },
+  globals: { language: "en" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByLabelText("Select Quarterly numbers"));

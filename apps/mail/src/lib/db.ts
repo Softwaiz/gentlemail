@@ -6,13 +6,8 @@ import { type Addr, domainOf } from "./util";
 export { domainOf };
 
 export type Folder = "inbox" | "sent" | "archive" | "trash" | "spam";
-export const FOLDERS: { id: Folder; label: string }[] = [
-  { id: "inbox", label: "Inbox" },
-  { id: "sent", label: "Sent" },
-  { id: "archive", label: "Archive" },
-  { id: "spam", label: "Spam" },
-  { id: "trash", label: "Trash" },
-];
+export const FOLDERS: { id: Folder }[] = [{ id: "inbox" }, { id: "sent" }, { id: "archive" }, { id: "spam" }, { id: "trash" }];
+export { folderName } from "@/lib/folders";
 const FOLDER_IDS: ReadonlySet<string> = new Set(FOLDERS.map((f) => f.id));
 export const isFolder = (f: string): f is Folder => FOLDER_IDS.has(f);
 

@@ -3,6 +3,7 @@
 import { env } from "cloudflare:workers";
 import { requestInfo, serverAction } from "rwsdk/worker";
 import { type ActionResult, fail, ok, signedIn } from "@/app/actions/guards";
+import { t } from "@lingui/core/macro";
 
 /** Disconnects an assistant connected by signing in: your own, or anyone's if you are an admin. */
 export const disconnectAssistantAction = serverAction([
@@ -18,7 +19,7 @@ export const disconnectAssistantAction = serverAction([
       // Its grants and tokens go with it (ON DELETE CASCADE).
       env.DB.prepare(`DELETE FROM api_keys WHERE ${mine}`).bind(id, user.id, user.role),
     ]);
-    if (!meta.changes) return fail("This assistant is already disconnected.");
-    return ok("Disconnected. The assistant is refused from its next request.");
+    if (!meta.changes) return fail(t({ id: "connections.already", message: "This assistant is already disconnected." }));
+    return ok(t({ id: "connections.done", message: "Disconnected. The assistant is refused from its next request." }));
   },
 ]);

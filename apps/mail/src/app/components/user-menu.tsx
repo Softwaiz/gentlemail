@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRound, LogOut, Monitor, Moon, Shield, Sun } from "lucide-react";
+import { KeyRound, Languages, LogOut, Monitor, Moon, Shield, Sun } from "lucide-react";
 import { useState } from "react";
 import {
   DropdownMenu,
@@ -13,12 +13,28 @@ import {
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
 import { THEME_COOKIE, THEMES, type Theme } from "@/lib/theme";
+import { LOCALE_COOKIE, LOCALE_NAMES, LOCALES, type Locale, i18n } from "@/lib/i18n";
+import { setLanguageAction } from "@/app/actions/language";
+import { msg, t } from "@lingui/core/macro";
 
-const themeLabel: Record<Theme, { label: string; Icon: typeof Moon }> = {
-  dark: { label: "Dark", Icon: Moon },
-  light: { label: "Light", Icon: Sun },
-  system: { label: "Same as device", Icon: Monitor },
-};
+const themeLabel = {
+  dark: { label: msg({ id: "menu.theme_dark", message: "Dark" }), Icon: Moon },
+  light: { label: msg({ id: "menu.theme_light", message: "Light" }), Icon: Sun },
+  system: { label: msg({ id: "menu.theme_system", message: "Same as device" }), Icon: Monitor },
+} as const;
+
+/** Saved on the account (every device follows it) and in this browser's cookie, then the page reloads in it. */
+async function applyLanguage(language: Locale | null) {
+  const secure = location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = language
+    ? `${LOCALE_COOKIE}=${language}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`
+    : `${LOCALE_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+  try {
+    await setLanguageAction(language);
+  } finally {
+    location.reload();
+  }
+}
 
 /** Applies at once and is remembered for a year in this browser; the server reads it on the next page load. */
 function applyTheme(theme: Theme) {
@@ -27,7 +43,7 @@ function applyTheme(theme: Theme) {
   document.cookie = `${THEME_COOKIE}=${theme}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
 }
 
-export function UserMenu({ name, email, isAdmin }: { name: string; email: string; isAdmin: boolean }) {
+export function UserMenu({ name, email, isAdmin, language }: { name: string; email: string; isAdmin: boolean; language: string | null }) {
   const [theme, setTheme] = useState<Theme>(() =>
     typeof document === "undefined" ? "dark" : ((document.documentElement.dataset.theme as Theme) ?? "dark"),
   );
@@ -58,17 +74,17 @@ export function UserMenu({ name, email, isAdmin }: { name: string; email: string
         {isAdmin && (
           <DropdownMenuItem asChild>
             <a href="/admin">
-              <Shield /> Admin
+              <Shield /> {t({ id: "menu.admin", message: "Admin" })}
             </a>
           </DropdownMenuItem>
         )}
         <DropdownMenuItem asChild>
           <a href="/account/security">
-            <KeyRound /> Security
+            <KeyRound /> {t({ id: "menu.security", message: "Security" })}
           </a>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Theme</DropdownMenuLabel>
+        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{t({ id: "menu.theme", message: "Theme" })}</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={theme}
           onValueChange={(v) => {
@@ -80,14 +96,28 @@ export function UserMenu({ name, email, isAdmin }: { name: string; email: string
             const { label, Icon } = themeLabel[t];
             return (
               <DropdownMenuRadioItem key={t} value={t} onSelect={(e) => e.preventDefault()}>
-                <Icon /> {label}
+                <Icon /> {i18n._(label)}
               </DropdownMenuRadioItem>
             );
           })}
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+          {t({ id: "menu.language", message: "Language" })}
+        </DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={language ?? "browser"} onValueChange={(v) => applyLanguage(v === "browser" ? null : (v as Locale))}>
+          {LOCALES.map((l) => (
+            <DropdownMenuRadioItem key={l} value={l} lang={l} onSelect={(e) => e.preventDefault()}>
+              <Languages /> {LOCALE_NAMES[l]}
+            </DropdownMenuRadioItem>
+          ))}
+          <DropdownMenuRadioItem value="browser" onSelect={(e) => e.preventDefault()}>
+            <Monitor /> {t({ id: "menu.language_browser", message: "Same as browser" })}
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={logout}>
-          <LogOut /> Log out
+          <LogOut /> {t({ id: "menu.logout", message: "Log out" })}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

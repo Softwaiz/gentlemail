@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { t } from "@lingui/core/macro";
 
 /** A titled card block used across the admin pages. */
 export function Section({
@@ -33,8 +34,8 @@ export function Section({
 /** `label` names the badge below lg, where table headers are hidden ("Two-step  On"). */
 export function StatusBadge({
   on,
-  onLabel = "Active",
-  offLabel = "Disabled",
+  onLabel,
+  offLabel,
   label,
 }: {
   on: boolean;
@@ -50,7 +51,7 @@ export function StatusBadge({
       )}
     >
       <span className={cn("size-1.5 rounded-full", on ? "bg-unread" : "bg-muted-foreground/50")} />
-      {on ? onLabel : offLabel}
+      {on ? (onLabel ?? t({ id: "common.active", message: "Active" })) : (offLabel ?? t({ id: "common.disabled", message: "Disabled" }))}
     </span>
   );
   if (!label) return badge;

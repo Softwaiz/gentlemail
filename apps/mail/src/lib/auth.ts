@@ -10,6 +10,8 @@ export type User = {
   mfa: boolean;
   /** An admin requires two-step for everyone and this user hasn't set it up: only the Security page is open to them. */
   mustSetUpMfa: boolean;
+  /** The language they picked (lib/i18n.ts), or null to follow their browser. */
+  language: string | null;
 };
 
 const COOKIE = "kb_session";
@@ -100,7 +102,7 @@ export async function getUserFromRequest(request: Request): Promise<User | null>
   const token = readCookie(request, COOKIE);
   if (!token) return null;
   const row = await env.DB.prepare(
-    `SELECT u.id, u.email, u.name, u.role, u.mfa_enabled_at IS NOT NULL AS mfa,
+    `SELECT u.id, u.email, u.name, u.role, u.language, u.mfa_enabled_at IS NOT NULL AS mfa,
        EXISTS (SELECT 1 FROM settings WHERE key = 'require_mfa' AND value = '1') AS required
      FROM sessions s
      JOIN users u ON u.id = s.user_id

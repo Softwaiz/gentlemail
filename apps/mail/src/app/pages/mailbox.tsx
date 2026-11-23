@@ -10,10 +10,11 @@ import { cn } from "@/lib/utils";
 import { MailFrame } from "@/app/components/mail-frame";
 import { redirect } from "@/app/http";
 import { missing } from "@/app/pages/errors";
-import { SPAM_RETENTION_DAYS } from "@/lib/spam";
+import { SPAM_RETENTION_DAYS, spamReasonText as spamReason } from "@/lib/spam";
 import {
   type AttachmentRow,
-  FOLDERS,
+  folderName,
+  type Folder,
   type MessageRow,
   getMailboxForUser,
   isFolder,
@@ -22,6 +23,7 @@ import {
   searchSql,
 } from "@/lib/db";
 import { formatAddr, formatBytes, formatDate, htmlHasOwnColors } from "@/lib/util";
+import { plural, t } from "@lingui/core/macro";
 
 const PAGE_SIZE = 50;
 
@@ -75,7 +77,7 @@ export async function FolderPage(ri: RequestInfo) {
   }
   const hasMore = rows.length > PAGE_SIZE;
   rows = rows.slice(0, PAGE_SIZE);
-  const label = FOLDERS.find((f) => f.id === folder)!.label;
+  const label = folderName(folder);
   const unreadHere = rows.filter((r) => r.thread_unread > 0).length;
 
   const items: ListItem[] = rows.map((m) => ({
@@ -84,7 +86,7 @@ export async function FolderPage(ri: RequestInfo) {
     folder: q ? m.folder : folder,
     who:
       m.direction === "out"
-        ? "To " + (parseAddrs(m.to_json).map((a) => a.name || a.address).join(", ") || "nobody")
+        ? t({ id: "list.to", message: `To ${parseAddrs(m.to_json).map((a) => a.name || a.address).join(", ") || t({ id: "list.nobody", message: "nobody" })}` })
         : m.from_name || m.from_addr,
     subject: m.subject,
     snippet: m.snippet,
@@ -99,38 +101,46 @@ export async function FolderPage(ri: RequestInfo) {
     <Shell user={user} mailboxId={mailbox.id} folder={q ? undefined : folder} flash={flashFrom(request)} bleed>
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b px-4 py-4 md:px-6">
         <div className="min-w-0">
-          <h1 className="text-xl leading-tight font-semibold tracking-[-0.02em]">{q ? "Search" : label}</h1>
+          <h1 className="text-xl leading-tight font-semibold tracking-[-0.02em]">{q ? t({ id: "mailbox.search_title", message: "Search" }) : label}</h1>
           <p className="text-[13px] text-muted-foreground">
             {q
-              ? `Results for “${q}” in ${mailbox.address}`
+              ? t({ id: "mailbox.search_results", message: `Results for “${q}” in ${mailbox.address}` })
               : rows.length === 0
                 ? mailbox.address
-                : `${rows.length}${hasMore ? "+" : ""} conversations${unreadHere ? `, ${unreadHere} unread` : ""}`}
+                : hasMore
+                  ? unreadHere
+                    ? t({ id: "mailbox.count_more_unread", message: plural(rows.length, { one: `#+ conversation, ${unreadHere} unread`, other: `#+ conversations, ${unreadHere} unread` }) })
+                    : t({ id: "mailbox.count_more", message: plural(rows.length, { one: "#+ conversation", other: "#+ conversations" }) })
+                  : unreadHere
+                    ? t({ id: "mailbox.count_unread", message: plural(rows.length, { one: `# conversation, ${unreadHere} unread`, other: `# conversations, ${unreadHere} unread` }) })
+                    : t({ id: "mailbox.count", message: plural(rows.length, { one: "# conversation", other: "# conversations" }) })}
           </p>
         </div>
         <form method="get" action={`/mb/${mailbox.id}/inbox`} role="search" className="relative w-full sm:w-96">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input name="q" type="search" placeholder="Search this mailbox" defaultValue={q} aria-label="Search mail" className="h-9 bg-card pl-9" />
+          <Input name="q" type="search" placeholder={t({ id: "mailbox.search_placeholder", message: "Search this mailbox" })} defaultValue={q} aria-label={t({ id: "mailbox.search_label", message: "Search mail" })} className="h-9 bg-card pl-9" />
         </form>
       </div>
 
       {folder === "spam" && !q && (
         <p className="border-b bg-muted/50 px-4 py-2 text-[13px] text-muted-foreground md:px-6">
-          Spam is deleted automatically after {SPAM_RETENTION_DAYS} days. Marking a conversation “Not spam” keeps that sender in your
-          inbox from now on.
+          {t({
+            id: "mailbox.spam_note",
+            message: `Spam is deleted automatically after ${SPAM_RETENTION_DAYS} days. Marking a conversation “Not spam” keeps that sender in your inbox from now on.`,
+          })}
         </p>
       )}
 
       {items.length === 0 ? (
         <div className="grid flex-1 place-items-center px-6 py-24 text-center">
           <div>
-            <div className="text-lg font-semibold">{q ? "Nothing found" : `${label} is empty`}</div>
+            <div className="text-lg font-semibold">{q ? t({ id: "mailbox.nothing_found", message: "Nothing found" }) : t({ id: "mailbox.empty", message: `${label} is empty` })}</div>
             <p className="mt-1 max-w-sm text-sm text-muted-foreground">
               {q
-                ? "Try a name, an address or a word from the subject."
+                ? t({ id: "mailbox.nothing_found_hint", message: "Try a name, an address or a word from the subject." })
                 : folder === "inbox"
-                  ? `New mail to ${mailbox.address} shows up here.`
-                  : "Conversations you move here show up in this list."}
+                  ? t({ id: "mailbox.empty_inbox_hint", message: `New mail to ${mailbox.address} shows up here.` })
+                  : t({ id: "mailbox.empty_hint", message: "Conversations you move here show up in this list." })}
             </p>
           </div>
         </div>
@@ -142,12 +152,12 @@ export async function FolderPage(ri: RequestInfo) {
         <div className="flex justify-end gap-2 px-4 py-4 md:px-6">
           {page > 1 && (
             <Button variant="outline" size="sm" asChild>
-              <a href={pageUrl(url, page - 1)}>Newer</a>
+              <a href={pageUrl(url, page - 1)}>{t({ id: "mailbox.newer", message: "Newer" })}</a>
             </Button>
           )}
           {hasMore && (
             <Button variant="outline" size="sm" asChild>
-              <a href={pageUrl(url, page + 1)}>Older</a>
+              <a href={pageUrl(url, page + 1)}>{t({ id: "mailbox.older", message: "Older" })}</a>
             </Button>
           )}
         </div>
@@ -193,13 +203,14 @@ export async function ThreadPage(ri: RequestInfo) {
     <Shell user={user} mailboxId={mailbox.id} folder={folder} flash={flashFrom(request)}>
       <div className="w-full">
         <a href={back} className="mb-3 inline-flex items-center gap-1 text-[13px] font-medium text-muted-foreground hover:text-foreground">
-          <ChevronLeft className="size-4" /> {FOLDERS.find((f) => f.id === folder)?.label}
+          <ChevronLeft className="size-4" /> {folderName(folder as Folder)}
         </a>
         <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.025em] text-balance md:text-[32px]">
-          {last.subject || "(no subject)"}
+          {last.subject || t({ id: "common.no_subject", message: "(no subject)" })}
         </h1>
         <div className="mt-2 text-sm text-muted-foreground">
-          {msgs.length} {msgs.length === 1 ? "message" : "messages"}, {people} {people === 1 ? "person" : "people"}
+          {t({ id: "thread.messages", message: plural(msgs.length, { one: "# message", other: "# messages" }) })},{" "}
+          {t({ id: "thread.people", message: plural(people, { one: "# person", other: "# people" }) })}
         </div>
 
         {hasUnread && <MarkThreadRead mailboxId={mailbox.id} threadId={params.threadId} folder={folder} />}
@@ -223,17 +234,17 @@ export async function ThreadPage(ri: RequestInfo) {
         <div className="mt-5 flex flex-wrap gap-2">
           <Button asChild>
             <a href={`/mb/${mailbox.id}/compose?reply=${lastIncoming.id}`}>
-              <Reply /> Reply
+              <Reply /> {t({ id: "thread.reply", message: "Reply" })}
             </a>
           </Button>
           <Button variant="outline" asChild>
             <a href={`/mb/${mailbox.id}/compose?reply=${lastIncoming.id}&all=1`}>
-              <ReplyAll /> Reply all
+              <ReplyAll /> {t({ id: "thread.reply_all", message: "Reply all" })}
             </a>
           </Button>
           <Button variant="outline" asChild>
             <a href={`/mb/${mailbox.id}/compose?forward=${last.id}`}>
-              <Forward /> Forward
+              <Forward /> {t({ id: "thread.forward", message: "Forward" })}
             </a>
           </Button>
         </div>
@@ -280,9 +291,9 @@ function MessageCard({
           </span>
           <span className="block truncate text-xs text-muted-foreground">
             <span className="hidden group-open/msg:inline">
-              to {to.map(formatAddr).join(", ") || "nobody"}
-              {cc.length > 0 && <>, cc {cc.map(formatAddr).join(", ")}</>}
-              {bcc.length > 0 && <>, bcc {bcc.map(formatAddr).join(", ")}</>}
+              {t({ id: "thread.to", message: `to ${to.map(formatAddr).join(", ") || t({ id: "list.nobody", message: "nobody" })}` })}
+              {cc.length > 0 && t({ id: "thread.cc", message: `, cc ${cc.map(formatAddr).join(", ")}` })}
+              {bcc.length > 0 && t({ id: "thread.bcc", message: `, bcc ${bcc.map(formatAddr).join(", ")}` })}
             </span>
             <span className="group-open/msg:hidden">{m.snippet}</span>
           </span>
@@ -297,16 +308,16 @@ function MessageCard({
       <div className="px-4 pb-4 md:pl-16">
         {m.folder === "spam" && m.spam_reason && (
           <p className="mb-3 flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-[13px] text-destructive">
-            <OctagonAlert className="size-4 shrink-0" /> In spam: {m.spam_reason}
+            <OctagonAlert className="size-4 shrink-0" /> {t({ id: "thread.in_spam", message: `In spam: ${spamReason(m.spam_reason)}` })}
           </p>
         )}
         {hasHtml ? (
           <>
             <MailFrame src={`/body/${m.id}`} title={m.subject} adaptive={!!m.html_body && !htmlHasOwnColors(m.html_body)} />
             <p className="mt-2 text-xs text-muted-foreground">
-              Remote images are blocked to protect your privacy.{" "}
+              {t({ id: "thread.images_blocked", message: "Remote images are blocked to protect your privacy." })}{" "}
               <a href={`/body/${m.id}?images=1`} target="_blank" rel="noopener" className="font-medium text-foreground underline underline-offset-2">
-                Open with images
+                {t({ id: "thread.open_with_images", message: "Open with images" })}
               </a>
             </p>
           </>
@@ -337,11 +348,11 @@ function MessageCard({
                       <span>{formatBytes(a.size)}</span>
                       {viewable && (
                         <a href={`/attachments/${a.id}?inline=1`} target="_blank" rel="noopener" className="font-medium text-foreground hover:underline">
-                          View
+                          {t({ id: "thread.view", message: "View" })}
                         </a>
                       )}
                       <a href={`/attachments/${a.id}`} className="font-medium text-foreground hover:underline">
-                        Download
+                        {t({ id: "thread.download", message: "Download" })}
                       </a>
                     </div>
                   </div>
@@ -357,17 +368,17 @@ function MessageCard({
             <>
               <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
                 <a href={`/mb/${mailboxId}/compose?reply=${m.id}`}>
-                  <Reply /> Reply
+                  <Reply /> {t({ id: "thread.reply", message: "Reply" })}
                 </a>
               </Button>
               <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
                 <a href={`/mb/${mailboxId}/compose?reply=${m.id}&all=1`}>
-                  <ReplyAll /> Reply all
+                  <ReplyAll /> {t({ id: "thread.reply_all", message: "Reply all" })}
                 </a>
               </Button>
               <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
                 <a href={`/mb/${mailboxId}/compose?forward=${m.id}`}>
-                  <Forward /> Forward
+                  <Forward /> {t({ id: "thread.forward", message: "Forward" })}
                 </a>
               </Button>
             </>
@@ -376,7 +387,7 @@ function MessageCard({
           {m.raw_key && (
             <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
               <a href={`/raw/${m.id}`}>
-                <Download /> Original .eml
+                <Download /> {t({ id: "thread.original", message: "Original .eml" })}
               </a>
             </Button>
           )}

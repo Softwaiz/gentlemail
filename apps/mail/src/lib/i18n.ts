@@ -15,11 +15,41 @@ export function createI18n(locale: Locale): I18n {
   return setupI18n({ locale, messages: { [locale]: CATALOGS[locale] } });
 }
 
+/** What each language is called in the language picker: in its own language, whatever the page is in. */
+export const LOCALE_NAMES: Record<Locale, string> = { en: "English", fr: "Français" };
+
+/** The cookie holding the last language picked on this device (read before sign-in too). */
+export const LOCALE_COOKIE = "lang";
+
+export const isLocale = (v: unknown): v is Locale => typeof v === "string" && (LOCALES as readonly string[]).includes(v);
+
+export function localeFromCookie(cookieHeader: string | null): Locale | null {
+  const m = cookieHeader?.match(/(?:^|;\s*)lang=([a-z]+)/);
+  return m && isLocale(m[1]) ? m[1] : null;
+}
+
+/** Set-Cookie for the language picked on this device: a year, like the theme. */
+export function localeCookie(locale: Locale | null, request: Request): string {
+  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
+  return locale
+    ? `${LOCALE_COOKIE}=${locale}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`
+    : `${LOCALE_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+}
+
+/**
+ * The language a page is shown in. First that exists wins: the one saved on the account, the
+ * one picked last on this device, the browser's, English.
+ */
+export function chooseLocale(account: string | null | undefined, request: Request): Locale {
+  if (isLocale(account)) return account;
+  return localeFromCookie(request.headers.get("Cookie")) ?? pickLocale(request.headers.get("Accept-Language"));
+}
+
 /** The best supported language for an Accept-Language header; English when none fits. */
 export function pickLocale(acceptLanguage: string | null): Locale {
   for (const part of (acceptLanguage ?? "").split(",")) {
     const tag = part.split(";")[0].trim().toLowerCase().split("-")[0];
-    if ((LOCALES as readonly string[]).includes(tag)) return tag as Locale;
+    if (isLocale(tag)) return tag;
   }
   return "en";
 }

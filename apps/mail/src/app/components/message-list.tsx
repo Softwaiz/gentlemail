@@ -191,6 +191,7 @@ function Bulk({ icon: I, label, onClick, danger }: { icon: Icon; label: string; 
     <button
       type="button"
       onClick={onClick}
+      aria-label={label} // the text is hidden on phones
       className={cn(
         "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground",
         danger && "text-destructive hover:text-destructive",

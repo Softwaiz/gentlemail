@@ -106,3 +106,14 @@ export const NotSpam: Story = {
     await waitFor(() => expect(toast).toBeVisible());
   },
 };
+
+/** Two selected on a phone: the buttons are icons, and still have names. */
+export const SelectedOnPhone: Story = {
+  globals: { language: "en", viewport: { value: "phone" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByLabelText("Select Quarterly numbers"));
+    await userEvent.click(canvas.getByLabelText("Select Lunch on Friday?"));
+    for (const name of ["Archive", "Spam", "Trash"]) await expect(canvas.getAllByRole("button", { name })[0]).toBeVisible();
+  },
+};

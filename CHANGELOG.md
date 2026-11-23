@@ -10,6 +10,12 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 
 ## Unreleased
 
+## 0.7.1 (2026-11-23)
+
+### Fixed
+- The page no longer goes blank while writing a message. It happened when the mouse pointer was over a link or an address in the message and you kept typing, and the message was lost. ([#39](https://github.com/Softwaiz/gentlemail/pull/39))
+- Pressing Enter in To, Cc, Bcc or Subject no longer sends the message; only **Send** does. A message with nothing written and no file attached isn't sent either: the composer says so. Forwarding without adding a word still works, and the API is unchanged. ([#39](https://github.com/Softwaiz/gentlemail/pull/39))
+
 ## 0.7.0 (2026-11-23)
 
 ### Added

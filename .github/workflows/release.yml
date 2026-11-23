@@ -9,6 +9,8 @@
 #   GitHub release with its changelog section. If main has changes dev doesn't (a hotfix), opens
 #   the "Sync main into dev" pull request.
 #
+# It does nothing in copies of this repository: releases are made here only.
+#
 # Needs the RELEASE_TOKEN secret: a fine-grained token on this repository with Contents and
 # Pull requests read and write. GitHub's own token can't be used: pull requests and pushes made
 # with it don't run the tests, which main's protection requires.
@@ -37,7 +39,7 @@ env:
 
 jobs:
   promotion:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    if: github.repository == 'Softwaiz/gentlemail' && github.event_name == 'push' && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     steps:
       - name: Check the token
@@ -82,7 +84,7 @@ jobs:
           fi
 
   prepare:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.repository == 'Softwaiz/gentlemail' && github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Check the token
@@ -107,7 +109,7 @@ jobs:
           gh pr create --base dev --title "Version $version" --body "$(printf '## What and why\nTurns **Unreleased** into %s and sets it in `apps/mail/package.json`. Nothing else goes in this pull request.\n\nOnce merged, the promotion pull request from `dev` into `main` becomes **Release %s**.\n\n### Changelog\n%s\n' "$version" "$version" "$notes")"
 
   publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.repository == 'Softwaiz/gentlemail' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Check the token

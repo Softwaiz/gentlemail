@@ -326,7 +326,7 @@ msgid "common.active"
 msgstr "Active"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:609
+#: src/app/components/rich-editor.tsx:637
 msgid "editor.add"
 msgstr "Ajouter"
 
@@ -352,8 +352,8 @@ msgid "admin.add_domain_2"
 msgstr "Ajouter le domaine"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:331
-#: src/app/components/rich-editor.tsx:568
+#: src/app/components/rich-editor.tsx:350
+#: src/app/components/rich-editor.tsx:596
 msgid "editor.add_link"
 msgstr "Ajouter un lien"
 
@@ -577,12 +577,12 @@ msgid "settings.blocked"
 msgstr "Expéditeurs bloqués"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:321
+#: src/app/components/rich-editor.tsx:340
 msgid "editor.bold"
 msgstr "Gras"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:332
+#: src/app/components/rich-editor.tsx:351
 msgid "editor.bullets"
 msgstr "Liste à puces"
 
@@ -641,7 +641,7 @@ msgid "switcher.choose"
 msgstr "Choisir une boîte mail"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:337
+#: src/app/components/rich-editor.tsx:356
 msgid "editor.clear"
 msgstr "Effacer la mise en forme"
 
@@ -661,7 +661,7 @@ msgid "verify.code"
 msgstr "Code"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:335
+#: src/app/components/rich-editor.tsx:354
 msgid "editor.code"
 msgstr "Code"
 
@@ -922,10 +922,10 @@ msgid "keys.edit_access"
 msgstr "Modifier les accès"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:331
-#: src/app/components/rich-editor.tsx:568
-#: src/app/components/rich-editor.tsx:638
-#: src/app/components/rich-editor.tsx:639
+#: src/app/components/rich-editor.tsx:350
+#: src/app/components/rich-editor.tsx:596
+#: src/app/components/rich-editor.tsx:666
+#: src/app/components/rich-editor.tsx:667
 msgid "editor.edit_link"
 msgstr "Modifier le lien"
 
@@ -1009,7 +1009,7 @@ msgid "admin.someone_who_lost_their"
 msgstr "Pour quelqu'un qui a perdu son téléphone et ses codes de secours. La validation en deux étapes est désactivée et la personne est déconnectée partout ; elle se connecte avec son mot de passe et la configure à nouveau."
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:341
+#: src/app/components/rich-editor.tsx:360
 msgid "editor.formatting"
 msgstr "Mise en forme"
 
@@ -1107,7 +1107,7 @@ msgid "settings.preview"
 msgstr "Aperçu"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:600
+#: src/app/components/rich-editor.tsx:628
 msgid "editor.link_placeholder"
 msgstr "https://… ou nom@exemple.com"
 
@@ -1178,7 +1178,7 @@ msgid "connections.disconnect_body"
 msgstr "Il est refusé dès sa prochaine requête. Pour l'utiliser de nouveau, connectez-le à nouveau et connectez-vous."
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:322
+#: src/app/components/rich-editor.tsx:341
 msgid "editor.italic"
 msgstr "Italique"
 
@@ -1241,7 +1241,7 @@ msgid "menu.theme_light"
 msgstr "Clair"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:601
+#: src/app/components/rich-editor.tsx:629
 msgid "editor.link_address"
 msgstr "Adresse du lien"
 
@@ -1395,7 +1395,8 @@ msgid "nav.menu"
 msgstr "Menu"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:132
+#: src/app/components/editor-safety-net.tsx:36
+#: src/app/components/rich-editor.tsx:139
 msgid "editor.message"
 msgstr "Message"
 
@@ -1715,7 +1716,7 @@ msgid "developers.nothing_sent_yet_use"
 msgstr "Rien d'envoyé pour l'instant. Utilisez « Envoyer un événement de test » pour essayer votre récepteur."
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:333
+#: src/app/components/rich-editor.tsx:352
 msgid "editor.numbers"
 msgstr "Liste numérotée"
 
@@ -1782,7 +1783,7 @@ msgstr "Ne concerne que les membres. Les administrateurs ouvrent toutes les boî
 
 #. js-lingui-explicit-id
 #. placeholder {0}: shownUrl(view.url)
-#: src/app/components/rich-editor.tsx:624
+#: src/app/components/rich-editor.tsx:652
 msgid "editor.open_link"
 msgstr "Ouvrir {0}"
 
@@ -1933,7 +1934,7 @@ msgid "developers.quick_reference"
 msgstr "Aide-mémoire"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:334
+#: src/app/components/rich-editor.tsx:353
 msgid "editor.quote"
 msgstr "Citation"
 
@@ -2045,10 +2046,10 @@ msgid "domains.remove_domain"
 msgstr "Retirer le domaine"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:612
-#: src/app/components/rich-editor.tsx:612
-#: src/app/components/rich-editor.tsx:647
-#: src/app/components/rich-editor.tsx:648
+#: src/app/components/rich-editor.tsx:640
+#: src/app/components/rich-editor.tsx:640
+#: src/app/components/rich-editor.tsx:675
+#: src/app/components/rich-editor.tsx:676
 msgid "editor.remove_link"
 msgstr "Retirer le lien"
 
@@ -2166,7 +2167,7 @@ msgid "menu.theme_system"
 msgstr "Comme l'appareil"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:609
+#: src/app/components/rich-editor.tsx:637
 #: src/app/pages/compose.tsx:180
 msgid "common.save"
 msgstr "Enregistrer"
@@ -2507,7 +2508,7 @@ msgid "developers.stops_all_deliveries_removes"
 msgstr "Arrête tous les envois et supprime leur historique."
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:324
+#: src/app/components/rich-editor.tsx:343
 msgid "editor.strikethrough"
 msgstr "Barré"
 
@@ -2517,7 +2518,7 @@ msgid "composer.subject"
 msgstr "Objet"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:327
+#: src/app/components/rich-editor.tsx:346
 msgid "editor.subscript"
 msgstr "Indice"
 
@@ -2527,7 +2528,7 @@ msgid "developers.status_success"
 msgstr "réussi"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:328
+#: src/app/components/rich-editor.tsx:347
 msgid "editor.superscript"
 msgstr "Exposant"
 
@@ -2603,6 +2604,11 @@ msgstr "L'application choisit son propre nom, vérifiez donc plutôt cette adres
 #: src/app/pages/oauth.tsx:182
 msgid "oauth.broken"
 msgstr "La demande de connexion de l'application est incorrecte ({detail}). Rien n'a été partagé. Prévenez ses créateurs, ou essayez une autre application."
+
+#. js-lingui-explicit-id
+#: src/app/components/editor-safety-net.tsx:30
+msgid "editor.failed"
+msgstr "L’éditeur ne fonctionne plus, la mise en forme est donc désactivée. Votre texte est conservé ci-dessous : terminez-le et envoyez-le, ou copiez-le et rechargez la page."
 
 #. js-lingui-explicit-id
 #: src/app/pages/developers.tsx:458
@@ -2901,7 +2907,7 @@ msgid "admin.type_exact_address_confirm"
 msgstr "Saisissez l'adresse exacte pour confirmer."
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:323
+#: src/app/components/rich-editor.tsx:342
 msgid "editor.underline"
 msgstr "Souligné"
 
@@ -3032,7 +3038,7 @@ msgid "errors.empty_message"
 msgstr "Écrivez d’abord un message ou joignez un fichier."
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:137
+#: src/app/components/rich-editor.tsx:144
 msgid "editor.placeholder"
 msgstr "Écrivez votre message…"
 

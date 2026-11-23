@@ -10,6 +10,13 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 
 ## Unreleased
 
+### Changed
+- If the editor fails while you write, the rest of the page stays, and your text goes on in a plain field you can send. ([#42](https://github.com/Softwaiz/gentlemail/pull/42))
+- The workflow that makes releases does nothing in copies of the repository, where it failed on every push to `main`. ([#42](https://github.com/Softwaiz/gentlemail/pull/42))
+
+### Fixed
+- Adding a link is no longer lost when the text it was for changed while its card was open. ([#42](https://github.com/Softwaiz/gentlemail/pull/42))
+
 ## 0.7.1 (2026-11-23)
 
 ### Fixed

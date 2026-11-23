@@ -208,6 +208,9 @@ describe("registration", () => {
 
 describe("registration limits", () => {
   test("one address may register 10 apps a minute", async () => {
+    // The limiter counts per clock minute: near the end of one, wait for the next.
+    const left = 60_000 - (Date.now() % 60_000);
+    if (left < 10_000) await new Promise((r) => setTimeout(r, left + 100));
     for (let i = 0; i < 10; i++) assert.equal((await register(undefined, {}, "203.0.113.9")).status, 201);
     const res = await register(undefined, {}, "203.0.113.9");
     assert.equal(res.status, 429);

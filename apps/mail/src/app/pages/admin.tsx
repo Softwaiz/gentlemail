@@ -14,6 +14,8 @@ import {
 import { ActionForm, ActionSwitch, ConfirmAction, FormDialog } from "@/app/components/action-form";
 import { resetUserMfaAction, setRequireMfaAction } from "@/app/actions/security";
 import { isMfaRequired } from "@/lib/mfa";
+import { isUpdateCheckOn } from "@/lib/updates";
+import { setUpdateCheckAction } from "@/app/actions/updates";
 import { FormSelect } from "@/app/components/form-select";
 import { cn } from "@/lib/utils";
 import { Field, Section, StatusBadge, cardRow, cardTable, cardTableHeader } from "@/app/components/section";
@@ -70,7 +72,7 @@ function CheckList({
 
 export async function AdminPage({ ctx }: RequestInfo) {
   const user = ctx.user!;
-  const [{ results: mailboxes }, { results: users }, { results: members }, domains, mfaRequired] = await Promise.all([
+  const [{ results: mailboxes }, { results: users }, { results: members }, domains, mfaRequired, updateCheck] = await Promise.all([
     env.DB.prepare(
       `SELECT m.*,
         (SELECT COUNT(*) FROM messages x WHERE x.mailbox_id = m.id) AS total,
@@ -81,6 +83,7 @@ export async function AdminPage({ ctx }: RequestInfo) {
     env.DB.prepare("SELECT mailbox_id, user_id FROM mailbox_members").all<{ mailbox_id: string; user_id: string }>(),
     listDomainsWithCounts(),
     isMfaRequired(),
+    isUpdateCheckOn(),
   ]);
   const usable = domains.filter((d) => d.active);
   const memberUsers = users.filter((u) => u.role !== "admin");
@@ -360,6 +363,20 @@ export async function AdminPage({ ctx }: RequestInfo) {
               })}
             </TableBody>
           </Table>
+        </Section>
+
+        <Section title={t({ id: "updates.title", message: "New versions" })}>
+          <label className="flex items-start gap-3 rounded-md border px-4 py-3">
+            <ActionSwitch action={setUpdateCheckAction} id="update_check" checked={updateCheck} label={t({ id: "updates.check", message: "Check for new versions" })} />
+            <span className="text-sm">
+              <span className="block font-medium">{t({ id: "updates.check", message: "Check for new versions" })}</span>
+              <span className="block text-muted-foreground">
+                {updateCheck
+                  ? t({ id: "updates.check_on", message: "On: once a day, GentleMail reads the list of releases on gentlemail.dev and tells admins about a newer one. Nothing is installed by itself." })
+                  : t({ id: "updates.check_off", message: "Off: GentleMail doesn't contact gentlemail.dev, and admins aren't told about new versions, security fixes included." })}
+              </span>
+            </span>
+          </label>
         </Section>
       </div>
     </Shell>

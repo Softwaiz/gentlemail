@@ -30,7 +30,7 @@ msgid "common.no_subject"
 msgstr "(sans objet)"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:297
+#: src/app/pages/admin.tsx:300
 msgid "admin.you"
 msgstr "(vous)"
 
@@ -54,7 +54,7 @@ msgstr "{0, plural, one {# conversation} other {# conversations}}"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: domains.length
-#: src/app/pages/admin.tsx:123
+#: src/app/pages/admin.tsx:126
 msgid "admin.count_domains"
 msgstr "{0, plural, one {# domaine} other {# domaines}}"
 
@@ -62,15 +62,15 @@ msgstr "{0, plural, one {# domaine} other {# domaines}}"
 #. placeholder {0}: access.size
 #. placeholder {0}: d.mailboxes
 #. placeholder {0}: mailboxes.length
-#: src/app/pages/admin.tsx:124
-#: src/app/pages/admin.tsx:311
+#: src/app/pages/admin.tsx:127
+#: src/app/pages/admin.tsx:314
 #: src/app/pages/domains.tsx:51
 msgid "admin.count_mailboxes"
 msgstr "{0, plural, one {# boîte mail} other {# boîtes mail}}"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: m.total
-#: src/app/pages/admin.tsx:223
+#: src/app/pages/admin.tsx:226
 msgid "admin.count_messages"
 msgstr "{0, plural, one {# message} other {# messages}}"
 
@@ -88,7 +88,7 @@ msgstr "{0, plural, one {# sélectionnée} other {# sélectionnées}}"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: users.length
-#: src/app/pages/admin.tsx:125
+#: src/app/pages/admin.tsx:128
 msgid "admin.count_users"
 msgstr "{0, plural, one {# utilisateur} other {# utilisateurs}}"
 
@@ -126,7 +126,7 @@ msgstr "{0} ({1})"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: text(form, "name")
-#: src/app/actions/admin.ts:173
+#: src/app/actions/admin.ts:174
 msgid "admin.user_added"
 msgstr "{0} ajouté."
 
@@ -138,7 +138,7 @@ msgstr "{0} vérifie la signature et refuse les événements de plus de cinq min
 
 #. js-lingui-explicit-id
 #. placeholder {0}: mailbox.address
-#: src/app/actions/admin.ts:155
+#: src/app/actions/admin.ts:156
 msgid "admin.mailbox_deleted"
 msgstr "{0} supprimée."
 
@@ -162,28 +162,28 @@ msgstr "{0} Mo"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: domain.name
-#: src/app/actions/admin.ts:81
+#: src/app/actions/admin.ts:82
 msgid "admin.domain_removed"
 msgstr "{0} retiré."
 
 #. js-lingui-explicit-id
 #. placeholder {0}: u.email
-#: src/app/pages/admin.tsx:425
+#: src/app/pages/admin.tsx:442
 msgid "admin.email_admin"
 msgstr "{0}, administrateur"
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:96
+#: src/app/actions/admin.ts:97
 msgid "admin.mailbox_exists"
 msgstr "{address} existe déjà."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:104
+#: src/app/actions/admin.ts:105
 msgid "admin.mailbox_created"
 msgstr "{address} créée."
 
 #. js-lingui-explicit-id
-#: src/app/components/shell-view.tsx:82
+#: src/app/components/shell-view.tsx:86
 msgid "shell.unread_count"
 msgstr "{count, plural, one {# non lu} other {# non lus}}"
 
@@ -213,12 +213,12 @@ msgid "size.bytes"
 msgstr "{n} o"
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:58
+#: src/app/actions/admin.ts:59
 msgid "admin.domain_added"
 msgstr "{name} ajouté. Terminez sa connexion ci-dessous."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:55
+#: src/app/actions/admin.ts:56
 msgid "admin.domain_exists"
 msgstr "{name} est déjà ajouté."
 
@@ -269,7 +269,7 @@ msgid "oauth.dest_site"
 msgstr "Un site web."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:206
+#: src/app/pages/admin.tsx:209
 msgid "admin.access"
 msgstr "Accès"
 
@@ -295,22 +295,22 @@ msgid "keys.access"
 msgstr "Accès à"
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:132
+#: src/app/actions/admin.ts:133
 msgid "admin.access_updated"
 msgstr "Accès mis à jour."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:184
+#: src/app/pages/admin.tsx:187
 msgid "admin.acme_support"
 msgstr "Support Acme"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:146
+#: src/app/pages/admin.tsx:149
 msgid "admin.acme_com"
 msgstr "acme.com"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:410
+#: src/app/pages/admin.tsx:427
 msgid "admin.active"
 msgstr "Active"
 
@@ -331,12 +331,12 @@ msgid "editor.add"
 msgstr "Ajouter"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:140
+#: src/app/pages/admin.tsx:143
 msgid "admin.add_domain"
 msgstr "Ajouter un domaine"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:199
+#: src/app/pages/admin.tsx:202
 msgid "admin.add_active_domain_before"
 msgstr "Ajoutez un domaine actif avant de créer des boîtes mail."
 
@@ -347,7 +347,7 @@ msgid "errors.no_recipient"
 msgstr "Ajoutez au moins un destinataire."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:143
+#: src/app/pages/admin.tsx:146
 msgid "admin.add_domain_2"
 msgstr "Ajouter le domaine"
 
@@ -363,7 +363,7 @@ msgid "composer.add_signature"
 msgstr "Ajouter la signature"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:260
+#: src/app/pages/admin.tsx:263
 msgid "admin.add_user"
 msgstr "Ajouter l'utilisateur"
 
@@ -373,21 +373,21 @@ msgid "developers.add_webhook"
 msgstr "Ajouter le webhook"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:171
-#: src/app/pages/admin.tsx:204
+#: src/app/pages/admin.tsx:174
+#: src/app/pages/admin.tsx:207
 msgid "admin.address"
 msgstr "Adresse"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:156
+#: src/app/pages/admin.tsx:159
 msgid "admin.addresses_receive_send_mail"
 msgstr "Les adresses qui reçoivent et envoient du courrier. Chacune peut être partagée entre plusieurs utilisateurs."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:38
-#: src/app/pages/admin.tsx:121
-#: src/app/pages/admin.tsx:301
-#: src/app/pages/admin.tsx:386
+#: src/app/pages/admin.tsx:40
+#: src/app/pages/admin.tsx:124
+#: src/app/pages/admin.tsx:304
+#: src/app/pages/admin.tsx:403
 msgid "admin.admin"
 msgstr "Administration"
 
@@ -397,7 +397,7 @@ msgid "domains.admin"
 msgstr "Administration"
 
 #. js-lingui-explicit-id
-#: src/app/components/shell-view.tsx:174
+#: src/app/components/shell-view.tsx:178
 msgid "shell.admin"
 msgstr "Administration"
 
@@ -407,22 +407,22 @@ msgid "menu.admin"
 msgstr "Administration"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:188
+#: src/app/pages/admin.tsx:191
 msgid "admin.admins_always_can"
 msgstr "Les administrateurs y ont toujours accès."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:417
+#: src/app/pages/admin.tsx:434
 msgid "admin.admins_always_have_access"
 msgstr "Les administrateurs y ont toujours accès."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:106
+#: src/app/pages/admin.tsx:109
 msgid "admin.role_hint"
 msgstr "Les administrateurs gèrent tout."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:221
+#: src/app/pages/admin.tsx:224
 msgid "admin.admins_only"
 msgstr "Administrateurs uniquement"
 
@@ -437,12 +437,12 @@ msgid "connections.intro"
 msgstr "Les assistants IA comme Claude ou ChatGPT, connectés en se connectant à votre compte. Chacun n'accède qu'aux boîtes mail choisies lors de sa connexion. Pour en connecter un, ajoutez-lui cette adresse de serveur comme serveur MCP ou connecteur personnalisé :"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:307
+#: src/app/pages/admin.tsx:310
 msgid "admin.all"
 msgstr "Toutes"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:310
+#: src/app/pages/admin.tsx:313
 msgid "admin.all_mailboxes"
 msgstr "Toutes les boîtes mail"
 
@@ -499,7 +499,7 @@ msgid "developers.api_webhooks"
 msgstr "API et webhooks"
 
 #. js-lingui-explicit-id
-#: src/app/components/shell-view.tsx:177
+#: src/app/components/shell-view.tsx:181
 msgid "shell.api"
 msgstr "API et webhooks"
 
@@ -531,7 +531,7 @@ msgid "done.archive"
 msgstr "Archivé."
 
 #. js-lingui-explicit-id
-#: src/worker.tsx:107
+#: src/worker.tsx:108
 msgid "nomailbox.body"
 msgstr "Demandez à un administrateur de vous donner accès à une boîte mail, puis reconnectez-vous."
 
@@ -541,7 +541,7 @@ msgid "connections.assistant"
 msgstr "Assistant"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:102
+#: src/app/pages/admin.tsx:105
 msgid "admin.password_min"
 msgstr "Au moins 10 caractères."
 
@@ -570,6 +570,11 @@ msgstr "URL de base <0>{base}/api/v1</0>. Envoyez la clé comme jeton Bearer."
 #: src/app/pages/compose.tsx:93
 msgid "composer.bcc"
 msgstr "Cci"
+
+#. js-lingui-explicit-id
+#: src/app/components/update-notice.tsx:58
+msgid "updates.steps"
+msgstr "Avant de mettre à jour"
 
 #. js-lingui-explicit-id
 #: src/app/pages/compose.tsx:162
@@ -616,7 +621,7 @@ msgid "composer.cc"
 msgstr "Cc"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:322
+#: src/app/pages/admin.tsx:325
 msgid "admin.changing_password_signs_them"
 msgstr "Changer le mot de passe le déconnecte sur ses autres appareils."
 
@@ -624,6 +629,12 @@ msgstr "Changer le mot de passe le déconnecte sur ses autres appareils."
 #: src/app/pages/domains.tsx:122
 msgid "domains.state_warn"
 msgstr "À vérifier"
+
+#. js-lingui-explicit-id
+#: src/app/pages/admin.tsx:370
+#: src/app/pages/admin.tsx:372
+msgid "updates.check"
+msgstr "Vérifier les nouvelles versions"
 
 #. js-lingui-explicit-id
 #: src/app/pages/developers.tsx:169
@@ -734,7 +745,7 @@ msgid "keys.create"
 msgstr "Créer la clé"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:167
+#: src/app/pages/admin.tsx:170
 msgid "admin.create_mailbox"
 msgstr "Créer la boîte mail"
 
@@ -755,18 +766,18 @@ msgstr "Sombre"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: mailbox.address
-#: src/app/pages/admin.tsx:441
+#: src/app/pages/admin.tsx:458
 msgid "admin.delete_address"
 msgstr "Supprimer {0}"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: mailbox.address
-#: src/app/pages/admin.tsx:442
+#: src/app/pages/admin.tsx:459
 msgid "admin.delete_title"
 msgstr "Supprimer {0} définitivement ?"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:444
+#: src/app/pages/admin.tsx:461
 msgid "admin.delete_forever"
 msgstr "Supprimer définitivement"
 
@@ -778,12 +789,12 @@ msgid "action.delete_forever"
 msgstr "Supprimer définitivement"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:435
+#: src/app/pages/admin.tsx:452
 msgid "admin.delete_mailbox"
 msgstr "Supprimer la boîte mail"
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:76
+#: src/app/actions/admin.ts:77
 msgid "admin.delete_mailboxes_domain_first"
 msgstr "Supprimez d'abord les boîtes mail de ce domaine."
 
@@ -809,12 +820,12 @@ msgid "domains.deliver_every_address_app"
 msgstr "Distribuer toutes les adresses à cette application"
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:320
+#: src/app/actions/admin.ts:321
 msgid "admin.delivered"
 msgstr "Livré."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:398
+#: src/app/pages/admin.tsx:415
 msgid "admin.details"
 msgstr "Informations"
 
@@ -856,12 +867,12 @@ msgid "domains.dns_status"
 msgstr "État DNS"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:177
+#: src/app/pages/admin.tsx:180
 msgid "admin.domain"
 msgstr "Domaine"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:145
+#: src/app/pages/admin.tsx:148
 msgid "admin.domain_name"
 msgstr "Nom de domaine"
 
@@ -871,17 +882,17 @@ msgid "errors.domain_title"
 msgstr "Domaine introuvable"
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:66
+#: src/app/actions/admin.ts:67
 msgid "admin.domain_turned_off_mail"
 msgstr "Domaine désactivé. Son courrier est désormais refusé."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:66
+#: src/app/actions/admin.ts:67
 msgid "admin.domain_turned"
 msgstr "Domaine activé."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:131
+#: src/app/pages/admin.tsx:134
 msgid "admin.domains"
 msgstr "Domaines"
 
@@ -906,13 +917,13 @@ msgid "mfa.save_first"
 msgstr "Téléchargez-les ou copiez-les d'abord"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:318
+#: src/app/pages/admin.tsx:321
 msgid "admin.edit"
 msgstr "Modifier"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: u.name
-#: src/app/pages/admin.tsx:321
+#: src/app/pages/admin.tsx:324
 msgid "admin.edit_user"
 msgstr "Modifier {0}"
 
@@ -935,14 +946,14 @@ msgid "signin.email"
 msgstr "E-mail"
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:167
-#: src/app/actions/admin.ts:186
+#: src/app/actions/admin.ts:168
+#: src/app/actions/admin.ts:187
 msgid "admin.enter_name"
 msgstr "Saisissez un nom."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:168
-#: src/app/actions/admin.ts:187
+#: src/app/actions/admin.ts:169
+#: src/app/actions/admin.ts:188
 msgid "admin.enter_valid_login_email"
 msgstr "Saisissez un e-mail de connexion valide."
 
@@ -963,7 +974,7 @@ msgid "developers.events"
 msgstr "Événements"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:132
+#: src/app/pages/admin.tsx:135
 msgid "admin.every_domain_app_receives"
 msgstr "Chaque domaine pour lequel cette application reçoit et envoie du courrier. Chacun doit être une zone du même compte Cloudflare."
 
@@ -973,7 +984,7 @@ msgid "keys.every_mailbox_now_later"
 msgstr "Toutes les boîtes mail, actuelles et futures"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:443
+#: src/app/pages/admin.tsx:460
 msgid "admin.every_message_attachment_deleted"
 msgstr "Tous ses messages et pièces jointes sont supprimés. Le courrier envoyé ensuite à cette adresse est refusé."
 
@@ -999,12 +1010,12 @@ msgid "spam.flagged"
 msgstr "Signalé comme spam avant de nous parvenir."
 
 #. js-lingui-explicit-id
-#: src/app/components/shell-view.tsx:145
+#: src/app/components/shell-view.tsx:149
 msgid "shell.folders"
 msgstr "Dossiers"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:337
+#: src/app/pages/admin.tsx:340
 msgid "admin.someone_who_lost_their"
 msgstr "Pour quelqu'un qui a perdu son téléphone et ses codes de secours. La validation en deux étapes est désactivée et la personne est déconnectée partout ; elle se connecte avec son mot de passe et la configure à nouveau."
 
@@ -1036,6 +1047,11 @@ msgid "composer.from"
 msgstr "De"
 
 #. js-lingui-explicit-id
+#: src/app/components/update-notice.tsx:69
+msgid "updates.how_clone"
+msgstr "Depuis votre copie du dépôt (un clone ou un fork) :"
+
+#. js-lingui-explicit-id
 #: src/app/pages/developers.tsx:436
 msgid "developers.generate_new_secret_2"
 msgstr "Générer un nouveau secret"
@@ -1051,6 +1067,22 @@ msgid "developers.generate_secret"
 msgstr "Générer le secret"
 
 #. js-lingui-explicit-id
+#: src/app/components/update-notice.tsx:35
+#: src/app/components/update-notice.tsx:47
+msgid "updates.available"
+msgstr "GentleMail {newest} est disponible"
+
+#. js-lingui-explicit-id
+#: src/app/actions/updates.ts:24
+msgid "updates.on_done"
+msgstr "GentleMail vérifie les nouvelles versions."
+
+#. js-lingui-explicit-id
+#: src/app/actions/updates.ts:24
+msgid "updates.off_done"
+msgstr "GentleMail ne vérifie plus les nouvelles versions."
+
+#. js-lingui-explicit-id
 #: src/app/pages/developers.tsx:221
 msgid "developers.give_each_key_read"
 msgstr "Donnez à chaque clé Lire, Organiser et/ou Envoyer sur toutes les boîtes mail, des domaines entiers ou les boîtes mail de votre choix."
@@ -1061,12 +1093,12 @@ msgid "keys.give_each_program_own"
 msgstr "Donnez à chaque programme sa propre clé et seulement les accès dont il a besoin. Vous pourrez les changer plus tard."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:225
+#: src/app/actions/admin.ts:226
 msgid "admin.give_key_name_such"
 msgstr "Donnez un nom à la clé, par exemple celui du programme qui l'utilise."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:264
+#: src/app/actions/admin.ts:265
 msgid "admin.give_webhook_name"
 msgstr "Donnez un nom au webhook."
 
@@ -1081,7 +1113,7 @@ msgid "list.has_attachments"
 msgstr "Contient des pièces jointes"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:173
+#: src/app/pages/admin.tsx:176
 msgid "admin.hello"
 msgstr "bonjour"
 
@@ -1105,6 +1137,11 @@ msgstr "Score de spam élevé ({0})."
 #: src/app/pages/compose.tsx:190
 msgid "settings.preview"
 msgstr "Aperçu"
+
+#. js-lingui-explicit-id
+#: src/app/components/update-notice.tsx:68
+msgid "updates.how"
+msgstr "Comment mettre à jour"
 
 #. js-lingui-explicit-id
 #: src/app/components/rich-editor.tsx:628
@@ -1194,17 +1231,17 @@ msgid "code.sdk"
 msgstr "SDK JavaScript"
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:243
+#: src/app/actions/admin.ts:244
 msgid "admin.key_access_updated_applies"
 msgstr "Accès de la clé mis à jour. Il s'applique dès la prochaine requête."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:230
+#: src/app/actions/admin.ts:231
 msgid "admin.key_created"
 msgstr "Clé créée."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:251
+#: src/app/actions/admin.ts:252
 msgid "admin.key_revoked_programs_using"
 msgstr "Clé révoquée. Les programmes qui l'utilisent sont refusés dès maintenant."
 
@@ -1226,7 +1263,12 @@ msgid "connections.last_used"
 msgstr "Dernière utilisation"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:102
+#: src/app/components/update-notice.tsx:97
+msgid "updates.later"
+msgstr "Plus tard"
+
+#. js-lingui-explicit-id
+#: src/app/pages/admin.tsx:105
 msgid "admin.password_keep"
 msgstr "Laissez vide pour garder le mot de passe actuel."
 
@@ -1257,13 +1299,13 @@ msgstr "En local, mettez <0>SETUP_TOKEN=…</0> dans <1>.dev.vars</1>."
 
 #. js-lingui-explicit-id
 #: src/app/components/user-menu.tsx:122
-#: src/worker.tsx:110
+#: src/worker.tsx:111
 msgid "menu.logout"
 msgstr "Se déconnecter"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:97
-#: src/app/pages/admin.tsx:283
+#: src/app/pages/admin.tsx:100
+#: src/app/pages/admin.tsx:286
 msgid "admin.login_email"
 msgstr "E-mail de connexion"
 
@@ -1289,7 +1331,7 @@ msgid "auth.tagline"
 msgstr "Le courrier de tous vos domaines"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:165
+#: src/app/pages/admin.tsx:168
 msgid "admin.mail_address_shows_up"
 msgstr "Le courrier envoyé à cette adresse apparaît ici dès sa création."
 
@@ -1310,7 +1352,7 @@ msgid "errors.mailbox_title"
 msgstr "Boîte mail introuvable"
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:122
+#: src/app/actions/admin.ts:123
 msgid "admin.mailbox_saved"
 msgstr "Boîte mail enregistrée."
 
@@ -1320,13 +1362,13 @@ msgid "settings.title"
 msgstr "Réglages de la boîte mail"
 
 #. js-lingui-explicit-id
-#: src/app/components/shell-view.tsx:160
+#: src/app/components/shell-view.tsx:164
 msgid "shell.mailbox_settings"
 msgstr "Réglages de la boîte mail"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:155
-#: src/app/pages/admin.tsx:286
+#: src/app/pages/admin.tsx:158
+#: src/app/pages/admin.tsx:289
 msgid "admin.mailboxes"
 msgstr "Boîtes mail"
 
@@ -1341,7 +1383,7 @@ msgid "domains.mailboxes_on"
 msgstr "Boîtes mail sur {d}"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:111
+#: src/app/pages/admin.tsx:114
 msgid "admin.mailboxes_they_can_open"
 msgstr "Boîtes mail accessibles"
 
@@ -1351,7 +1393,7 @@ msgid "mfa.make_codes"
 msgstr "Créer de nouveaux codes"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:231
+#: src/app/pages/admin.tsx:234
 msgid "admin.manage"
 msgstr "Gérer"
 
@@ -1379,13 +1421,13 @@ msgid "errors.max_recipients"
 msgstr "50 destinataires au maximum par e-mail."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:37
-#: src/app/pages/admin.tsx:301
+#: src/app/pages/admin.tsx:39
+#: src/app/pages/admin.tsx:304
 msgid "admin.member"
 msgstr "Membre"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:249
+#: src/app/pages/admin.tsx:252
 msgid "admin.members_only_see_mailboxes"
 msgstr "Les membres ne voient que les boîtes mail que vous leur donnez. Les administrateurs les voient toutes."
 
@@ -1411,7 +1453,7 @@ msgid "done.sent"
 msgstr "Message envoyé."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:207
+#: src/app/pages/admin.tsx:210
 msgid "admin.messages"
 msgstr "Messages"
 
@@ -1455,8 +1497,8 @@ msgid "domains.mx_elsewhere"
 msgstr "Les MX pointent ailleurs : {0}"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:94
-#: src/app/pages/admin.tsx:282
+#: src/app/pages/admin.tsx:97
+#: src/app/pages/admin.tsx:285
 msgid "admin.name"
 msgstr "Nom"
 
@@ -1477,7 +1519,7 @@ msgid "settings.name_signature"
 msgstr "Nom et signature"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:173
+#: src/app/pages/admin.tsx:176
 msgid "admin.name_before"
 msgstr "Nom avant le @"
 
@@ -1505,7 +1547,7 @@ msgid "keys.new_api_key"
 msgstr "Nouvelle clé d'API"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:137
+#: src/app/pages/admin.tsx:140
 msgid "admin.new_domain"
 msgstr "Nouveau domaine"
 
@@ -1521,8 +1563,8 @@ msgid "mailbox.empty_inbox_hint"
 msgstr "Le nouveau courrier adressé à {0} apparaît ici."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:161
 #: src/app/pages/admin.tsx:164
+#: src/app/pages/admin.tsx:167
 msgid "admin.new_mailbox"
 msgstr "Nouvelle boîte mail"
 
@@ -1532,13 +1574,13 @@ msgid "composer.title_new"
 msgstr "Nouveau message"
 
 #. js-lingui-explicit-id
-#: src/app/components/shell-view.tsx:119
-#: src/app/components/shell-view.tsx:143
+#: src/app/components/shell-view.tsx:123
+#: src/app/components/shell-view.tsx:147
 msgid "shell.new_message"
 msgstr "Nouveau message"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:101
+#: src/app/pages/admin.tsx:104
 msgid "admin.new_password"
 msgstr "Nouveau mot de passe"
 
@@ -1549,15 +1591,20 @@ msgid "mfa.new_codes"
 msgstr "Nouveaux codes de secours"
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:328
+#: src/app/actions/admin.ts:329
 msgid "admin.new_secret_generated_update"
 msgstr "Nouveau secret généré. Mettez à jour votre récepteur."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:254
 #: src/app/pages/admin.tsx:257
+#: src/app/pages/admin.tsx:260
 msgid "admin.new_user"
 msgstr "Nouvel utilisateur"
+
+#. js-lingui-explicit-id
+#: src/app/pages/admin.tsx:368
+msgid "updates.title"
+msgstr "Nouvelles versions"
 
 #. js-lingui-explicit-id
 #: src/app/pages/developers.tsx:309
@@ -1606,23 +1653,23 @@ msgid "switcher.none"
 msgstr "Aucune boîte mail ne correspond."
 
 #. js-lingui-explicit-id
-#: src/worker.tsx:106
+#: src/worker.tsx:107
 msgid "nomailbox.title"
 msgstr "Pas encore de boîte mail"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:113
-#: src/app/pages/admin.tsx:239
+#: src/app/pages/admin.tsx:116
+#: src/app/pages/admin.tsx:242
 msgid "admin.no_mailboxes_yet"
 msgstr "Aucune boîte mail pour l'instant."
 
 #. js-lingui-explicit-id
-#: src/app/components/shell-view.tsx:165
+#: src/app/components/shell-view.tsx:169
 msgid "shell.no_mailboxes"
 msgstr "Aucune boîte mail pour l'instant."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:193
+#: src/app/pages/admin.tsx:196
 msgid "admin.no_members_yet_only"
 msgstr "Aucun membre pour l'instant. Seuls les administrateurs la verront."
 
@@ -1652,7 +1699,7 @@ msgid "domains.no_spf"
 msgstr "Aucun enregistrement SPF."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:429
+#: src/app/pages/admin.tsx:446
 msgid "admin.no_users_yet"
 msgstr "Aucun utilisateur pour l'instant."
 
@@ -1721,7 +1768,7 @@ msgid "editor.numbers"
 msgstr "Liste numérotée"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:304
+#: src/app/pages/admin.tsx:307
 msgid "admin.off"
 msgstr "Désactivée"
 
@@ -1731,9 +1778,14 @@ msgid "developers.off"
 msgstr "Désactivé"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:274
+#: src/app/pages/admin.tsx:277
 msgid "admin.require_off"
 msgstr "Désactivé : chacun peut toujours l'activer pour soi dans Sécurité."
+
+#. js-lingui-explicit-id
+#: src/app/pages/admin.tsx:376
+msgid "updates.check_off"
+msgstr "Désactivé : GentleMail ne contacte pas gentlemail.dev, et les admins ne sont pas prévenus des nouvelles versions, correctifs de sécurité compris."
 
 #. js-lingui-explicit-id
 #: src/app/pages/domains.tsx:121
@@ -1746,7 +1798,7 @@ msgid "mailbox.older"
 msgstr "Plus anciens"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:304
+#: src/app/pages/admin.tsx:307
 msgid "admin.on"
 msgstr "Activée"
 
@@ -1767,7 +1819,12 @@ msgid "mfa.on_since"
 msgstr "Activée depuis le {enabledAt}"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:273
+#: src/app/pages/admin.tsx:375
+msgid "updates.check_on"
+msgstr "Activé : une fois par jour, GentleMail lit la liste des versions sur gentlemail.dev et prévient les admins s’il y en a une plus récente. Rien n’est installé tout seul."
+
+#. js-lingui-explicit-id
+#: src/app/pages/admin.tsx:276
 msgid "admin.require_on"
 msgstr "Activé : les personnes qui ne l'ont pas doivent la configurer avant d'ouvrir leur courrier."
 
@@ -1777,7 +1834,7 @@ msgid "errors.admin_restricted_body"
 msgstr "Seuls les administrateurs peuvent ouvrir cette page."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:112
+#: src/app/pages/admin.tsx:115
 msgid "admin.only_applies_members_admins"
 msgstr "Ne concerne que les membres. Les administrateurs ouvrent toutes les boîtes mail."
 
@@ -1788,7 +1845,7 @@ msgid "editor.open_link"
 msgstr "Ouvrir {0}"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:393
+#: src/app/pages/admin.tsx:410
 msgid "admin.open_inbox"
 msgstr "Ouvrir la boîte de réception"
 
@@ -1796,6 +1853,11 @@ msgstr "Ouvrir la boîte de réception"
 #: src/app/components/mobile-nav.tsx:54
 msgid "nav.open"
 msgstr "Ouvrir le menu"
+
+#. js-lingui-explicit-id
+#: src/app/components/update-notice.tsx:101
+msgid "updates.guide"
+msgstr "Ouvrir le guide"
 
 #. js-lingui-explicit-id
 #: src/app/pages/mailbox.tsx:320
@@ -1848,7 +1910,7 @@ msgid "errors.page_title"
 msgstr "Page introuvable"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:101
+#: src/app/pages/admin.tsx:104
 msgid "admin.password"
 msgstr "Mot de passe"
 
@@ -1873,28 +1935,28 @@ msgid "developers.status_pending"
 msgstr "en cours"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:437
+#: src/app/pages/admin.tsx:454
 msgid "admin.permanently_deletes_mailbox_all"
 msgstr "Supprime définitivement la boîte mail avec tous ses messages et pièces jointes. C'est irréversible."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:92
+#: src/app/actions/admin.ts:93
 msgid "admin.pick_domain"
 msgstr "Choisissez un domaine."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:276
-#: src/app/actions/admin.ts:293
+#: src/app/actions/admin.ts:277
+#: src/app/actions/admin.ts:294
 msgid "admin.pick_mailbox"
 msgstr "Choisissez une boîte mail."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:266
+#: src/app/actions/admin.ts:267
 msgid "admin.pick_least_one_event"
 msgstr "Choisissez au moins un événement."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:404
+#: src/app/pages/admin.tsx:421
 msgid "admin.plain_text_added_under"
 msgstr "Texte brut, ajouté sous les messages envoyés depuis cette boîte mail."
 
@@ -1917,6 +1979,11 @@ msgstr "Les programmes qui utilisent cette clé sont refusés dès la prochaine 
 #: src/app/components/key-dialog.tsx:327
 msgid "keys.programs_using_key_keep"
 msgstr "Les programmes qui utilisent cette clé gardent la même clé ; les nouveaux accès s'appliquent dès leur prochaine requête."
+
+#. js-lingui-explicit-id
+#: src/app/components/update-notice.tsx:72
+msgid "updates.how_other"
+msgstr "L’envoi (push) déploie la nouvelle version si votre dépôt est relié à Cloudflare. Installé avec le bouton Deploy, ou déployé à la main : suivez le guide."
 
 #. js-lingui-explicit-id
 #: src/app/components/mfa-panel.tsx:165
@@ -1989,7 +2056,7 @@ msgid "developers.recent_deliveries"
 msgstr "Envois récents"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:183
+#: src/app/pages/admin.tsx:186
 msgid "admin.recipients_see_next_address"
 msgstr "Les destinataires le voient à côté de l'adresse."
 
@@ -2014,7 +2081,7 @@ msgid "thread.images_blocked"
 msgstr "Les images distantes sont bloquées pour protéger votre vie privée."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:347
+#: src/app/pages/admin.tsx:350
 msgid "admin.remove"
 msgstr "Retirer"
 
@@ -2025,7 +2092,7 @@ msgstr "Retirer"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: u.name
-#: src/app/pages/admin.tsx:350
+#: src/app/pages/admin.tsx:353
 msgid "admin.remove_title"
 msgstr "Retirer {0} ?"
 
@@ -2059,7 +2126,7 @@ msgid "action.unstar"
 msgstr "Ne plus suivre"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:352
+#: src/app/pages/admin.tsx:355
 msgid "admin.remove_user"
 msgstr "Retirer l'utilisateur"
 
@@ -2091,8 +2158,8 @@ msgid "done.reply_sent"
 msgstr "Réponse envoyée."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:268
-#: src/app/pages/admin.tsx:270
+#: src/app/pages/admin.tsx:271
+#: src/app/pages/admin.tsx:273
 msgid "admin.require_two_step_verification"
 msgstr "Exiger la validation en deux étapes pour tout le monde"
 
@@ -2102,14 +2169,14 @@ msgid "security.mfa_required"
 msgstr "Obligatoire pour tout le monde sur ce serveur."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:333
-#: src/app/pages/admin.tsx:338
+#: src/app/pages/admin.tsx:336
+#: src/app/pages/admin.tsx:341
 msgid "admin.reset_two_step"
 msgstr "Réinitialiser la validation"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: u.name
-#: src/app/pages/admin.tsx:336
+#: src/app/pages/admin.tsx:339
 msgid "admin.reset_title"
 msgstr "Réinitialiser la validation en deux étapes de {0} ?"
 
@@ -2140,9 +2207,9 @@ msgid "developers.revoked"
 msgstr "Révoquée"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:106
-#: src/app/pages/admin.tsx:107
-#: src/app/pages/admin.tsx:284
+#: src/app/pages/admin.tsx:109
+#: src/app/pages/admin.tsx:110
+#: src/app/pages/admin.tsx:287
 msgid "admin.role"
 msgstr "Rôle"
 
@@ -2173,7 +2240,7 @@ msgid "common.save"
 msgstr "Enregistrer"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:418
+#: src/app/pages/admin.tsx:435
 msgid "admin.save_access"
 msgstr "Enregistrer les accès"
 
@@ -2183,12 +2250,12 @@ msgid "keys.save_access"
 msgstr "Enregistrer les accès"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:324
+#: src/app/pages/admin.tsx:327
 msgid "admin.save_changes"
 msgstr "Enregistrer les modifications"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:399
+#: src/app/pages/admin.tsx:416
 msgid "admin.save_details"
 msgstr "Enregistrer"
 
@@ -2286,9 +2353,9 @@ msgid "developers.send_test_event"
 msgstr "Envoyer un événement de test"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:183
-#: src/app/pages/admin.tsx:205
-#: src/app/pages/admin.tsx:401
+#: src/app/pages/admin.tsx:186
+#: src/app/pages/admin.tsx:208
+#: src/app/pages/admin.tsx:418
 msgid "admin.sender_name"
 msgstr "Nom de l'expéditeur"
 
@@ -2409,7 +2476,7 @@ msgid "errors.switch_user"
 msgstr "Se connecter avec un autre compte"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:404
+#: src/app/pages/admin.tsx:421
 msgid "admin.signature"
 msgstr "Signature"
 
@@ -2445,12 +2512,12 @@ msgid "developers.signing_secret"
 msgstr "Secret de signature"
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:170
+#: src/app/actions/admin.ts:171
 msgid "admin.someone_already_signs_email"
 msgstr "Quelqu'un se connecte déjà avec cet e-mail."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:204
+#: src/app/actions/admin.ts:205
 msgid "admin.someone_else_already_signs"
 msgstr "Quelqu'un d'autre se connecte déjà avec cet e-mail."
 
@@ -2493,12 +2560,12 @@ msgid "action.starred"
 msgstr "Suivi"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:208
+#: src/app/pages/admin.tsx:211
 msgid "admin.status"
 msgstr "État"
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:320
+#: src/app/actions/admin.ts:321
 msgid "admin.still_failing_retried_automatically"
 msgstr "Toujours en échec. Une nouvelle tentative aura lieu automatiquement."
 
@@ -2538,12 +2605,12 @@ msgid "switcher.label"
 msgstr "Changer de boîte mail"
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:308
+#: src/app/actions/admin.ts:309
 msgid "admin.test_event_delivered"
 msgstr "Événement de test livré."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:308
+#: src/app/actions/admin.ts:309
 msgid "admin.test_event_failed_see"
 msgstr "L'événement de test a échoué. Voir le journal des envois."
 
@@ -2571,12 +2638,12 @@ msgid "common.failed_connection"
 msgstr "Ça n'a pas fonctionné. Vérifiez votre connexion et réessayez."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:54
+#: src/app/actions/admin.ts:55
 msgid "admin.doesnt_look_like_domain"
 msgstr "Ce n'est pas un nom de domaine valide. Exemple : acme.com."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:93
+#: src/app/actions/admin.ts:94
 msgid "admin.domain_unknown_turned_off"
 msgstr "Ce domaine est inconnu ou désactivé."
 
@@ -2621,7 +2688,7 @@ msgid "errors.message_limit"
 msgstr "Le message et ses pièces jointes dépassent la limite de 25 Mo."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:188
+#: src/app/actions/admin.ts:189
 msgid "admin.new_password_needs_least"
 msgstr "Le nouveau mot de passe doit faire au moins 10 caractères."
 
@@ -2631,7 +2698,7 @@ msgid "developers.old_one_stops_working"
 msgstr "L'ancien cesse de fonctionner immédiatement : les envois échouent jusqu'à ce que votre récepteur utilise le nouveau."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:169
+#: src/app/actions/admin.ts:170
 msgid "admin.password_needs_least_10"
 msgstr "Le mot de passe doit faire au moins 10 caractères."
 
@@ -2641,7 +2708,7 @@ msgid "spam.dmarc"
 msgstr "Le domaine de l'expéditeur n'a pas confirmé avoir envoyé ce message (échec DMARC)."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:265
+#: src/app/actions/admin.ts:266
 msgid "admin.url_must_start_https"
 msgstr "L'URL doit commencer par https://."
 
@@ -2666,12 +2733,12 @@ msgid "errors.page_body"
 msgstr "Il n'y a rien à cette adresse. Le lien est peut-être mal saisi ou périmé."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:351
+#: src/app/pages/admin.tsx:354
 msgid "admin.they_lose_access_straight"
 msgstr "La personne perd l'accès immédiatement. Les boîtes mail et le courrier sont conservés."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:258
+#: src/app/pages/admin.tsx:261
 msgid "admin.they_sign_email_password"
 msgstr "La personne se connecte avec cet e-mail et ce mot de passe."
 
@@ -2691,7 +2758,7 @@ msgid "errors.message_body"
 msgstr "Cette conversation n'est pas dans cette boîte mail. Elle a peut-être été supprimée définitivement, ou le lien est erroné."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:319
+#: src/app/actions/admin.ts:320
 msgid "admin.delivery_no_longer_exists"
 msgstr "Cet envoi n'existe plus."
 
@@ -2701,12 +2768,12 @@ msgid "errors.domain_body"
 msgstr "Ce domaine n'existe pas. Il a peut-être été retiré, ou le lien est erroné."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:74
+#: src/app/actions/admin.ts:75
 msgid "admin.domain_no_longer_exists"
 msgstr "Ce domaine n'existe plus."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:239
+#: src/app/actions/admin.ts:240
 msgid "admin.key_no_longer_exists"
 msgstr "Cette clé n'existe plus ou a été révoquée."
 
@@ -2721,9 +2788,9 @@ msgid "errors.mailbox_off"
 msgstr "Cette boîte mail est désactivée, elle ne peut donc pas envoyer."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:113
-#: src/app/actions/admin.ts:130
-#: src/app/actions/admin.ts:140
+#: src/app/actions/admin.ts:114
+#: src/app/actions/admin.ts:131
+#: src/app/actions/admin.ts:141
 msgid "admin.mailbox_no_longer_exists"
 msgstr "Cette boîte mail n'existe plus."
 
@@ -2734,7 +2801,7 @@ msgid "errors.too_long"
 msgstr "Ce message est trop long pour être envoyé."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:182
+#: src/app/actions/admin.ts:183
 msgid "admin.user_no_longer_exists"
 msgstr "Cet utilisateur n'existe plus."
 
@@ -2749,7 +2816,7 @@ msgid "errors.webhook_body"
 msgstr "Ce webhook n'existe pas. Il a peut-être été supprimé, ou le lien est erroné."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:307
+#: src/app/actions/admin.ts:308
 msgid "admin.webhook_no_longer_exists"
 msgstr "Ce webhook n'existe plus."
 
@@ -2759,12 +2826,12 @@ msgid "flash.nothing_ticked"
 msgstr "Cochez Lire, Organiser ou Envoyer sur au moins une ligne, ou choisissez Annuler."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:241
+#: src/app/actions/admin.ts:242
 msgid "admin.tick_read_organize_send_2"
 msgstr "Cochez Lire, Organiser ou Envoyer sur au moins une ligne, ou révoquez plutôt la clé."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:227
+#: src/app/actions/admin.ts:228
 msgid "admin.tick_read_organize_send"
 msgstr "Cochez Lire, Organiser ou Envoyer sur au moins une ligne."
 
@@ -2844,8 +2911,8 @@ msgid "domains.turned_off"
 msgstr "Désactivé"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:285
-#: src/app/pages/admin.tsx:304
+#: src/app/pages/admin.tsx:288
+#: src/app/pages/admin.tsx:307
 msgid "admin.two_step"
 msgstr "Deux étapes"
 
@@ -2902,7 +2969,7 @@ msgid "common.type_to_confirm"
 msgstr "Saisissez {confirmText} pour confirmer"
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:141
+#: src/app/actions/admin.ts:142
 msgid "admin.type_exact_address_confirm"
 msgstr "Saisissez l'adresse exacte pour confirmer."
 
@@ -2942,7 +3009,7 @@ msgid "verify.other_account"
 msgstr "Utiliser un autre compte"
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:95
+#: src/app/actions/admin.ts:96
 msgid "admin.use_letters_numbers_dots"
 msgstr "Utilisez des lettres, des chiffres, des points, des tirets ou + avant le @."
 
@@ -2957,17 +3024,17 @@ msgid "mfa.reset_self"
 msgstr "Utilisez votre propre page Sécurité pour modifier votre validation en deux étapes."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:215
+#: src/app/actions/admin.ts:216
 msgid "admin.user_removed_their_mailboxes"
 msgstr "Utilisateur retiré. Ses boîtes mail et son courrier sont conservés."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:206
+#: src/app/actions/admin.ts:207
 msgid "admin.user_saved"
 msgstr "Utilisateur enregistré."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:248
+#: src/app/pages/admin.tsx:251
 msgid "admin.users"
 msgstr "Utilisateurs"
 
@@ -2987,12 +3054,12 @@ msgid "developers.we_post_signed_json"
 msgstr "Nous envoyons (POST) un événement JSON signé à votre URL quand un message arrive ou part. Les envois en échec sont retentés pendant environ une journée."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:283
+#: src/app/actions/admin.ts:284
 msgid "admin.webhook_added_copy_signing"
 msgstr "Webhook ajouté. Copiez le secret de signature dans votre récepteur."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:336
+#: src/app/actions/admin.ts:337
 msgid "admin.webhook_deleted"
 msgstr "Webhook supprimé."
 
@@ -3002,7 +3069,7 @@ msgid "errors.webhook_title"
 msgstr "Webhook introuvable"
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:297
+#: src/app/actions/admin.ts:298
 msgid "admin.webhook_saved"
 msgstr "Webhook enregistré."
 
@@ -3013,17 +3080,22 @@ msgid "developers.webhooks"
 msgstr "Webhooks"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:411
+#: src/app/components/update-notice.tsx:76
+msgid "updates.changes"
+msgstr "Ce qui change"
+
+#. js-lingui-explicit-id
+#: src/app/pages/admin.tsx:428
 msgid "admin.when_off_mail_rejected"
 msgstr "Désactivée, le courrier qui lui est envoyé est refusé et elle ne peut pas envoyer."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:187
+#: src/app/pages/admin.tsx:190
 msgid "admin.who_can_use"
 msgstr "Qui peut l'utiliser"
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:417
+#: src/app/pages/admin.tsx:434
 msgid "admin.who_can_use_mailbox"
 msgstr "Qui peut utiliser cette boîte mail"
 
@@ -3053,7 +3125,7 @@ msgid "settings.signature_optional"
 msgstr "Vous pouvez l'omettre pour n'importe quel message."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:106
+#: src/app/pages/admin.tsx:109
 msgid "admin.role_own"
 msgstr "Vous ne pouvez pas changer votre propre rôle."
 
@@ -3063,7 +3135,7 @@ msgid "oauth.nothing"
 msgstr "Vous ne pouvez encore ouvrir aucune boîte mail, il n'y a donc rien à partager. Demandez à un administrateur."
 
 #. js-lingui-explicit-id
-#: src/app/actions/admin.ts:213
+#: src/app/actions/admin.ts:214
 msgid "admin.cant_remove_yourself"
 msgstr "Vous ne pouvez pas vous retirer vous-même."
 
@@ -3082,6 +3154,18 @@ msgid "errors.mailbox_restricted_body"
 msgstr "Vous n'avez pas l'autorisation d'ouvrir cette boîte mail. Demandez l'accès à un administrateur."
 
 #. js-lingui-explicit-id
+#. placeholder {0}: news.current
+#: src/app/components/update-notice.tsx:51
+msgid "updates.have"
+msgstr "Vous avez {0}."
+
+#. js-lingui-explicit-id
+#. placeholder {0}: news.current
+#: src/app/components/update-notice.tsx:50
+msgid "updates.have_secure"
+msgstr "Vous avez {0}. La mise à jour contient des changements de sécurité."
+
+#. js-lingui-explicit-id
 #: src/lib/spam.ts:101
 msgid "spam.marked"
 msgstr "Vous l'avez signalé comme spam, cet expéditeur est donc bloqué."
@@ -3097,7 +3181,7 @@ msgid "developers.youll_get_signing_secret"
 msgstr "Vous obtiendrez son secret de signature à l'écran suivant."
 
 #. js-lingui-explicit-id
-#: src/app/pages/admin.tsx:141
+#: src/app/pages/admin.tsx:144
 msgid "admin.youll_get_steps_connect"
 msgstr "Vous verrez ensuite les étapes pour le connecter à Cloudflare Email."
 

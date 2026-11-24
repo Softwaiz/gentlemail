@@ -10,6 +10,9 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 
 ## Unreleased
 
+### Added
+- Admins are told when a newer version of GentleMail is out: a notice with what changed, what to do before updating (for every release in between) and how to update. Nothing is installed by itself. About once a day GentleMail reads the list of releases on gentlemail.dev, from where Cloudflare's headers show your Worker's domain; turn it off with **Check for new versions** in **Admin**. See [Updating](https://gentlemail.dev/docs/updating/#being-told-about-releases). ([#51](https://github.com/Softwaiz/gentlemail/pull/51))
+
 ### Changed
 - If the editor fails while you write, the rest of the page stays, and your text goes on in a plain field you can send. ([#42](https://github.com/Softwaiz/gentlemail/pull/42))
 - The workflow that makes releases does nothing in copies of the repository, where it failed on every push to `main`. ([#42](https://github.com/Softwaiz/gentlemail/pull/42))

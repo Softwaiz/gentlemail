@@ -4,6 +4,10 @@
  * Each case sends through the real sendMessage action and reads the copy kept in Sent.
  */
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { after, before, describe, test } from "node:test";
 import { encodeReply } from "react-server-dom-webpack/client.edge";
 import { BASE, q, sha256, startWorker } from "./harness.mjs";
@@ -331,5 +335,30 @@ describe("messages with nothing in them", () => {
 
   test("a forward of a message that isn't in this mailbox counts as a new one", async () => {
     assert.equal((await post({ original: "nope", mode: "forward" })).row, null);
+  });
+});
+
+describe("attached files", () => {
+  // The local email service writes each attachment it is given to a file, under its own temporary folder.
+  const delivered = (ext) =>
+    readdirSync(tmpdir())
+      .filter((d) => d.startsWith("miniflare-"))
+      .map((d) => join(tmpdir(), d, "email"))
+      .filter((d) => existsSync(d))
+      .flatMap((d) => readdirSync(d, { recursive: true }).map((f) => join(d, String(f))))
+      .filter((f) => f.endsWith(`.${ext}`))
+      .map((f) => readFileSync(f));
+
+  test("reach the email service as the file's own bytes", async () => {
+    const ext = `x${randomBytes(6).toString("hex")}`;
+    const bytes = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x80, 0xff]), randomBytes(5000)]);
+    assert.ok((await post({ html: "<p>Photo</p>", files: new File([bytes], `photo.${ext}`, { type: "image/png" }) })).row);
+    const files = delivered(ext);
+    assert.ok(files.length > 0, "nothing was delivered");
+    for (const f of files) assert.ok(f.equals(bytes), `${f.length} bytes delivered for ${bytes.length}`);
+    // The copy kept in Sent, stored after the send, is the same file.
+    const { r2_key } = await db.prepare("SELECT r2_key FROM attachments WHERE filename = ?").bind(`photo.${ext}`).first();
+    const kept = await (await mf.getR2Bucket("MAIL_BUCKET")).get(r2_key);
+    assert.ok(Buffer.from(await kept.arrayBuffer()).equals(bytes));
   });
 });

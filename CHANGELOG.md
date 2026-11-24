@@ -16,6 +16,7 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 - The workflow that makes releases does nothing in copies of the repository, where it failed on every push to `main`. ([#42](https://github.com/Softwaiz/gentlemail/pull/42))
 
 ### Fixed
+- Images inside a message stay in place when you reply to it or forward it. They arrived as broken pictures, and a forward added them as loose files. In a reply, an image that would take the message past the limits is left out of the quote. ([#45](https://github.com/Softwaiz/gentlemail/pull/45))
 - Adding a link is no longer lost when the text it was for changed while its card was open. ([#42](https://github.com/Softwaiz/gentlemail/pull/42))
 
 ## 0.7.2 (2026-11-24)

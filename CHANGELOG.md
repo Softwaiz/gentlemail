@@ -18,6 +18,11 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 - Images inside a message stay in place when you reply to it or forward it. They arrived as broken pictures, and a forward added them as loose files. In a reply, an image that would take the message past the limits is left out of the quote. ([#45](https://github.com/Softwaiz/gentlemail/pull/45))
 - Adding a link is no longer lost when the text it was for changed while its card was open. ([#42](https://github.com/Softwaiz/gentlemail/pull/42))
 
+## 0.7.2 (2026-11-24)
+
+### Fixed
+- Files attached to a message arrive as they were sent. Files sent from the webmail or with `POST /api/v1/send`, and those passed on by a forward, could reach the recipient as base64 text, a third larger and impossible to open. The copies in **Sent** are intact: once updated, forward the message to send its files again. ([#46](https://github.com/Softwaiz/gentlemail/pull/46))
+
 ## 0.7.1 (2026-11-23)
 
 ### Fixed

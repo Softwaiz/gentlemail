@@ -16,7 +16,6 @@ import {
   rowText,
   stripBrackets,
   textToHtml,
-  toBase64,
 } from "./util";
 
 /** `contentId`: an image shown in the HTML where it says `cid:<contentId>`, rather than a file. */
@@ -95,7 +94,7 @@ async function carryImages(html: string, original: MessageRow, room: (file: Outg
     if (!wanted.has(cid) || newCid.has(cid) || !/^image\//i.test(a.content_type)) continue;
     const obj = await env.MAIL_BUCKET.get(a.r2_key);
     if (!obj) continue;
-    const file = { filename: a.filename, type: a.content_type, content: await obj.arrayBuffer(), contentId: `${newId()}@gentlemail` };
+    const file = { filename: a.filename, type: a.content_type, content: await obj.arrayBuffer(), contentId: `image-${newId()}` };
     if (!room(file, files)) continue;
     files.push(file);
     carried.add(a.id);
@@ -216,7 +215,9 @@ export async function sendMail(input: SendInput): Promise<string> {
       headers: Object.keys(headers).length ? headers : undefined,
       attachments: files.length
         ? files.map((f) => {
-            const file = { filename: f.filename, type: f.type || "application/octet-stream", content: toBase64(f.content) };
+            // The bytes themselves: given text, the email service attaches that text, so base64 arrives as a
+            // broken file. As a Uint8Array: local development can't pass an ArrayBuffer on.
+            const file = { filename: f.filename, type: f.type || "application/octet-stream", content: new Uint8Array(f.content) };
             return f.contentId
               ? { ...file, disposition: "inline" as const, contentId: f.contentId }
               : { ...file, disposition: "attachment" as const };

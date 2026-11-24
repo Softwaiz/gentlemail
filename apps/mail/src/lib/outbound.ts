@@ -16,7 +16,6 @@ import {
   rowText,
   stripBrackets,
   textToHtml,
-  toBase64,
 } from "./util";
 
 export type OutgoingFile = { filename: string; type: string; content: ArrayBuffer };
@@ -132,7 +131,9 @@ export async function sendMail(input: SendInput): Promise<string> {
         ? files.map((f) => ({
             filename: f.filename,
             type: f.type || "application/octet-stream",
-            content: toBase64(f.content),
+            // The bytes themselves: given text, the email service attaches that text, so base64 arrives as a
+            // broken file. As a Uint8Array: local development can't pass an ArrayBuffer on.
+            content: new Uint8Array(f.content),
             disposition: "attachment" as const,
           }))
         : undefined,

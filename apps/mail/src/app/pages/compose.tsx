@@ -57,7 +57,8 @@ export async function ComposePage(ri: RequestInfo) {
       ? original.text_body
       : htmlToText((await getHtmlBody(original)) ?? original.snippet)
     : "";
-  const fwdAtts = original && mode === "forward" ? await listAttachments([original.id]) : [];
+  // Images shown in the message go along inside it, so they aren't listed as files.
+  const fwdAtts = original && mode === "forward" ? (await listAttachments([original.id])).filter((a) => a.disposition !== "inline" || !a.content_id) : [];
 
   return (
     <Shell user={user} mailboxId={mailbox.id}>

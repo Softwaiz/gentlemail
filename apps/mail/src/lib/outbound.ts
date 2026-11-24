@@ -19,7 +19,8 @@ import {
   toBase64,
 } from "./util";
 
-export type OutgoingFile = { filename: string; type: string; content: ArrayBuffer };
+/** `contentId`: an image shown in the HTML where it says `cid:<contentId>`, rather than a file. */
+export type OutgoingFile = { filename: string; type: string; content: ArrayBuffer; contentId?: string };
 
 export type SendInput = {
   mailbox: Mailbox;
@@ -42,6 +43,73 @@ export type SendInput = {
 const toApi = (a: Addr): string | EmailAddress => (a.name ? { email: a.address, name: a.name } : a.address);
 
 const MAX_TOTAL = 25 * 1024 * 1024;
+/** The email service takes at most this many attachments, images in the HTML included. */
+const MAX_FILES = 32;
+
+const sizeOf = (files: OutgoingFile[]) => files.reduce((s, f) => s + f.content.byteLength, 0);
+
+/** "a%40b" → "a@b"; left as it is when it isn't valid percent-encoding. */
+const decodeCid = (cid: string) => {
+  try {
+    return decodeURIComponent(cid);
+  } catch {
+    return cid;
+  }
+};
+
+/**
+ * The images a quoted message shows (`<img src="cid:…">`), taken along so the quote isn't
+ * full of broken pictures. Each gets a new content ID: the old one was written by whoever
+ * sent the message. `room` says whether one more image fits; those that don't, and those
+ * GentleMail doesn't have, lose their tag. `carried` holds the attachments taken.
+ */
+async function carryImages(html: string, original: MessageRow, room: (file: OutgoingFile, taken: OutgoingFile[]) => boolean) {
+  const files: OutgoingFile[] = [];
+  const carried = new Set<string>();
+  if (!/cid:/i.test(html)) return { html, files, carried };
+
+  const wanted = new Set<string>();
+  const cidOf = (el: Element) => {
+    const m = /^\s*cid:(.+)$/i.exec(el.getAttribute("src") ?? "");
+    return m ? decodeCid(m[1].trim()).toLowerCase() : null;
+  };
+  const rewrite = (element: (el: Element) => void) =>
+    new HTMLRewriter()
+      .on("img", { element })
+      .transform(new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } }))
+      .text();
+  await rewrite((el) => {
+    const cid = cidOf(el);
+    if (cid) wanted.add(cid);
+  });
+  if (!wanted.size) return { html, files, carried };
+
+  const { results } = await env.DB.prepare(
+    "SELECT id, filename, content_type, r2_key, content_id FROM attachments WHERE message_id = ? AND content_id IS NOT NULL",
+  )
+    .bind(original.id)
+    .all<{ id: string; filename: string; content_type: string; r2_key: string; content_id: string }>();
+  const newCid = new Map<string, string>();
+  for (const a of results) {
+    const cid = a.content_id.toLowerCase();
+    if (!wanted.has(cid) || newCid.has(cid) || !/^image\//i.test(a.content_type)) continue;
+    const obj = await env.MAIL_BUCKET.get(a.r2_key);
+    if (!obj) continue;
+    const file = { filename: a.filename, type: a.content_type, content: await obj.arrayBuffer(), contentId: `${newId()}@gentlemail` };
+    if (!room(file, files)) continue;
+    files.push(file);
+    carried.add(a.id);
+    newCid.set(cid, file.contentId);
+  }
+  const out = await rewrite((el) => {
+    const cid = cidOf(el);
+    if (!cid) return;
+    const to = newCid.get(cid);
+    if (to) el.setAttribute("src", `cid:${to}`);
+    else el.remove();
+  });
+  return { html: out, files, carried };
+}
 
 export class SendError extends Error {
   constructor(message: string, public code?: string) {
@@ -54,8 +122,9 @@ const quotedSender = (m: MessageRow) => (m.from_name ? `${m.from_name} <${m.from
 /** The line above a quoted reply, as it is sent: always in English. The composer shows this same line. */
 export const replyIntro = (m: MessageRow) => `On ${mailDate(m.date)}, ${quotedSender(m)} wrote:`;
 
-async function buildQuote(original: MessageRow, mode: "reply" | "forward") {
-  const origHtml = (await getHtmlBody(original)) ?? textToHtml(original.text_body ?? "");
+const originalHtml = async (original: MessageRow) => (await getHtmlBody(original)) ?? textToHtml(original.text_body ?? "");
+
+function buildQuote(original: MessageRow, mode: "reply" | "forward", origHtml: string) {
   const origText = original.text_body?.trim() ? original.text_body : htmlToText(origHtml);
 
   if (mode === "forward") {
@@ -82,25 +151,42 @@ export async function sendMail(input: SendInput): Promise<string> {
   if (!recipients.length) throw new SendError("Add at least one recipient.");
   if (recipients.length > 50) throw new SendError("Maximum 50 recipients per email.");
 
-  // Forwarding carries the original attachments along.
   const files = [...input.files];
+  let quote = { text: "", html: "" };
+  let carried = new Set<string>();
+  if (original && mode && input.quote !== false) {
+    const origHtml = await originalHtml(original);
+    const typed = sizeOf(files) + input.body.length + (input.html?.length ?? 0);
+    // A reply leaves out the images that don't fit. A forward passes the message on whole: past the limit it's refused below.
+    const images = await carryImages(
+      origHtml,
+      original,
+      (file, taken) =>
+        mode === "forward" ||
+        (files.length + taken.length < MAX_FILES && typed + sizeOf(taken) + file.content.byteLength <= MAX_TOTAL),
+    );
+    files.push(...images.files);
+    carried = images.carried;
+    quote = buildQuote(original, mode, images.html);
+  }
+  // Forwarding carries the original's other attachments along.
   if (original && mode === "forward") {
     const { results } = await env.DB.prepare(
-      "SELECT filename, content_type, r2_key FROM attachments WHERE message_id = ?",
+      "SELECT id, filename, content_type, r2_key FROM attachments WHERE message_id = ?",
     )
       .bind(original.id)
-      .all<{ filename: string; content_type: string; r2_key: string }>();
+      .all<{ id: string; filename: string; content_type: string; r2_key: string }>();
     for (const a of results) {
+      if (carried.has(a.id)) continue;
       const obj = await env.MAIL_BUCKET.get(a.r2_key);
       if (obj) files.push({ filename: a.filename, type: a.content_type, content: await obj.arrayBuffer() });
     }
   }
-  const total = files.reduce((s, f) => s + f.content.byteLength, 0) + input.body.length + (input.html?.length ?? 0);
+  const total = sizeOf(files) + input.body.length + (input.html?.length ?? 0);
   // The text and HTML count too: they are part of the message the email service takes.
   if (total > MAX_TOTAL) throw new SendError("The message and its attachments exceed the 25 MB limit.");
 
   const sig = input.includeSignature && mailbox.signature.trim() ? mailbox.signature.trim() : "";
-  const quote = original && mode && input.quote !== false ? await buildQuote(original, mode) : { text: "", html: "" };
 
   const text = input.body + (sig ? `\n\n-- \n${sig}` : "") + quote.text;
   const html =
@@ -129,12 +215,12 @@ export async function sendMail(input: SendInput): Promise<string> {
       html,
       headers: Object.keys(headers).length ? headers : undefined,
       attachments: files.length
-        ? files.map((f) => ({
-            filename: f.filename,
-            type: f.type || "application/octet-stream",
-            content: toBase64(f.content),
-            disposition: "attachment" as const,
-          }))
+        ? files.map((f) => {
+            const file = { filename: f.filename, type: f.type || "application/octet-stream", content: toBase64(f.content) };
+            return f.contentId
+              ? { ...file, disposition: "inline" as const, contentId: f.contentId }
+              : { ...file, disposition: "attachment" as const };
+          })
         : undefined,
     });
   } catch (e: any) {
@@ -186,7 +272,7 @@ export async function sendMail(input: SendInput): Promise<string> {
       rowHtml,
       htmlKey,
       total,
-      files.length ? 1 : 0,
+      files.some((f) => !f.contentId) ? 1 : 0,
       ts,
       ts,
     ),
@@ -201,9 +287,19 @@ export async function sendMail(input: SendInput): Promise<string> {
     });
     stmts.push(
       env.DB.prepare(
-        `INSERT INTO attachments (id, message_id, filename, content_type, size, r2_key, disposition, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'attachment', ?)`,
-      ).bind(attId, id, f.filename, f.type || "application/octet-stream", f.content.byteLength, key, ts),
+        `INSERT INTO attachments (id, message_id, filename, content_type, size, r2_key, content_id, disposition, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).bind(
+        attId,
+        id,
+        f.filename,
+        f.type || "application/octet-stream",
+        f.content.byteLength,
+        key,
+        f.contentId ?? null,
+        f.contentId ? "inline" : "attachment",
+        ts,
+      ),
     );
   }
   await env.DB.batch(stmts);

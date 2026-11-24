@@ -6,16 +6,18 @@ import { ActionButton, ActionForm } from "@/app/components/action-form";
 import { ComposeForm } from "@/app/components/compose-form";
 import { RichEditor } from "@/app/components/rich-editor";
 import { Field, Section } from "@/app/components/section";
+import { SignatureFields } from "@/app/components/signature-fields";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { PageHeader, Shell } from "@/app/components/shell";
 import { Badge } from "@/app/components/ui/badge";
 import { Input } from "@/app/components/ui/input";
-import { Textarea } from "@/app/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { missing } from "@/app/pages/errors";
 import type { SenderRule } from "@/lib/spam";
 import { type Mailbox, type MessageRow, getHtmlBody, getMailboxForUser, listAttachments, replyRecipients } from "@/lib/db";
 import { replyIntro } from "@/lib/outbound";
+import { hasSignature, logoUrl, signatureLook } from "@/lib/signature";
+import { signatureBlock } from "@/lib/signature-html";
 import { type Addr, formatAddr, formatBytes, formatDate, htmlToText } from "@/lib/util";
 import { t } from "@lingui/core/macro";
 
@@ -57,7 +59,8 @@ export async function ComposePage(ri: RequestInfo) {
       ? original.text_body
       : htmlToText((await getHtmlBody(original)) ?? original.snippet)
     : "";
-  const fwdAtts = original && mode === "forward" ? await listAttachments([original.id]) : [];
+  // Images shown in the message go along inside it, so they aren't listed as files.
+  const fwdAtts = original && mode === "forward" ? (await listAttachments([original.id])).filter((a) => a.disposition !== "inline" || !a.content_id) : [];
 
   return (
     <Shell user={user} mailboxId={mailbox.id}>
@@ -99,12 +102,12 @@ export async function ComposePage(ri: RequestInfo) {
 
         <RichEditor autoFocus={!!to} />
 
-        {mailbox.signature.trim() && (
+        {hasSignature(mailbox) && (
           <div className="border-t border-dashed px-5 py-3">
             <label className="flex items-center gap-2 text-sm">
               <Checkbox name="signature" defaultChecked /> {t({ id: "composer.add_signature", message: "Add signature" })}
             </label>
-            <pre className="mt-2 font-sans text-sm whitespace-pre-wrap text-muted-foreground">-- {"\n"}{mailbox.signature}</pre>
+            <div className="signature-view mt-3 overflow-x-auto" dangerouslySetInnerHTML={{ __html: signatureBlock(signatureLook(mailbox, logoUrl(mailbox))) }} />
           </div>
         )}
 
@@ -176,25 +179,13 @@ export async function SettingsPage(ri: RequestInfo) {
       <PageHeader title={t({ id: "settings.title", message: "Mailbox settings" })} sub={mailbox.address} />
       <div className="grid gap-6 xl:grid-cols-2">
         <Section title={t({ id: "settings.name_signature", message: "Name and signature" })}>
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_240px]">
-            <ActionForm action={saveMailboxSettings} submitLabel={t({ id: "common.save", message: "Save" })}>
-              <input type="hidden" name="mailbox_id" value={mailbox.id} />
-              <Field label={t({ id: "settings.sender_name", message: "Sender name" })} hint={t({ id: "settings.sender_name_hint", message: "Recipients see this next to the address." })}>
-                <Input name="display_name" defaultValue={mailbox.display_name} required />
-              </Field>
-              <Field label={t({ id: "settings.signature", message: "Signature" })} hint={t({ id: "settings.signature_hint", message: "Plain text. Links become clickable when sent." })}>
-                <Textarea name="signature" rows={7} defaultValue={mailbox.signature} placeholder={t({ id: "settings.signature_placeholder", message: "Jane Doe\nAcme Inc., https://example.com" })} />
-              </Field>
-            </ActionForm>
-            <aside className="text-sm">
-              <div className="text-xs font-medium text-muted-foreground">{t({ id: "settings.preview", message: "How it looks" })}</div>
-              <div className="mt-2 rounded-md border bg-background p-4">
-                <div className="text-muted-foreground">{t({ id: "settings.preview_message", message: "…your message" })}</div>
-                <pre className="mt-3 font-sans whitespace-pre-wrap">-- {"\n"}{mailbox.signature.trim() || t({ id: "settings.no_signature", message: "No signature yet" })}</pre>
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">{t({ id: "settings.signature_optional", message: "You can leave it out of any single message." })}</p>
-            </aside>
-          </div>
+          <ActionForm action={saveMailboxSettings} submitLabel={t({ id: "common.save", message: "Save" })}>
+            <input type="hidden" name="mailbox_id" value={mailbox.id} />
+            <Field label={t({ id: "settings.sender_name", message: "Sender name" })} hint={t({ id: "settings.sender_name_hint", message: "Recipients see this next to the address." })}>
+              <Input name="display_name" defaultValue={mailbox.display_name} required />
+            </Field>
+            <SignatureFields look={signatureLook(mailbox, logoUrl(mailbox))} />
+          </ActionForm>
         </Section>
 
         <div className="grid content-start gap-6">

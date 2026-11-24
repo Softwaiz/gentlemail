@@ -14,7 +14,7 @@ import { Button } from "@/app/components/ui/button";
 import { AuthCard, LoginPage, LoginVerifyPage, SetupPage, loginAction, loginVerifyAction, logoutAction, setupAction } from "@/app/pages/auth";
 import { SecurityPage } from "@/app/pages/security";
 import { ComposePage, SettingsPage } from "@/app/pages/compose";
-import { attachmentHandler, bodyHandler, rawHandler } from "@/app/pages/files";
+import { attachmentHandler, bodyHandler, rawHandler, signatureLogoHandler } from "@/app/pages/files";
 import { FolderPage, ThreadPage } from "@/app/pages/mailbox";
 import { type User, getUserFromRequest } from "@/lib/auth";
 import { listMailboxesForUser } from "@/lib/db";
@@ -75,6 +75,7 @@ const app = defineApp([
   route("/logout", { post: logoutAction }),
   route("/attachments/:id", [requireUser, attachmentHandler]),
   route("/raw/:id", [requireUser, rawHandler]),
+  route("/signature-logo/:mailboxId", [requireUser, signatureLogoHandler]),
   route("/body/:id", [requireUser, bodyHandler]),
   // Public API (API keys, no cookies). See src/app/api.ts.
   route("/api/v1/send", { post: sendHandler }),

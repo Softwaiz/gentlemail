@@ -8,7 +8,7 @@ import { CardGrid, LinkCard } from "@astrojs/starlight/components";
 GentleMail is an inbox for your team and an API for your code, on the same mailboxes. It runs as one Worker on your own Cloudflare account and serves every domain you connect to it.
 
 <CardGrid>
-  <LinkCard title="Deploy" href="/docs/deploy/" description="From the Deploy button to your first message, in about ten minutes." />
+  <LinkCard title="Deploy" href="/docs/deploy/" description="From your own copy to your first message, in about ten minutes." />
   <LinkCard title="Send and read with the API" href="/docs/api/" description="API keys with read, organize and send access per mailbox, per domain or everywhere." />
   <LinkCard title="Webhooks" href="/docs/webhooks/" description="A signed event the moment mail arrives or leaves, retried until you answer." />
   <LinkCard title="Changelog" href="/docs/changelog/" description="What changed in each release, and what to do when you upgrade." />
@@ -27,4 +27,4 @@ Messages are stored in your own D1 database, and raw messages and attachments in
 
 - A **Cloudflare account on the Workers Paid plan** ($5/month), which includes the outbound email.
 - A **domain whose DNS is on Cloudflare**, in the same account.
-- A **GitHub account**, for the Deploy button.
+- A **GitHub account**, for your copy of GentleMail.

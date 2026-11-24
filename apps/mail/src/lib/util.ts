@@ -106,16 +106,6 @@ export function formatDate(ms: number, full = false): string {
 /** A date written into mail that goes out: always in English, like the words around it, whoever's language the page is in. */
 export const mailDate = (ms: number) => `${new Date(ms).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC`;
 
-export function toBase64(buf: ArrayBuffer | Uint8Array): string {
-  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
-  let bin = "";
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return btoa(bin);
-}
-
 /**
  * True when an HTML email paints its own colours. Those are designed for a
  * white page and stay on white; plain HTML follows the reader's theme.

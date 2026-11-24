@@ -11,6 +11,7 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 ## Unreleased
 
 ### Changed
+- The deploy guide recommends cloning GentleMail into your own repository, where a release is one `git pull`, and says that the Deploy button's copy doesn't follow releases. [Updating](https://gentlemail.dev/docs/updating/) gives the commands for each way of installing, and how to move from a button copy to a clone. ([#44](https://github.com/Softwaiz/gentlemail/pull/44))
 - If the editor fails while you write, the rest of the page stays, and your text goes on in a plain field you can send. ([#42](https://github.com/Softwaiz/gentlemail/pull/42))
 - The workflow that makes releases does nothing in copies of the repository, where it failed on every push to `main`. ([#42](https://github.com/Softwaiz/gentlemail/pull/42))
 

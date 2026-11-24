@@ -31,8 +31,8 @@ One deployment serves any number of domains, mailboxes and people for the $5/mon
 
 ## Deploy your own
 
-1. **Deploy.** Click **Deploy to Cloudflare** above. Cloudflare copies the app into a new repository on your GitHub account, creates the database and storage, asks for a one-time `SETUP_TOKEN`, then builds and deploys.
-   Using a fork or clone of this whole repository with Workers Builds instead? Set **Root directory** to `apps/mail`.
+1. **Deploy.** To keep an instance, [clone this repository into your own](https://gentlemail.dev/docs/deploy/#a-clone-in-your-own-repository-recommended) and connect it to a Worker with **Root directory** `apps/mail`: a release is then one `git pull`.
+   To try GentleMail, click **Deploy to Cloudflare** above: Cloudflare copies the app into a new repository on your GitHub account, creates the database and storage, asks for a one-time `SETUP_TOKEN`, then builds and deploys. That copy doesn't follow our releases; [updating it](https://gentlemail.dev/docs/updating/) takes more steps.
 2. **Claim it.** Open `/setup` on your new Worker and create the admin account.
 3. **Connect a domain.** Add it in **Admin → Domains** and run the three commands it shows.
 4. **Create mailboxes and users**, then send yourself a test message.

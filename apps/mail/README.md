@@ -27,32 +27,63 @@ Website: https://gentlemail.dev · [Deploy guide](https://gentlemail.dev/docs/de
 ## What you need
 - A **Cloudflare account on the Workers Paid plan** ($5/month). It includes the outbound email.
 - At least one **domain whose DNS is on Cloudflare**, in the same account. A domain has a single Email Routing catch-all, so use a domain (or subdomain) that isn't already routed to another Worker.
-- A **GitHub account**, for the Deploy button or Workers Builds.
+- A **GitHub account**, for your copy of GentleMail (any of the ways below except the command line alone).
 
 ## 1. Deploy
-Pick one of three ways. They all end with the same Worker.
+Pick one of these ways. They all end with the same Worker; what changes is how you get our releases afterwards.
 
-**Deploy to Cloudflare button (recommended).** Click the button above. Cloudflare copies this app into a new repository on your GitHub account, lets you choose the Worker name, creates the D1 database and the R2 bucket, asks for `SETUP_TOKEN` (any long random string, for example from `openssl rand -hex 32`), then builds and deploys. Every later push to that repository deploys again, with the database migrations applied first. The app sits at the root of that repository, so there's no path to set.
+| | Our releases | Good for |
+|---|---|---|
+| **A clone in your own repository** (recommended) | `git pull`, your settings kept | An instance you keep |
+| **Deploy to Cloudflare button** | Its copy doesn't follow them: the first update is settled by hand | Trying GentleMail |
+| **Command line only** | `git pull`, then deploy yourself | Deploying from your computer |
 
-**Workers Builds from a fork or clone of the whole repository.** Connect the repository to a Worker, then in **Settings → Builds → Advanced settings** set:
+### A clone in your own repository (recommended)
 
-| Setting | Value |
-|---|---|
-| Root directory | `apps/mail` |
-| Build command | `npm run build` |
-| Deploy command | `npm run deploy` (applies the D1 migrations, then deploys) |
+Your repository keeps GentleMail's history, so a release is one `git pull`. It can be private. You need Git, [Node.js](https://nodejs.org) and [pnpm](https://pnpm.io/installation).
 
-Add `SETUP_TOKEN` as a secret under **Settings → Variables and Secrets**. The deploy command's migration step needs the D1 database to exist; if the very first build stops there, do the first deploy from the command line (below), then retry the build.
+1. Create an empty repository on GitHub (no README), then:
+   ```sh
+   git clone https://github.com/Softwaiz/gentlemail my-gentlemail
+   cd my-gentlemail
+   git remote rename origin upstream      # where releases come from
+   git remote add origin https://github.com/<you>/<your-repository>.git
+   ```
+2. Choose your Worker name: change `name` in `apps/mail/wrangler.jsonc`.
+3. Deploy once from your computer. It creates the Worker, the database and the storage, which the builds need to exist:
+   ```sh
+   cd apps/mail
+   pnpm install
+   npx wrangler login
+   pnpm run build
+   npx wrangler deploy                            # the Worker, the D1 database and the R2 bucket
+   npx wrangler d1 migrations apply DB --remote   # the tables
+   npx wrangler secret put SETUP_TOKEN            # any long random string, used once at /setup
+   ```
+4. Commit your `wrangler.jsonc` and push:
+   ```sh
+   git commit -am "My settings"
+   git push -u origin main
+   ```
+5. So that every push deploys, open your Worker in the Cloudflare dashboard, connect the repository under **Settings → Builds**, and set:
 
-**Command line.** From `apps/mail`, the first time:
-```sh
-npm install
-npm run build
-npx wrangler deploy                            # creates the Worker, the D1 database and the R2 bucket named in wrangler.jsonc
-npx wrangler d1 migrations apply DB --remote   # creates the tables
-npx wrangler secret put SETUP_TOKEN            # any long random string, used once at /setup
-```
-Use `wrangler deploy` directly this first time: `npm run deploy` applies the migrations *before* deploying, and the database doesn't exist yet. From then on, deploy with `npm run build && npm run deploy` (the `deploy` script doesn't build).
+   | Setting | Value |
+   |---|---|
+   | Root directory | `apps/mail` |
+   | Build command | `npm run build` |
+   | Deploy command | `npm run deploy` (applies the database migrations, then deploys) |
+
+Forking on GitHub works the same way, and updates with its **Sync fork** button. A fork of a public repository is always public, your `wrangler.jsonc` included.
+
+### Deploy to Cloudflare button
+
+The quickest way to try GentleMail. [Click it](https://deploy.workers.cloudflare.com/?url=https://github.com/Softwaiz/gentlemail/tree/main/apps/mail): Cloudflare copies the app into a new repository on your GitHub account, lets you choose the Worker name, creates the D1 database and the R2 bucket, asks for `SETUP_TOKEN` (any long random string, for example from `openssl rand -hex 32`), then builds and deploys. Every later push to that repository deploys again, with the database migrations applied first. The app sits at the root of that repository, so there's no path to set.
+
+That copy isn't connected to GentleMail's repository: it doesn't follow our releases, and [updating it](#updating) takes more steps.
+
+### Command line only
+
+Steps 1 to 3 above, without a repository of your own: clone, set the Worker name, deploy. From then on, deploy with `npm run build && npm run deploy` from `apps/mail` (the first time, `npm run deploy` would stop: it applies the migrations before the database exists, and it doesn't build).
 
 ## 2. Create the admin account
 Open `https://<your-worker>.<your-subdomain>.workers.dev/setup`, enter your `SETUP_TOKEN` and create the admin account. The setup page works only once.
@@ -102,20 +133,42 @@ Values in `wrangler.jsonc` (marked ◆), plus one secret:
 | `SETUP_TOKEN` (secret) | One-time token for `/setup`. Listed in `.dev.vars.example`. |
 
 ## Updating
-Your repository is yours to change. To pick up a new release, add this repository as a remote and pull from it. A repository made by the Deploy button has no history in common with this one, which is why the first pull needs the extra step below.
+Your repository is yours to change. How you pull a release depends on how you installed GentleMail.
+
+### A clone or fork
+
+Your repository shares GentleMail's history. From your clone, with GentleMail as the `upstream` remote (if you don't have it: `git remote add upstream https://github.com/Softwaiz/gentlemail`):
+
+```sh
+git pull --no-rebase upstream main && git push
+```
+
+Your `wrangler.jsonc` is kept. If a release changes the same lines as you, Git shows a conflict there: keep your values and take the new lines. On a fork, **Sync fork** on GitHub does the same without a terminal.
+
+### A repository made by the Deploy button
+
+It has no history in common with GentleMail, so the first update is settled by hand. Clone your repository, then:
+
 ```sh
 git remote add upstream https://github.com/Softwaiz/gentlemail
-
-# Repository made by the Deploy button (the app is at its root):
-git pull -X subtree=apps/mail upstream main && git push
-
-# Fork or clone of the whole repository:
-git pull upstream main && git push
+git pull --no-rebase --allow-unrelated-histories -X subtree=apps/mail upstream main
 ```
-The first pull into a Deploy-button repository also needs `--allow-unrelated-histories`, and Git reports every file changed since you deployed as a conflict. Keep GentleMail's version (`git checkout --theirs .`), restore your own `wrangler.jsonc` and any file you changed (`git checkout --ours wrangler.jsonc`), then commit. Later pulls merge normally.
 
-Then deploy the update:
-- **Repository connected to Workers Builds** (the Deploy button sets this up): the `git push` deploys, migrations included.
+Git reports every file changed since you deployed as a conflict. Keep GentleMail's version of everything but your settings and anything you changed yourself, then commit and push:
+
+```sh
+git checkout --theirs . && git checkout --ours wrangler.jsonc
+git add -A && git commit --no-edit && git push
+```
+
+Keeping your `wrangler.jsonc` also leaves out what releases added to it. Compare it with [ours](https://github.com/Softwaiz/gentlemail/blob/main/apps/mail/wrangler.jsonc) and copy any new entry.
+
+Later updates merge normally: `git pull --no-rebase -X subtree=apps/mail upstream main && git push`.
+
+To stop needing this, move to a clone: follow [Deploy](#1-deploy) with your own `wrangler.jsonc` in `apps/mail` (same Worker name, same database and bucket), skip its step 3, and connect the new repository to your Worker in place of the old one.
+
+### Deploy the update
+- **Repository connected to Workers Builds** (the Deploy button sets this up, too): the `git push` deploys, migrations included.
 - **Command line**: a push deploys nothing. Run `npm run build && npm run deploy` from `apps/mail` (it applies the new migrations, then deploys).
 
 ## Troubleshooting

@@ -7,19 +7,39 @@ Every release is listed in the [changelog](/docs/changelog/) and on [GitHub rele
 
 ## Pull the release
 
-Your repository is yours to change. Add GentleMail as a remote and pull from it:
+Your repository is yours to change. How you pull a release depends on how you installed GentleMail.
+
+### A clone or fork
+
+Your repository shares GentleMail's history. From your clone, with GentleMail as the `upstream` remote (if you don't have it: `git remote add upstream https://github.com/Softwaiz/gentlemail`):
+
+```sh
+git pull --no-rebase upstream main && git push
+```
+
+Your `wrangler.jsonc` is kept. If a release changes the same lines as you, Git shows a conflict there: keep your values and take the new lines. On a fork, **Sync fork** on GitHub does the same without a terminal.
+
+### A repository made by the Deploy button
+
+It has no history in common with GentleMail, so the first update is settled by hand. Clone your repository, then:
 
 ```sh
 git remote add upstream https://github.com/Softwaiz/gentlemail
-
-# Repository made by the Deploy button (the app is at its root):
-git pull -X subtree=apps/mail upstream main && git push
-
-# Fork or clone of the whole repository:
-git pull upstream main && git push
+git pull --no-rebase --allow-unrelated-histories -X subtree=apps/mail upstream main
 ```
 
-A repository made by the Deploy button has no history in common with GentleMail, so the first pull also needs `--allow-unrelated-histories`, and Git reports every file changed since you deployed as a conflict. Keep GentleMail's version (`git checkout --theirs .`), restore your own `wrangler.jsonc` and anything you changed (`git checkout --ours wrangler.jsonc`), then commit. Later pulls merge normally.
+Git reports every file changed since you deployed as a conflict. Keep GentleMail's version of everything but your settings and anything you changed yourself, then commit and push:
+
+```sh
+git checkout --theirs . && git checkout --ours wrangler.jsonc
+git add -A && git commit --no-edit && git push
+```
+
+Keeping your `wrangler.jsonc` also leaves out what releases added to it. Compare it with [ours](https://github.com/Softwaiz/gentlemail/blob/main/apps/mail/wrangler.jsonc) and copy any new entry.
+
+Later updates merge normally: `git pull --no-rebase -X subtree=apps/mail upstream main && git push`.
+
+To stop needing this, move to a clone: follow [Deploy](/docs/deploy/#a-clone-in-your-own-repository-recommended) with your own `wrangler.jsonc` in `apps/mail` (same Worker name, same database and bucket), skip its step 3, and connect the new repository to your Worker in place of the old one.
 
 ## Deploy it, migrations first
 

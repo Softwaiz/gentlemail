@@ -14,6 +14,8 @@ import {
 import { ActionForm, ActionSwitch, ConfirmAction, FormDialog } from "@/app/components/action-form";
 import { resetUserMfaAction, setRequireMfaAction } from "@/app/actions/security";
 import { isMfaRequired } from "@/lib/mfa";
+import { isUpdateCheckOn } from "@/lib/updates";
+import { UpdateCheck } from "@/app/components/update-check";
 import { FormSelect } from "@/app/components/form-select";
 import { cn } from "@/lib/utils";
 import { Field, Section, StatusBadge, cardRow, cardTable, cardTableHeader } from "@/app/components/section";
@@ -71,7 +73,7 @@ function CheckList({
 
 export async function AdminPage({ ctx }: RequestInfo) {
   const user = ctx.user!;
-  const [{ results: mailboxes }, { results: users }, { results: members }, domains, mfaRequired] = await Promise.all([
+  const [{ results: mailboxes }, { results: users }, { results: members }, domains, mfaRequired, updateCheck] = await Promise.all([
     env.DB.prepare(
       `SELECT m.*,
         (SELECT COUNT(*) FROM messages x WHERE x.mailbox_id = m.id) AS total,
@@ -82,6 +84,7 @@ export async function AdminPage({ ctx }: RequestInfo) {
     env.DB.prepare("SELECT mailbox_id, user_id FROM mailbox_members").all<{ mailbox_id: string; user_id: string }>(),
     listDomainsWithCounts(),
     isMfaRequired(),
+    isUpdateCheckOn(),
   ]);
   const usable = domains.filter((d) => d.active);
   const memberUsers = users.filter((u) => u.role !== "admin");
@@ -362,6 +365,8 @@ export async function AdminPage({ ctx }: RequestInfo) {
             </TableBody>
           </Table>
         </Section>
+
+        <UpdateCheck on={updateCheck} />
       </div>
     </Shell>
   );

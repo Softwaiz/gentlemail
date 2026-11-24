@@ -8,6 +8,7 @@ import { type ActionResult, adminOnly, fail, ok, text } from "@/app/actions/guar
 import { createApiKey, endConnections, grantsFromForm, setApiKeyGrants } from "@/lib/apikeys";
 import { createUser, currentSessionId, hashPassword } from "@/lib/auth";
 import { type Domain, type Mailbox, isDomainActive } from "@/lib/db";
+import { forgetUpdateNews } from "@/lib/updates";
 import { isEmail, newId, now } from "@/lib/util";
 import { type DeliveryRow, EVENTS, type WebhookRow, attemptDelivery, newSecret, sendTestEvent } from "@/lib/webhooks";
 import { t } from "@lingui/core/macro";
@@ -217,7 +218,7 @@ export const deleteUserAction = serverAction([
   adminOnly,
   async (id: string): Promise<ActionResult> => {
     if (id === me().id) return fail(t({ id: "admin.cant_remove_yourself", message: "You can't remove yourself." }));
-    await env.DB.prepare("DELETE FROM users WHERE id = ?").bind(id).run();
+    await env.DB.batch([env.DB.prepare("DELETE FROM users WHERE id = ?").bind(id), forgetUpdateNews(id)]);
     return ok(t({ id: "admin.user_removed_their_mailboxes", message: "User removed. Their mailboxes and mail are kept." }));
   },
 ]);

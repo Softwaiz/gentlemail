@@ -32,9 +32,10 @@ function migrationStatements(app) {
 
 /**
  * Starts the Worker with the migrations and `seed` (SQL statements, one per line ending in ";") applied.
- * `app` is the built apps/mail folder to run (this one by default), `bindings` adds to its settings.
+ * `app` is the built apps/mail folder to run (this one by default), `bindings` adds to its settings,
+ * `outbound(request)` answers what it fetches from the internet.
  */
-export async function startWorker(seed, { app = APP, bindings = {} } = {}) {
+export async function startWorker(seed, { app = APP, bindings = {}, outbound } = {}) {
   const config = JSON.parse(readFileSync(join(app, "dist/worker/wrangler.json"), "utf8"));
   const mf = new Miniflare({
     scriptPath: join(app, "dist/worker", config.main),
@@ -45,6 +46,7 @@ export async function startWorker(seed, { app = APP, bindings = {} } = {}) {
     bindings: { ...config.vars, PUBLIC_URL: BASE, ...bindings },
     d1Databases: { DB: "test" },
     r2Buckets: { MAIL_BUCKET: "test" },
+    ...(outbound && { outboundService: outbound }),
     email: { send_email: [{ name: "EMAIL" }] },
     ratelimits: Object.fromEntries((config.ratelimits ?? []).map((r) => [r.name, { namespace_id: r.namespace_id, simple: r.simple }])),
   });

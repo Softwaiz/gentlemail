@@ -5,6 +5,12 @@ description: Pick up a new GentleMail release, apply its database migrations and
 
 Every release is listed in the [changelog](/docs/changelog/) and on [GitHub releases](https://github.com/Softwaiz/gentlemail/releases). Read its **Upgrading** notes before you deploy it: they say when a release changes the database.
 
+## Being told about releases
+
+Admins see a notice when a newer version is out, with what changed, the **Upgrading** notes of every release in between and how to update. **Later** closes it for that version; the line by the version number, at the bottom of the sidebar, stays. Members see neither. Nothing is ever installed by itself.
+
+To know, GentleMail reads [gentlemail.dev/docs/releases.json](https://gentlemail.dev/docs/releases.json) about once a day. GentleMail adds nothing about your instance, your mail or your users to that request. Cloudflare adds the name of the domain your Worker belongs to, as it does to every request a Worker makes (the [`CF-Worker` header](https://developers.cloudflare.com/fundamentals/reference/http-headers/#cf-worker)). To stop it, turn off **Check for new versions** at the bottom of **Admin**.
+
 ## Pull the release
 
 Your repository is yours to change. How you pull a release depends on how you installed GentleMail.

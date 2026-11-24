@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, screen, userEvent, within } from "storybook/test";
+import { expect, screen, userEvent, waitFor, within } from "storybook/test";
 import type { SwitcherGroup } from "@/lib/db";
+import type { UpdateNews } from "@/lib/updates";
 import { type ListItem, MessageList } from "./message-list";
 import { PageHeader, ShellView } from "./shell-view";
 
@@ -102,6 +103,41 @@ export const SwitcherOpen: Story = {
     await expect(await screen.findByText("old-support")).toBeInTheDocument();
   },
 };
+
+/* ---------- A new version ---------- */
+
+const news: UpdateNews = {
+  current: "0.7.2",
+  later: false,
+  releases: [
+    { version: "0.9.0", date: "2026-12-10", sections: { Added: ["Snoozing a conversation until a date."], Security: ["Sign-in links expire sooner."] } },
+    { version: "0.8.0", date: "2026-12-01", sections: { Added: ["Formatted signatures, with a logo."], Upgrading: ["Migration 0011_signatures.sql. Until it's applied, mailbox settings can't be saved."] } },
+  ],
+};
+
+/** A newer version, not seen yet: opens by itself, with the steps of every release skipped. */
+export const NewVersion: Story = {
+  args: { update: news },
+  globals: { language: "en" },
+  play: async () => {
+    const dialog = await screen.findByRole("dialog", { name: "GentleMail 0.9.0 is available" });
+    await expect(dialog).toHaveTextContent("0011_signatures.sql");
+    await expect(dialog).toHaveTextContent("security changes");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Later" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  },
+};
+
+/** Closed before: only the line by the version, which opens it again. */
+export const NewVersionLater: Story = { args: { update: { ...news, later: true } } };
+
+/** While writing a message (no sidebar item selected): it doesn't open by itself. */
+export const NewVersionWhileWriting: Story = { args: { update: news, folder: undefined } };
+
+/** Members are never told, whatever the page is given. */
+export const NewVersionMember: Story = { args: { update: news, user: member } };
+
+export const NewVersionPhone: Story = { args: { update: news }, globals: { viewport: { value: "phone" } } };
 
 /* ---------- On a phone ---------- */
 

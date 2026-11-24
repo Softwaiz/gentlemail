@@ -42,6 +42,7 @@ import {
   tokenHandler,
 } from "@/app/pages/oauth";
 import { purgeExpiredOAuth } from "@/lib/oauth";
+import { checkForUpdates } from "@/lib/updates";
 import { t } from "@lingui/core/macro";
 
 export type AppContext = { user: User | null; i18n: I18n };
@@ -149,12 +150,13 @@ export default class MailWorker extends WorkerEntrypoint<Env> {
     }
   }
 
-  /** Cron (every minute): retry due webhook deliveries; once an hour, purge old spam and expired sign-in tokens. */
+  /** Cron (every minute): retry due webhook deliveries; once an hour, purge old spam and expired sign-in tokens, and once a day look for a new GentleMail. */
   async scheduled(controller: ScheduledController) {
     await retryDueDeliveries();
     if (new Date(controller.scheduledTime).getUTCMinutes() === 0) {
       await purgeOldSpam();
       await purgeExpiredOAuth();
+      await checkForUpdates();
     }
   }
 

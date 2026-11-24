@@ -166,6 +166,8 @@ describe("logo", () => {
     // Shown in the webmail.
     const body = await (await request(`/body/${sent.id}`, { headers: { Cookie: `kb_session=${MEMBER}` } })).text();
     assert.ok(body.includes(`/attachments/${logo.id}`), body);
+    // With nothing that paints its own colours, so it follows the reader's theme.
+    assert.ok(body.includes('<meta name="color-scheme" content="light dark">'));
   });
 
   test("goes along in replies and forwards", async () => {

@@ -10,7 +10,12 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 
 ## Unreleased
 
+### Added
+- Formatted signatures, written with the composer's toolbar in **Mailbox settings** or on the mailbox's admin page, with a preview. A signature can have a logo (PNG, JPEG or GIF, up to 200 KB) left of the text or above it, with a width and a link. The logo is sent inside each message, replies and forwards included. See [Signatures](https://gentlemail.dev/docs/guides/signatures/). ([#50](https://github.com/Softwaiz/gentlemail/pull/50))
+
 ### Changed
+- Signatures are set off by a thin line instead of two dashes, and no longer have a text colour, which kept sent messages on a white page in the webmail's dark theme. The line can be turned off for each mailbox. Existing signatures keep their words; the plain-text version keeps the dashes. ([#50](https://github.com/Softwaiz/gentlemail/pull/50))
+- A message that would carry more than 32 files, images inside it included, is refused with a clear message instead of failing at the email service (`422` in the API). ([#50](https://github.com/Softwaiz/gentlemail/pull/50))
 - The deploy guide recommends cloning GentleMail into your own repository, where a release is one `git pull`, and says that the Deploy button's copy doesn't follow releases. [Updating](https://gentlemail.dev/docs/updating/) gives the commands for each way of installing, and how to move from a button copy to a clone. ([#44](https://github.com/Softwaiz/gentlemail/pull/44))
 - If the editor fails while you write, the rest of the page stays, and your text goes on in a plain field you can send. ([#42](https://github.com/Softwaiz/gentlemail/pull/42))
 - The workflow that makes releases does nothing in copies of the repository, where it failed on every push to `main`. ([#42](https://github.com/Softwaiz/gentlemail/pull/42))
@@ -18,6 +23,9 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 ### Fixed
 - Images inside a message stay in place when you reply to it or forward it. They arrived as broken pictures, and a forward added them as loose files. In a reply, an image that would take the message past the limits is left out of the quote. ([#45](https://github.com/Softwaiz/gentlemail/pull/45))
 - Adding a link is no longer lost when the text it was for changed while its card was open. ([#42](https://github.com/Softwaiz/gentlemail/pull/42))
+
+### Upgrading
+- Migration `0011_signatures.sql` (formatted signatures and logos). With the Deploy button's setup it's applied on the push; otherwise run `npx wrangler d1 migrations apply DB --remote` right after deploying. Until then, sending works with the plain signatures, but mailbox settings can't be saved. ([#50](https://github.com/Softwaiz/gentlemail/pull/50))
 
 ## 0.7.2 (2026-11-24)
 

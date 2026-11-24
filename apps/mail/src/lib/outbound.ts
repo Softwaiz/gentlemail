@@ -1,5 +1,6 @@
 import { env, waitUntil } from "cloudflare:workers";
 import { type Mailbox, type MessageRow, domainOf, getHtmlBody, isDomainActive, parseAddrs } from "./db";
+import { hasSignature, outgoingSignature } from "./signature";
 import { resolveThreadId } from "./threads";
 import { emitMessageEvent } from "./webhooks";
 import {
@@ -150,7 +151,8 @@ export async function sendMail(input: SendInput): Promise<string> {
   if (!recipients.length) throw new SendError("Add at least one recipient.");
   if (recipients.length > 50) throw new SendError("Maximum 50 recipients per email.");
 
-  const files = [...input.files];
+  const sig = input.includeSignature && hasSignature(mailbox) ? await outgoingSignature(mailbox) : null;
+  const files = [...input.files, ...(sig?.files ?? [])];
   let quote = { text: "", html: "" };
   let carried = new Set<string>();
   if (original && mode && input.quote !== false) {
@@ -185,13 +187,13 @@ export async function sendMail(input: SendInput): Promise<string> {
   // The text and HTML count too: they are part of the message the email service takes.
   if (total > MAX_TOTAL) throw new SendError("The message and its attachments exceed the 25 MB limit.");
 
-  const sig = input.includeSignature && mailbox.signature.trim() ? mailbox.signature.trim() : "";
+  if (files.length > MAX_FILES) throw new SendError(`A message can carry at most ${MAX_FILES} files, images inside it included.`);
 
-  const text = input.body + (sig ? `\n\n-- \n${sig}` : "") + quote.text;
+  const text = input.body + (sig?.text ? `\n\n-- \n${sig.text}` : "") + quote.text;
   const html =
     `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5">` +
     (input.html ?? textToHtml(input.body)) +
-    (sig ? `<br><br><div style="color:#555">-- <br>${textToHtml(sig)}</div>` : "") +
+    (sig?.html ? `<br><br>${sig.html}` : "") +
     quote.html +
     `</div>`;
 

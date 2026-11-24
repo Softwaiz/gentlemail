@@ -1,6 +1,6 @@
 "use client";
 
-import { $generateHtmlFromNodes } from "@lexical/html";
+import { $generateHtmlFromNodes, $generateNodesFromDOM } from "@lexical/html";
 import { $createLinkNode, $isAutoLinkNode, $isLinkNode, $toggleLink, AutoLinkNode, LinkNode } from "@lexical/link";
 import { $isListNode, INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND, ListItemNode, ListNode, REMOVE_LIST_COMMAND } from "@lexical/list";
 import { AutoFocusPlugin } from "@lexical/react/LexicalAutoFocusPlugin";
@@ -23,6 +23,7 @@ import {
   $getNodeByKey,
   $getRoot,
   $getSelection,
+  $insertNodes,
   $isElementNode,
   $isRangeSelection,
   $isTextNode,
@@ -31,6 +32,8 @@ import {
   COMMAND_PRIORITY_NORMAL,
   createCommand,
   FORMAT_TEXT_COMMAND,
+  HISTORY_MERGE_TAG,
+  SKIP_DOM_SELECTION_TAG,
   KEY_DOWN_COMMAND,
   type LexicalCommand,
   type LexicalEditor,
@@ -117,8 +120,24 @@ function normalizeUrl(input: string) {
   return `https://${v.replace(/^\/+/, "")}`;
 }
 
-/** The editor's children are more Lexical plugins. */
-export function RichEditor({ name = "html", placeholder, autoFocus = false, children }: { name?: string; placeholder?: string; autoFocus?: boolean; children?: React.ReactNode }) {
+/** The editor's children are more Lexical plugins. `initialHtml` is what it starts with: HTML the server cleaned. */
+export function RichEditor({
+  name = "html",
+  label,
+  placeholder,
+  initialHtml,
+  bodyClassName = "min-h-72",
+  autoFocus = false,
+  children,
+}: {
+  name?: string;
+  label?: string;
+  placeholder?: string;
+  initialHtml?: string;
+  bodyClassName?: string;
+  autoFocus?: boolean;
+  children?: React.ReactNode;
+}) {
   const area = useRef<HTMLDivElement>(null);
   const editor = useRef<LexicalEditor>(null);
   return (
@@ -136,9 +155,9 @@ export function RichEditor({ name = "html", placeholder, autoFocus = false, chil
           <RichTextPlugin
             contentEditable={
               <ContentEditable
-                aria-label={t({ id: "editor.message", message: "Message" })}
+                aria-label={label ?? t({ id: "editor.message", message: "Message" })}
                 aria-multiline
-                className="composer-body block min-h-72 w-full px-5 py-4 text-[15px] leading-relaxed outline-none"
+                className={cn("composer-body block w-full px-5 py-4 text-[15px] leading-relaxed outline-none", bodyClassName)}
               />
             }
             placeholder={<div className="pointer-events-none absolute top-4 left-5 text-[15px] text-muted-foreground select-none">{placeholder ?? t({ id: "editor.placeholder", message: "Write your message…" })}</div>}
@@ -147,6 +166,7 @@ export function RichEditor({ name = "html", placeholder, autoFocus = false, chil
           <LinkCard area={area} />
         </div>
         <OnlySentFormatting />
+        {initialHtml && <InitialHtml html={initialHtml} />}
         <HistoryPlugin />
         <ListPlugin />
         <LinkPlugin validateUrl={validUrl} />
@@ -179,6 +199,26 @@ function HtmlField({ name }: { name: string }) {
     return () => form.removeEventListener("formdata", fill);
   }, [editor, name]);
   return <input ref={field} type="hidden" name={name} />;
+}
+
+/** Fills the editor once, in the browser: the server has no DOM to read HTML with. */
+function InitialHtml({ html }: { html: string }) {
+  const [editor] = useLexicalComposerContext();
+  const filled = useRef(false);
+  useLayoutEffect(() => {
+    if (filled.current) return;
+    filled.current = true;
+    editor.update(
+      () => {
+        const nodes = $generateNodesFromDOM(editor, new DOMParser().parseFromString(html, "text/html"));
+        $getRoot().clear().select();
+        $insertNodes(nodes);
+        $setSelection(null); // the page's focus stays where it is
+      },
+      { tag: [HISTORY_MERGE_TAG, SKIP_DOM_SELECTION_TAG], discrete: true },
+    );
+  }, [editor, html]);
+  return null;
 }
 
 /** Keeps the editor within reach of what surrounds it. */

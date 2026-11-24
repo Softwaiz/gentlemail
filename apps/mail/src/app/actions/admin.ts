@@ -1,6 +1,8 @@
 "use server";
 
 import { env } from "cloudflare:workers";
+import { signatureProblemText } from "@/app/actions/signature-errors";
+import { readSignature } from "@/lib/signature";
 import { requestInfo, serverAction } from "rwsdk/worker";
 import { type ActionResult, adminOnly, fail, ok, text } from "@/app/actions/guards";
 import { createApiKey, endConnections, grantsFromForm, setApiKeyGrants } from "@/lib/apikeys";
@@ -111,14 +113,18 @@ export const updateMailbox = serverAction([
     const id = text(form, "id");
     const mailbox = await env.DB.prepare("SELECT * FROM mailboxes WHERE id = ?").bind(id).first<Mailbox>();
     if (!mailbox) return fail(t({ id: "admin.mailbox_no_longer_exists", message: "This mailbox no longer exists." }));
-    await env.DB.prepare("UPDATE mailboxes SET display_name = ?, signature = ?, active = ? WHERE id = ?")
-      .bind(
+    const signature = await readSignature(form, mailbox);
+    if (signature.problem) return fail(signatureProblemText(signature.problem));
+    const { statement, done } = await signature.save();
+    await env.DB.batch([
+      statement,
+      env.DB.prepare("UPDATE mailboxes SET display_name = ?, active = ? WHERE id = ?").bind(
         text(form, "display_name") || mailbox.display_name,
-        String(form.get("signature") ?? "").slice(0, 5000),
         form.get("active") === "on" || form.get("active") === "1" ? 1 : 0,
         id,
-      )
-      .run();
+      ),
+    ]);
+    await done();
     return ok(t({ id: "admin.mailbox_saved", message: "Mailbox saved." }));
   },
 ]);

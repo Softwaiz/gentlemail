@@ -6,6 +6,8 @@ import { type ActionResult, fail, ok, signedIn, text } from "@/app/actions/guard
 import { COMPOSER_HTML_LIMIT, COMPOSER_RAW_LIMIT, cleanComposerHtml, composerText } from "@/lib/compose-html";
 import { type MessageRow, deleteMessageForever, getMailboxForUser, isFolder } from "@/lib/db";
 import { SendError, sendMail } from "@/lib/outbound";
+import { readSignature } from "@/lib/signature";
+import { signatureProblemText } from "@/app/actions/signature-errors";
 import { learnFrom } from "@/lib/spam";
 import { byteLength, chunks, isEmail, parseAddressList } from "@/lib/util";
 import type { MessageDescriptor } from "@lingui/core";
@@ -23,6 +25,8 @@ const sendErrorText = (e: SendError) => {
   if (e.message === "The message and its attachments exceed the 25 MB limit.")
     return t({ id: "errors.message_limit", message: "The message and its attachments exceed the 25 MB limit." });
   if (e.message === "Maximum 50 recipients per email.") return t({ id: "errors.max_recipients", message: "Maximum 50 recipients per email." });
+  if (e.message === "A message can carry at most 32 files, images inside it included.")
+    return t({ id: "errors.max_files", message: "A message can carry at most 32 files, images inside it included." });
   if (e.message === "Add at least one recipient.") return t({ id: "errors.no_recipient", message: "Add at least one recipient." });
   const off = e.message.match(/^Sending from (.+) is disabled\.$/);
   if (off) return t({ id: "errors.sending_disabled", message: `Sending from ${off[1]} is disabled.` });
@@ -211,9 +215,14 @@ export const saveMailboxSettings = serverAction([
   async (form: FormData): Promise<ActionResult> => {
     const mailbox = await mailboxFor(text(form, "mailbox_id"));
     if (!mailbox) return fail(t({ id: "errors.no_mailbox_access", message: "You don't have access to this mailbox." }));
-    await env.DB.prepare("UPDATE mailboxes SET display_name = ?, signature = ? WHERE id = ?")
-      .bind(text(form, "display_name") || mailbox.display_name, String(form.get("signature") ?? "").slice(0, 5000), mailbox.id)
-      .run();
+    const signature = await readSignature(form, mailbox);
+    if (signature.problem) return fail(signatureProblemText(signature.problem));
+    const { statement, done } = await signature.save();
+    await env.DB.batch([
+      statement,
+      env.DB.prepare("UPDATE mailboxes SET display_name = ? WHERE id = ?").bind(text(form, "display_name") || mailbox.display_name, mailbox.id),
+    ]);
+    await done();
     return ok(t({ id: "done.settings_saved", message: "Settings saved." }));
   },
 ]);

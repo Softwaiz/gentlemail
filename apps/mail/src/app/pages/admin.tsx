@@ -17,6 +17,8 @@ import { isMfaRequired } from "@/lib/mfa";
 import { FormSelect } from "@/app/components/form-select";
 import { cn } from "@/lib/utils";
 import { Field, Section, StatusBadge, cardRow, cardTable, cardTableHeader } from "@/app/components/section";
+import { SignatureFields } from "@/app/components/signature-fields";
+import { logoUrl, signatureLook } from "@/lib/signature";
 import { PageHeader, Shell } from "@/app/components/shell";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
@@ -24,7 +26,6 @@ import { Input } from "@/app/components/ui/input";
 import { PasswordInput } from "@/app/components/password-input";
 import { Switch } from "@/app/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
-import { Textarea } from "@/app/components/ui/textarea";
 import { missing } from "@/app/pages/errors";
 import { DomainsGrid, listDomainsWithCounts } from "@/app/pages/domains";
 import { type Mailbox, domainOf } from "@/lib/db";
@@ -401,9 +402,7 @@ export async function AdminMailboxPage(ri: RequestInfo) {
             <Field label={t({ id: "admin.sender_name", message: "Sender name" })}>
               <Input name="display_name" defaultValue={mailbox.display_name} required />
             </Field>
-            <Field label={t({ id: "admin.signature", message: "Signature" })} hint={t({ id: "admin.plain_text_added_under", message: "Plain text, added under messages sent from this mailbox." })}>
-              <Textarea name="signature" rows={5} defaultValue={mailbox.signature} />
-            </Field>
+            <SignatureFields look={signatureLook(mailbox, logoUrl(mailbox))} />
             <label className="flex items-center gap-3 text-sm">
               <Switch name="active" defaultChecked={!!mailbox.active} />
               <span>

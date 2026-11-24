@@ -223,6 +223,14 @@ input::-ms-reveal { display: none; }
   padding: 0.05rem 0.3rem;
   border-radius: 0.25rem;
 }
+/* A signature shown as it will be sent (settings, composer): the mail apps' own list and link styles. */
+.signature-view { overflow-wrap: anywhere; }
+.signature-view ul { list-style: disc; padding-left: 1.5rem; }
+.signature-view ol { list-style: decimal; padding-left: 1.5rem; }
+.signature-view a { text-decoration: underline; text-underline-offset: 2px; }
+.signature-view img { max-width: none; }
+.signature-view code { font-family: var(--font-mono, ui-monospace, Menlo, Consolas, monospace); font-size: 0.9em; }
+.signature-view blockquote { border-left: 2px solid var(--border); padding-left: 0.75rem; }
 .composer-card { animation: composer-card-in 140ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 @keyframes composer-card-in {
   from { opacity: 0; transform: translateY(-3px) scale(0.98); }

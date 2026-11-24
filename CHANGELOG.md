@@ -16,10 +16,10 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 
 ### Fixed
 - Adding a link is no longer lost when the text it was for changed while its card was open. ([#42](https://github.com/Softwaiz/gentlemail/pull/42))
-- Letting Wrangler write the new database's ID into `wrangler.jsonc` no longer makes a later `git pull` conflict on the whole file. Wrangler lays out the file again when it adds something; the file now comes in that layout, so only the ID changes. No setting changed. ([#NUM](https://github.com/Softwaiz/gentlemail/pull/NUM))
+- Letting Wrangler write the new database's ID into `wrangler.jsonc` no longer makes a later `git pull` conflict on the whole file. Wrangler lays out the file again when it adds something; the file now comes in that layout, so only the ID changes. No setting changed. ([#49](https://github.com/Softwaiz/gentlemail/pull/49))
 
 ### Upgrading
-- If you edited `wrangler.jsonc`, pulling this release can conflict there, once. Keep your file and put it in the new layout: see [Updating](https://gentlemail.dev/docs/updating/#a-conflict-in-wranglerjsonc). ([#NUM](https://github.com/Softwaiz/gentlemail/pull/NUM))
+- If you edited `wrangler.jsonc`, pulling this release can conflict there, once. Keep your file and put it in the new layout: see [Updating](https://gentlemail.dev/docs/updating/#a-conflict-in-wranglerjsonc). ([#49](https://github.com/Softwaiz/gentlemail/pull/49))
 
 ## 0.7.2 (2026-11-24)
 

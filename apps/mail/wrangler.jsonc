@@ -8,58 +8,67 @@
 // R2 bucket for you. Values marked ◆ are yours to change in your own copy.
 // ─────────────────────────────────────────────────────────────────────────────
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "my-gentlemail", // ◆ Worker name (also the Email Routing catch-all target)
-  "main": "src/worker.tsx",
-  "compatibility_date": "2026-08-01",
-  "compatibility_flags": ["nodejs_compat"],
-
-  "assets": {
-    "binding": "ASSETS"
-  },
-
-  "observability": {
-    "enabled": true
-  },
-
-  // ◆ Hostname(s) the webmail is served on. Uncomment to use your own:
-  // "routes": [{ "pattern": "mail.example.com", "custom_domain": true }],
-
-  // All mail, mailboxes, users and sessions
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "gentlemail",
-      "migrations_dir": "migrations"
-    }
-  ],
-
-  // Raw .eml files, attachments and oversized HTML bodies
-  "r2_buckets": [
-    {
-      "binding": "MAIL_BUCKET",
-      "bucket_name": "gentlemail"
-    }
-  ],
-
-  // Limits how often one IP address can register an AI assistant app (POST /oauth/register)
-  "ratelimits": [{ "name": "REGISTER_LIMIT", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }],
-
-  // Retries failed webhook deliveries
-  "triggers": { "crons": ["* * * * *"] },
-
-  // Cloudflare Email Service (outbound). No API key needed.
-  "send_email": [{ "name": "EMAIL" }],
-
-  "vars": {
-    // ◆ Public address of the app, used for links in webhook payloads. Empty = links are relative.
-    "PUBLIC_URL": "",
-    // ◆ Name shown in the UI and browser tab
-    "APP_NAME": "GentleMail",
-    // ◆ Optional: move mail to spam when Cloudflare's spam score (X-Cf-Spamh-Score) reaches this value. Empty = off.
-    "SPAM_SCORE_THRESHOLD": ""
-  },
-
-  // Secrets (listed in .dev.vars.example, set with `wrangler secret put`):
-  //   SETUP_TOKEN — one-time token required to create the first admin at /setup
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "my-gentlemail", // ◆ Worker name (also the Email Routing catch-all target)
+	"main": "src/worker.tsx",
+	"compatibility_date": "2026-08-01",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"assets": {
+		"binding": "ASSETS"
+	},
+	"observability": {
+		"enabled": true
+	},
+	// ◆ Hostname(s) the webmail is served on. Uncomment to use your own:
+	// "routes": [{ "pattern": "mail.example.com", "custom_domain": true }],
+	// All mail, mailboxes, users and sessions
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "gentlemail",
+			"migrations_dir": "migrations"
+		}
+	],
+	// Raw .eml files, attachments and oversized HTML bodies
+	"r2_buckets": [
+		{
+			"binding": "MAIL_BUCKET",
+			"bucket_name": "gentlemail"
+		}
+	],
+	// Limits how often one IP address can register an AI assistant app (POST /oauth/register)
+	"ratelimits": [
+		{
+			"name": "REGISTER_LIMIT",
+			"namespace_id": "1001",
+			"simple": {
+				"limit": 10,
+				"period": 60
+			}
+		}
+	],
+	// Retries failed webhook deliveries
+	"triggers": {
+		"crons": [
+			"* * * * *"
+		]
+	},
+	// Cloudflare Email Service (outbound). No API key needed.
+	"send_email": [
+		{
+			"name": "EMAIL"
+		}
+	],
+	"vars": {
+		// ◆ Public address of the app, used for links in webhook payloads. Empty = links are relative.
+		"PUBLIC_URL": "",
+		// ◆ Name shown in the UI and browser tab
+		"APP_NAME": "GentleMail",
+		// ◆ Optional: move mail to spam when Cloudflare's spam score (X-Cf-Spamh-Score) reaches this value. Empty = off.
+		"SPAM_SCORE_THRESHOLD": ""
+	},
+	// Secrets (listed in .dev.vars.example, set with `wrangler secret put`):
+	//   SETUP_TOKEN — one-time token required to create the first admin at /setup
 }

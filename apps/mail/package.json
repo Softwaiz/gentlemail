@@ -18,6 +18,7 @@
     "check": "pnpm generate && pnpm types",
     "types": "tsc",
     "test": "vite build && node --test test/*.test.mjs",
+    "config:format": "node scripts/format-config.mjs",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:seed:local": "node scripts/seed-local.mjs",
     "i18n": "lingui extract --clean --overwrite && lingui compile --typescript",

@@ -21,6 +21,21 @@ git pull upstream main && git push
 
 A repository made by the Deploy button has no history in common with GentleMail, so the first pull also needs `--allow-unrelated-histories`, and Git reports every file changed since you deployed as a conflict. Keep GentleMail's version (`git checkout --theirs .`), restore your own `wrangler.jsonc` and anything you changed (`git checkout --ours wrangler.jsonc`), then commit. Later pulls merge normally.
 
+### A conflict in wrangler.jsonc
+
+If `wrangler.jsonc` conflicts, keep your own file and put it in the layout of ours. On a clone or fork, from `apps/mail`:
+
+```sh
+git checkout --ours wrangler.jsonc
+pnpm install && npm run config:format
+git diff upstream/main -- wrangler.jsonc    # what differs from ours
+git add wrangler.jsonc && git commit --no-edit && git push
+```
+
+That comparison should show only your own settings. If an entry of ours is missing from your file, copy it before you commit. In a repository made by the Deploy button, run the same commands from its root with `npm install`; compare with [our file](https://github.com/Softwaiz/gentlemail/blob/main/apps/mail/wrangler.jsonc) instead.
+
+Expect this once, in the first release after 0.7.2, if you edited the file before: that release changed its layout (spaces, line breaks), not its settings.
+
 ## Deploy it, migrations first
 
 Some releases add a database migration (a numbered file in `migrations/`). **The new code needs it**: deploy the code without it and pages fail until it's applied.

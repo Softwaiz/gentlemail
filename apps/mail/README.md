@@ -114,6 +114,8 @@ git pull upstream main && git push
 ```
 The first pull into a Deploy-button repository also needs `--allow-unrelated-histories`, and Git reports every file changed since you deployed as a conflict. Keep GentleMail's version (`git checkout --theirs .`), restore your own `wrangler.jsonc` and any file you changed (`git checkout --ours wrangler.jsonc`), then commit. Later pulls merge normally.
 
+If `wrangler.jsonc` conflicts, keep your own and run `npm run config:format`: see [Updating](https://gentlemail.dev/docs/updating/#a-conflict-in-wranglerjsonc). Expect it once, in the first release after 0.7.2, if you edited the file before.
+
 Then deploy the update:
 - **Repository connected to Workers Builds** (the Deploy button sets this up): the `git push` deploys, migrations included.
 - **Command line**: a push deploys nothing. Run `npm run build && npm run deploy` from `apps/mail` (it applies the new migrations, then deploys).
@@ -249,6 +251,7 @@ Run from `apps/mail` with `npm run <script>` (or `pnpm <script>`).
 | `db:migrate:local` / `db:migrate:remote` | Apply migrations to the local or the remote database |
 | `db:seed:local` | Fill the local database with made-up mailboxes, mail, an API key and a webhook, to look at every screen; the sign-in details are at the top of `scripts/seed-local.mjs`. Rerunning replaces that data; nothing else is touched |
 | `i18n` | Update the translation catalogs (`src/locales/<language>/messages.po`) from the keys in the code, compile them for the app, and count what each language is missing. Run it after changing text on screen; see [Languages](https://gentlemail.dev/docs/guides/languages/) |
+| `config:format` | Put `wrangler.jsonc` in the layout Wrangler writes; values and comments don't change. Run it after editing the template |
 | `generate` | Regenerate `worker-configuration.d.ts` from `wrangler.jsonc` (after changing bindings or vars) |
 | `types` | Type-check with `tsc` |
 | `check` | `generate`, then `types` (calls pnpm) |

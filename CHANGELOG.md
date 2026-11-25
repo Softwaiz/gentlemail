@@ -10,6 +10,8 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 
 ## Unreleased
 
+## 0.8.0 (2026-11-25)
+
 ### Added
 - Admins are told when a newer version of GentleMail is out: a notice with what changed, what to do before updating (for every release in between) and how to update. Nothing is installed by itself. About once a day GentleMail reads the list of releases on gentlemail.dev, from where Cloudflare's headers show your Worker's domain; turn it off with **Check for new versions** in **Admin**. See [Updating](https://gentlemail.dev/docs/updating/#being-told-about-releases). ([#51](https://github.com/Softwaiz/gentlemail/pull/51))
 - Formatted signatures, written with the composer's toolbar in **Mailbox settings** or on the mailbox's admin page, with a preview. A signature can have a logo (PNG, JPEG or GIF, up to 200 KB) left of the text or above it, with a width and a link. The logo is sent inside each message, replies and forwards included. See [Signatures](https://gentlemail.dev/docs/guides/signatures/). ([#50](https://github.com/Softwaiz/gentlemail/pull/50))

@@ -5,21 +5,47 @@ description: Pick up a new GentleMail release, apply its database migrations and
 
 Every release is listed in the [changelog](/docs/changelog/) and on [GitHub releases](https://github.com/Softwaiz/gentlemail/releases). Read its **Upgrading** notes before you deploy it: they say when a release changes the database.
 
+## Being told about releases
+
+Admins see a notice when a newer version is out, with what changed, the **Upgrading** notes of every release in between and how to update. **Later** closes it for that version; the line by the version number, at the bottom of the sidebar, stays. Members see neither. Nothing is ever installed by itself.
+
+To know, GentleMail reads [gentlemail.dev/docs/releases.json](https://gentlemail.dev/docs/releases.json) about once a day. GentleMail adds nothing about your instance, your mail or your users to that request. Cloudflare adds the name of the domain your Worker belongs to, as it does to every request a Worker makes (the [`CF-Worker` header](https://developers.cloudflare.com/fundamentals/reference/http-headers/#cf-worker)). To stop it, turn off **Check for new versions** at the bottom of **Admin**.
+
 ## Pull the release
 
-Your repository is yours to change. Add GentleMail as a remote and pull from it:
+Your repository is yours to change. How you pull a release depends on how you installed GentleMail.
+
+### A clone or fork
+
+Your repository shares GentleMail's history. From your clone, with GentleMail as the `upstream` remote (if you don't have it: `git remote add upstream https://github.com/Softwaiz/gentlemail`):
+
+```sh
+git pull --no-rebase upstream main && git push
+```
+
+Your `wrangler.jsonc` is kept. If a release changes the same lines as you, Git shows a conflict there: keep your values and take the new lines. On a fork, **Sync fork** on GitHub does the same without a terminal.
+
+### A repository made by the Deploy button
+
+It has no history in common with GentleMail, so the first update is settled by hand. Clone your repository, then:
 
 ```sh
 git remote add upstream https://github.com/Softwaiz/gentlemail
-
-# Repository made by the Deploy button (the app is at its root):
-git pull -X subtree=apps/mail upstream main && git push
-
-# Fork or clone of the whole repository:
-git pull upstream main && git push
+git pull --no-rebase --allow-unrelated-histories -X subtree=apps/mail upstream main
 ```
 
-A repository made by the Deploy button has no history in common with GentleMail, so the first pull also needs `--allow-unrelated-histories`, and Git reports every file changed since you deployed as a conflict. Keep GentleMail's version (`git checkout --theirs .`), restore your own `wrangler.jsonc` and anything you changed (`git checkout --ours wrangler.jsonc`), then commit. Later pulls merge normally.
+Git reports every file changed since you deployed as a conflict. Keep GentleMail's version of everything but your settings and anything you changed yourself, then commit and push:
+
+```sh
+git checkout --theirs . && git checkout --ours wrangler.jsonc
+git add -A && git commit --no-edit && git push
+```
+
+Keeping your `wrangler.jsonc` also leaves out what releases added to it. Compare it with [ours](https://github.com/Softwaiz/gentlemail/blob/main/apps/mail/wrangler.jsonc) and copy any new entry.
+
+Later updates merge normally: `git pull --no-rebase -X subtree=apps/mail upstream main && git push`.
+
+To stop needing this, move to a clone: follow [Deploy](/docs/deploy/#a-clone-in-your-own-repository-recommended) with your own `wrangler.jsonc` in `apps/mail` (same Worker name, same database and bucket), skip its step 3, and connect the new repository to your Worker in place of the old one.
 
 ## Deploy it, migrations first
 
@@ -40,7 +66,8 @@ Skipping releases is fine: the same command applies every pending migration, old
 
 | Release | Migration | What it adds |
 |---|---|---|
-| Next release | `0010_user_language.sql` | Each person's [language](/docs/guides/languages/), saved on their account. Until it's applied, signing in fails. |
+| 0.8.0 | `0011_signatures.sql` | Formatted [signatures](/docs/guides/signatures/) and their logo. Until it's applied, mailbox settings can't be saved. |
+| 0.7.0 | `0010_user_language.sql` | Each person's [language](/docs/guides/languages/), saved on their account. Until it's applied, signing in fails. |
 | 0.6.1 | `0009_organize_permission.sql` | The **Organize** permission for API keys and assistants. Existing ones don't get it. |
 | 0.6.0 | `0007_oauth.sql`, `0008_oauth_retry.sql` | Sign-ins for [AI assistants (MCP)](/docs/mcp/): two columns on `api_keys`, three new tables, and a column on `oauth_tokens`. |
 | 0.4.0 | `0006_mfa.sql` | [Two-step verification](/docs/guides/two-step/). |

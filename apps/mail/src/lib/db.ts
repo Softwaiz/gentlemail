@@ -15,7 +15,16 @@ export type Mailbox = {
   id: string;
   address: string;
   display_name: string;
+  /** Plain text: the signature itself, or the plain version of signature_html. */
   signature: string;
+  signature_html: string;
+  signature_line: number;
+  logo_key: string | null;
+  logo_type: string | null;
+  logo_ratio: number | null;
+  logo_width: number;
+  logo_link: string;
+  logo_position: "left" | "above";
   active: number;
   created_at: number;
 };

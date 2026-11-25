@@ -35,7 +35,7 @@ The answer is `201 Created`.
 | `attachments` | array | Each item: `{ "filename", "content" (base64), "content_type"? }`. The attachments, `text` and `html` together can't exceed 25 MB: over that, the send is refused with `422` and nothing goes out. |
 | `reply_to_message_id` | string | ID of a message in this mailbox. Threads the reply, and `to` defaults to its sender (its recipients, for a message sent from this mailbox). Needs **Read** on the mailbox too. |
 | `quote` | boolean | With a reply, quote the original below your text. |
-| `signature` | boolean | Append the mailbox's signature. |
+| `signature` | boolean | Append the mailbox's [signature](/docs/guides/signatures/), with its logo. |
 
 ## Replying to a message from a webhook
 

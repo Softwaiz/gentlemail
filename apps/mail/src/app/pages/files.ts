@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import type { RequestInfo } from "rwsdk/worker";
 import { notFound } from "@/app/http";
-import { type AttachmentRow, getHtmlBody, getMessageForUser, listAttachments } from "@/lib/db";
+import { type AttachmentRow, getHtmlBody, getMailboxForUser, getMessageForUser, listAttachments } from "@/lib/db";
 import { escapeHtml, htmlHasOwnColors } from "@/lib/util";
 
 const disposition = (type: "inline" | "attachment", filename: string) => {
@@ -35,6 +35,22 @@ export async function attachmentHandler({ params, ctx, request }: RequestInfo) {
     headers.set("Content-Security-Policy", "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'");
   }
   return new Response(obj.body, { headers });
+}
+
+/** GET /signature-logo/:mailboxId: the logo of a mailbox's signature, for people who can open the mailbox. */
+export async function signatureLogoHandler({ params, ctx }: RequestInfo) {
+  const mailbox = await getMailboxForUser(ctx.user!, params.mailboxId);
+  const obj = mailbox?.logo_key ? await env.MAIL_BUCKET.get(mailbox.logo_key) : null;
+  if (!mailbox || !obj) return notFound();
+  return new Response(obj.body, {
+    headers: {
+      "Content-Type": mailbox.logo_type ?? "application/octet-stream",
+      "Content-Length": String(obj.size),
+      "Cache-Control": "private, max-age=86400",
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "sandbox; default-src 'none'",
+    },
+  });
 }
 
 /** GET /raw/:id — original .eml */

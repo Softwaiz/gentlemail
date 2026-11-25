@@ -1,5 +1,6 @@
 import { Archive, Inbox, OctagonAlert, PenLine, Send, Settings, Shield, Trash2, Webhook } from "lucide-react";
 import type { User } from "@/lib/auth";
+import type { UpdateNews } from "@/lib/updates";
 import { FOLDERS, type Folder, type SwitcherGroup, folderName } from "@/lib/db";
 import { plural, t } from "@lingui/core/macro";
 import { cn } from "@/lib/utils";
@@ -7,6 +8,7 @@ import { LogoMark, Wordmark, hasLogo } from "./brand";
 import { MailboxSwitcher } from "./mailbox-switcher";
 import { SidebarNav } from "./mobile-nav";
 import { Toaster } from "./ui/sonner";
+import { UpdateNotice } from "./update-notice";
 import { UserMenu } from "./user-menu";
 
 /*
@@ -26,6 +28,8 @@ export type ShellViewProps = {
   /** The selected sidebar item: a folder, "settings", "admin", "api" or "security". */
   folder?: string;
   flash?: { msg?: string | null; err?: string | null };
+  /** A newer GentleMail, for admins. */
+  update?: UpdateNews | null;
   /** Let the page use the whole content area, edge to edge (mail lists). */
   bleed?: boolean;
   children: React.ReactNode;
@@ -88,7 +92,7 @@ function NavItem({
   );
 }
 
-export function ShellView({ user, groups, mailboxId, unread = {}, folder, flash, bleed, children }: ShellViewProps) {
+export function ShellView({ user, groups, mailboxId, unread = {}, folder, flash, update, bleed, children }: ShellViewProps) {
   const all = groups.flatMap((g) => g.mailboxes);
   const current = all.find((m) => m.id === mailboxId) ?? null;
   // Sent mail is never "unread" for you, so it gets no badge.
@@ -189,6 +193,8 @@ export function ShellView({ user, groups, mailboxId, unread = {}, folder, flash,
                 GentleMail {__APP_VERSION__}
               </a>
             )}
+            {/* Opens by itself on the pages of the sidebar, never over a message being written. */}
+            {user.role === "admin" && update && <UpdateNotice key={update.releases[0].version} news={update} announce={!!folder} />}
           </div>
         </SidebarNav>
       </aside>

@@ -1,6 +1,6 @@
 "use client";
 
-import { $generateHtmlFromNodes } from "@lexical/html";
+import { $generateHtmlFromNodes, $generateNodesFromDOM } from "@lexical/html";
 import { $createLinkNode, $isAutoLinkNode, $isLinkNode, $toggleLink, AutoLinkNode, LinkNode } from "@lexical/link";
 import { $isListNode, INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND, ListItemNode, ListNode, REMOVE_LIST_COMMAND } from "@lexical/list";
 import { AutoFocusPlugin } from "@lexical/react/LexicalAutoFocusPlugin";
@@ -23,6 +23,8 @@ import {
   $getNodeByKey,
   $getRoot,
   $getSelection,
+  $insertNodes,
+  $isElementNode,
   $isRangeSelection,
   $isTextNode,
   $setSelection,
@@ -30,11 +32,15 @@ import {
   COMMAND_PRIORITY_NORMAL,
   createCommand,
   FORMAT_TEXT_COMMAND,
+  HISTORY_MERGE_TAG,
+  SKIP_DOM_SELECTION_TAG,
   KEY_DOWN_COMMAND,
   type LexicalCommand,
+  type LexicalEditor,
   type LexicalNode,
   type NodeKey,
   ParagraphNode,
+  type PointType,
   type TextFormatType,
   TextNode,
 } from "lexical";
@@ -58,6 +64,7 @@ import {
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isSendableUrl, trimUrlEnd } from "@/lib/links";
 import { cn } from "@/lib/utils";
+import { EditorSafetyNet } from "./editor-safety-net";
 import { t } from "@lingui/core/macro";
 
 /*
@@ -113,40 +120,63 @@ function normalizeUrl(input: string) {
   return `https://${v.replace(/^\/+/, "")}`;
 }
 
-export function RichEditor({ name = "html", placeholder, autoFocus = false }: { name?: string; placeholder?: string; autoFocus?: boolean }) {
+/** The editor's children are more Lexical plugins. `initialHtml` is what it starts with: HTML the server cleaned. */
+export function RichEditor({
+  name = "html",
+  label,
+  placeholder,
+  initialHtml,
+  bodyClassName = "min-h-72",
+  autoFocus = false,
+  children,
+}: {
+  name?: string;
+  label?: string;
+  placeholder?: string;
+  initialHtml?: string;
+  bodyClassName?: string;
+  autoFocus?: boolean;
+  children?: React.ReactNode;
+}) {
   const area = useRef<HTMLDivElement>(null);
+  const editor = useRef<LexicalEditor>(null);
   return (
-    <LexicalComposer
-      initialConfig={{
-        namespace: "composer",
-        theme: THEME,
-        nodes: [ListNode, ListItemNode, QuoteNode, LinkNode, AutoLinkNode],
-        onError: (e: Error) => console.error(e),
-      }}
-    >
-      <Toolbar />
-      <div ref={area} className="relative">
-        <RichTextPlugin
-          contentEditable={
-            <ContentEditable
-              aria-label={t({ id: "editor.message", message: "Message" })}
-              aria-multiline
-              className="composer-body block min-h-72 w-full px-5 py-4 text-[15px] leading-relaxed outline-none"
-            />
-          }
-          placeholder={<div className="pointer-events-none absolute top-4 left-5 text-[15px] text-muted-foreground select-none">{placeholder ?? t({ id: "editor.placeholder", message: "Write your message…" })}</div>}
-          ErrorBoundary={LexicalErrorBoundary}
-        />
-        <LinkCard area={area} />
-      </div>
-      <OnlySentFormatting />
-      <HistoryPlugin />
-      <ListPlugin />
-      <LinkPlugin validateUrl={validUrl} />
-      <AutoLinkPlugin matchers={[URL_MATCHER, EMAIL_MATCHER]} />
-      {autoFocus && <AutoFocusPlugin />}
-      <HtmlField name={name} />
-    </LexicalComposer>
+    <EditorSafetyNet editor={editor}>
+      <LexicalComposer
+        initialConfig={{
+          namespace: "composer",
+          theme: THEME,
+          nodes: [ListNode, ListItemNode, QuoteNode, LinkNode, AutoLinkNode],
+          onError: (e: Error) => console.error(e),
+        }}
+      >
+        <Toolbar />
+        <div ref={area} className="relative">
+          <RichTextPlugin
+            contentEditable={
+              <ContentEditable
+                aria-label={label ?? t({ id: "editor.message", message: "Message" })}
+                aria-multiline
+                className={cn("composer-body block w-full px-5 py-4 text-[15px] leading-relaxed outline-none", bodyClassName)}
+              />
+            }
+            placeholder={<div className="pointer-events-none absolute top-4 left-5 text-[15px] text-muted-foreground select-none">{placeholder ?? t({ id: "editor.placeholder", message: "Write your message…" })}</div>}
+            ErrorBoundary={LexicalErrorBoundary}
+          />
+          <LinkCard area={area} />
+        </div>
+        <OnlySentFormatting />
+        {initialHtml && <InitialHtml html={initialHtml} />}
+        <HistoryPlugin />
+        <ListPlugin />
+        <LinkPlugin validateUrl={validUrl} />
+        <AutoLinkPlugin matchers={[URL_MATCHER, EMAIL_MATCHER]} />
+        {autoFocus && <AutoFocusPlugin />}
+        <HtmlField name={name} />
+        <KeepEditor in={editor} />
+        {children}
+      </LexicalComposer>
+    </EditorSafetyNet>
   );
 }
 
@@ -169,6 +199,35 @@ function HtmlField({ name }: { name: string }) {
     return () => form.removeEventListener("formdata", fill);
   }, [editor, name]);
   return <input ref={field} type="hidden" name={name} />;
+}
+
+/** Fills the editor once, in the browser: the server has no DOM to read HTML with. */
+function InitialHtml({ html }: { html: string }) {
+  const [editor] = useLexicalComposerContext();
+  const filled = useRef(false);
+  useLayoutEffect(() => {
+    if (filled.current) return;
+    filled.current = true;
+    editor.update(
+      () => {
+        const nodes = $generateNodesFromDOM(editor, new DOMParser().parseFromString(html, "text/html"));
+        $getRoot().clear().select();
+        $insertNodes(nodes);
+        $setSelection(null); // the page's focus stays where it is
+      },
+      { tag: [HISTORY_MERGE_TAG, SKIP_DOM_SELECTION_TAG], discrete: true },
+    );
+  }, [editor, html]);
+  return null;
+}
+
+/** Keeps the editor within reach of what surrounds it. */
+function KeepEditor({ in: ref }: { in: React.RefObject<LexicalEditor | null> }) {
+  const [editor] = useLexicalComposerContext();
+  useLayoutEffect(() => {
+    ref.current = editor;
+  }, [editor, ref]);
+  return null;
 }
 
 /** Formats Lexical knows that the server doesn't send: highlight and letter case. */
@@ -365,6 +424,14 @@ function Toolbar() {
   );
 }
 
+/** Whether a kept cursor position still exists in the text. */
+function $isStillThere(point: PointType): boolean {
+  const node = $getNodeByKey(point.key);
+  if (!node?.isAttached()) return false;
+  if ($isTextNode(node)) return point.type === "text" && point.offset <= node.getTextContentSize();
+  return point.type === "element" && $isElementNode(node) && point.offset <= node.getChildrenSize();
+}
+
 type LinkRef = { key: NodeKey; url: string };
 
 /** The link a DOM element sits in, if any. Call inside editor.read. */
@@ -551,8 +618,9 @@ function LinkCard({ area }: { area: React.RefObject<HTMLDivElement | null> }) {
         return;
       }
       // The text never had the cursor (focus was in To:, say): add the link at its end.
+      // Nor is it used if the text it was on has gone or got shorter since the card opened.
       const kept = saved.current?.clone();
-      const selection = $isRangeSelection(kept) ? kept : $getRoot().selectEnd();
+      const selection = $isRangeSelection(kept) && $isStillThere(kept.anchor) && $isStillThere(kept.focus) ? kept : $getRoot().selectEnd();
       $setSelection(selection);
       if (selection.isCollapsed()) selection.insertNodes([$createLinkNode(url).append($createTextNode(shownUrl(url)))]);
       else $toggleLink(url);

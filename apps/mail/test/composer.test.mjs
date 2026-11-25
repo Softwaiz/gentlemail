@@ -338,6 +338,59 @@ describe("messages with nothing in them", () => {
   });
 });
 
+describe("images in a quoted message", () => {
+  const PNG = new Uint8Array([137, 80, 78, 71]);
+  before(async () => {
+    const bucket = await mf.getR2Bucket("MAIL_BUCKET");
+    await db
+      .prepare(
+        `INSERT INTO messages (id, mailbox_id, thread_id, folder, direction, from_addr, from_name, to_json, subject, snippet, text_body, html_body, is_read, has_attachments, date, created_at)
+         VALUES ('img', 'mb1', 'th2', 'inbox', 'in', 'ada@example.com', 'Ada', '[]', 'Hi', 'Hello', 'Hello', ?, 1, 1, 1, 1)`,
+      )
+      .bind('<p>Hello <img src="cid:Logo%40x" alt="Logo"><img src="cid:gone@x" alt="Gone"><img src="cid:%ZZ"><img src="https://example.com/a.png"></p>')
+      .run();
+    for (const [id, name, type, cid, disposition] of [
+      ["a-logo", "logo.png", "image/png", "logo@x", "inline"],
+      ["a-lost", "lost.png", "image/png", "gone@x", "inline"], // its file is missing from storage
+      ["a-unused", "unused.png", "image/png", "unused@x", "inline"],
+      ["a-pdf", "quote.pdf", "application/pdf", null, "attachment"],
+    ]) {
+      const key = `att/mb1/img/${id}`;
+      if (id !== "a-lost") await bucket.put(key, PNG);
+      await db
+        .prepare("INSERT INTO attachments (id, message_id, filename, content_type, size, r2_key, content_id, disposition, created_at) VALUES (?, 'img', ?, ?, 4, ?, ?, ?, 1)")
+        .bind(id, name, type, key, cid, disposition)
+        .run();
+    }
+  });
+  const sent = async (mode) => {
+    const { row } = await post({ original: "img", mode, html: "<p>See below</p>" });
+    const m = await db.prepare("SELECT id, has_attachments, html_body FROM messages WHERE folder = 'sent' ORDER BY rowid DESC LIMIT 1").first();
+    assert.equal(m.html_body, row.html_body);
+    const { results } = await db.prepare("SELECT filename, content_id, disposition FROM attachments WHERE message_id = ? ORDER BY filename").bind(m.id).all();
+    return { ...m, files: results };
+  };
+
+  test("a reply keeps them in place, under a new ID, and drops the ones GentleMail doesn't have", async () => {
+    const { html_body, files, has_attachments } = await sent("reply");
+    assert.equal(files.length, 1, JSON.stringify(files));
+    assert.equal(files[0].filename, "logo.png");
+    assert.equal(files[0].disposition, "inline");
+    assert.notEqual(files[0].content_id, "logo@x");
+    assert.ok(html_body.includes(`<img src="cid:${files[0].content_id}" alt="Logo">`), html_body);
+    assert.ok(!/gone@x|%ZZ|alt="Gone"/.test(html_body), html_body);
+    assert.ok(html_body.includes('<img src="https://example.com/a.png">'), html_body);
+    assert.equal(has_attachments, 0);
+  });
+
+  test("a forward keeps them in place and the other files as files", async () => {
+    const { html_body, files, has_attachments } = await sent("forward");
+    assert.deepEqual(files.map((f) => [f.filename, f.disposition]), [["logo.png", "inline"], ["quote.pdf", "attachment"], ["unused.png", "attachment"]]);
+    assert.ok(html_body.includes(`cid:${files[0].content_id}`), html_body);
+    assert.equal(has_attachments, 1);
+  });
+});
+
 describe("attached files", () => {
   // The local email service writes each attachment it is given to a file, under its own temporary folder.
   const delivered = (ext) =>

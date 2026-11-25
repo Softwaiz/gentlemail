@@ -66,7 +66,7 @@ Skipping releases is fine: the same command applies every pending migration, old
 
 | Release | Migration | What it adds |
 |---|---|---|
-| Next release | `0011_signatures.sql` | Formatted [signatures](/docs/guides/signatures/) and their logo. Until it's applied, mailbox settings can't be saved. |
+| 0.8.0 | `0011_signatures.sql` | Formatted [signatures](/docs/guides/signatures/) and their logo. Until it's applied, mailbox settings can't be saved. |
 | 0.7.0 | `0010_user_language.sql` | Each person's [language](/docs/guides/languages/), saved on their account. Until it's applied, signing in fails. |
 | 0.6.1 | `0009_organize_permission.sql` | The **Organize** permission for API keys and assistants. Existing ones don't get it. |
 | 0.6.0 | `0007_oauth.sql`, `0008_oauth_retry.sql` | Sign-ins for [AI assistants (MCP)](/docs/mcp/): two columns on `api_keys`, three new tables, and a column on `oauth_tokens`. |

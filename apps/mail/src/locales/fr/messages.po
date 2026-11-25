@@ -19,7 +19,7 @@ msgid "thread.cc"
 msgstr ", cc {0}"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:181
+#: src/app/components/signature-fields.tsx:183
 msgid "settings.preview_message"
 msgstr "…votre message"
 
@@ -269,7 +269,7 @@ msgid "access.removed_domain"
 msgstr "un domaine retiré"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:174
+#: src/app/components/signature-fields.tsx:176
 msgid "signature.line_hint"
 msgstr "Une fine ligne entre votre message et la signature."
 
@@ -279,7 +279,7 @@ msgid "oauth.dest_site"
 msgstr "Un site web."
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:156
+#: src/app/components/signature-fields.tsx:158
 msgid "signature.logo_above"
 msgstr "Au-dessus du texte"
 
@@ -341,7 +341,7 @@ msgid "common.active"
 msgstr "Active"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:677
+#: src/app/components/rich-editor.tsx:682
 msgid "editor.add"
 msgstr "Ajouter"
 
@@ -367,13 +367,13 @@ msgid "admin.add_domain_2"
 msgstr "Ajouter le domaine"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:390
-#: src/app/components/rich-editor.tsx:636
+#: src/app/components/rich-editor.tsx:395
+#: src/app/components/rich-editor.tsx:641
 msgid "editor.add_link"
 msgstr "Ajouter un lien"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:107
+#: src/app/components/signature-fields.tsx:109
 msgid "signature.logo_add"
 msgstr "Ajouter un logo"
 
@@ -393,7 +393,7 @@ msgid "developers.add_webhook"
 msgstr "Ajouter le webhook"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:99
+#: src/app/components/signature-fields.tsx:101
 msgid "signature.hint"
 msgstr "Ajoutée sous les nouveaux messages, les réponses et les transferts, logo compris. Vous pouvez la retirer de chaque message."
 
@@ -607,12 +607,12 @@ msgid "settings.blocked"
 msgstr "Expéditeurs bloqués"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:380
+#: src/app/components/rich-editor.tsx:385
 msgid "editor.bold"
 msgstr "Gras"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:391
+#: src/app/components/rich-editor.tsx:396
 msgid "editor.bullets"
 msgstr "Liste à puces"
 
@@ -677,7 +677,7 @@ msgid "switcher.choose"
 msgstr "Choisir une boîte mail"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:396
+#: src/app/components/rich-editor.tsx:401
 msgid "editor.clear"
 msgstr "Effacer la mise en forme"
 
@@ -697,7 +697,7 @@ msgid "verify.code"
 msgstr "Code"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:394
+#: src/app/components/rich-editor.tsx:399
 msgid "editor.code"
 msgstr "Code"
 
@@ -958,10 +958,10 @@ msgid "keys.edit_access"
 msgstr "Modifier les accès"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:390
-#: src/app/components/rich-editor.tsx:636
-#: src/app/components/rich-editor.tsx:706
-#: src/app/components/rich-editor.tsx:707
+#: src/app/components/rich-editor.tsx:395
+#: src/app/components/rich-editor.tsx:641
+#: src/app/components/rich-editor.tsx:711
+#: src/app/components/rich-editor.tsx:712
 msgid "editor.edit_link"
 msgstr "Modifier le lien"
 
@@ -1045,7 +1045,7 @@ msgid "admin.someone_who_lost_their"
 msgstr "Pour quelqu'un qui a perdu son téléphone et ses codes de secours. La validation en deux étapes est désactivée et la personne est déconnectée partout ; elle se connecte avec son mot de passe et la configure à nouveau."
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:400
+#: src/app/components/rich-editor.tsx:405
 msgid "editor.formatting"
 msgstr "Mise en forme"
 
@@ -1159,7 +1159,7 @@ msgid "spam.score"
 msgstr "Score de spam élevé ({0})."
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:179
+#: src/app/components/signature-fields.tsx:181
 msgid "settings.preview"
 msgstr "Aperçu"
 
@@ -1169,7 +1169,7 @@ msgid "updates.how"
 msgstr "Comment mettre à jour"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:668
+#: src/app/components/rich-editor.tsx:673
 msgid "editor.link_placeholder"
 msgstr "https://… ou nom@exemple.com"
 
@@ -1240,7 +1240,7 @@ msgid "connections.disconnect_body"
 msgstr "Il est refusé dès sa prochaine requête. Pour l'utiliser de nouveau, connectez-le à nouveau et connectez-vous."
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:381
+#: src/app/components/rich-editor.tsx:386
 msgid "editor.italic"
 msgstr "Italique"
 
@@ -1292,7 +1292,7 @@ msgid "admin.password_keep"
 msgstr "Laissez vide pour garder le mot de passe actuel."
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:156
+#: src/app/components/signature-fields.tsx:158
 msgid "signature.logo_left"
 msgstr "À gauche du texte"
 
@@ -1307,12 +1307,12 @@ msgid "menu.theme_light"
 msgstr "Clair"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:173
+#: src/app/components/signature-fields.tsx:175
 msgid "signature.line"
 msgstr "Ligne au-dessus de la signature"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:669
+#: src/app/components/rich-editor.tsx:674
 msgid "editor.link_address"
 msgstr "Adresse du lien"
 
@@ -1344,13 +1344,13 @@ msgid "setup.email"
 msgstr "E-mail de connexion"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:104
-#: src/app/components/signature-fields.tsx:129
+#: src/app/components/signature-fields.tsx:106
+#: src/app/components/signature-fields.tsx:131
 msgid "signature.logo"
 msgstr "Logo"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:162
+#: src/app/components/signature-fields.tsx:164
 msgid "signature.logo_link"
 msgstr "Lien du logo (facultatif)"
 
@@ -1478,7 +1478,7 @@ msgstr "Menu"
 
 #. js-lingui-explicit-id
 #: src/app/components/editor-safety-net.tsx:36
-#: src/app/components/rich-editor.tsx:158
+#: src/app/components/rich-editor.tsx:163
 msgid "editor.message"
 msgstr "Message"
 
@@ -1729,7 +1729,7 @@ msgid "developers.no_response"
 msgstr "pas de réponse"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:185
+#: src/app/components/signature-fields.tsx:187
 msgid "settings.no_signature"
 msgstr "Pas encore de signature"
 
@@ -1803,7 +1803,7 @@ msgid "developers.nothing_sent_yet_use"
 msgstr "Rien d'envoyé pour l'instant. Utilisez « Envoyer un événement de test » pour essayer votre récepteur."
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:392
+#: src/app/components/rich-editor.tsx:397
 msgid "editor.numbers"
 msgstr "Liste numérotée"
 
@@ -1880,7 +1880,7 @@ msgstr "Ne concerne que les membres. Les administrateurs ouvrent toutes les boî
 
 #. js-lingui-explicit-id
 #. placeholder {0}: shownUrl(view.url)
-#: src/app/components/rich-editor.tsx:692
+#: src/app/components/rich-editor.tsx:697
 msgid "editor.open_link"
 msgstr "Ouvrir {0}"
 
@@ -1996,12 +1996,12 @@ msgid "admin.pick_least_one_event"
 msgstr "Choisissez au moins un événement."
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:123
+#: src/app/components/signature-fields.tsx:125
 msgid "signature.logo_hint"
 msgstr "PNG, JPEG ou GIF, 200 Ko maximum"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:151
+#: src/app/components/signature-fields.tsx:153
 msgid "signature.logo_position"
 msgstr "Position"
 
@@ -2041,7 +2041,7 @@ msgid "developers.quick_reference"
 msgstr "Aide-mémoire"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:393
+#: src/app/components/rich-editor.tsx:398
 msgid "editor.quote"
 msgstr "Citation"
 
@@ -2153,15 +2153,15 @@ msgid "domains.remove_domain"
 msgstr "Retirer le domaine"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:680
-#: src/app/components/rich-editor.tsx:680
-#: src/app/components/rich-editor.tsx:715
-#: src/app/components/rich-editor.tsx:716
+#: src/app/components/rich-editor.tsx:685
+#: src/app/components/rich-editor.tsx:685
+#: src/app/components/rich-editor.tsx:720
+#: src/app/components/rich-editor.tsx:721
 msgid "editor.remove_link"
 msgstr "Retirer le lien"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:120
+#: src/app/components/signature-fields.tsx:122
 msgid "signature.logo_remove"
 msgstr "Retirer le logo"
 
@@ -2181,7 +2181,7 @@ msgid "domains.remove_body"
 msgstr "Retire {d} de cette application. Les réglages Cloudflare restent tels quels : désactivez aussi le catch-all si le courrier ne doit plus arriver ici."
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:107
+#: src/app/components/signature-fields.tsx:109
 msgid "signature.logo_replace"
 msgstr "Remplacer le logo"
 
@@ -2284,7 +2284,7 @@ msgid "menu.theme_system"
 msgstr "Comme l'appareil"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:677
+#: src/app/components/rich-editor.tsx:682
 #: src/app/pages/compose.tsx:182
 msgid "common.save"
 msgstr "Enregistrer"
@@ -2526,8 +2526,8 @@ msgid "errors.switch_user"
 msgstr "Se connecter avec un autre compte"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:81
-#: src/app/components/signature-fields.tsx:85
+#: src/app/components/signature-fields.tsx:83
+#: src/app/components/signature-fields.tsx:87
 msgid "signature.label"
 msgstr "Signature"
 
@@ -2621,7 +2621,7 @@ msgid "developers.stops_all_deliveries_removes"
 msgstr "Arrête tous les envois et supprime leur historique."
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:383
+#: src/app/components/rich-editor.tsx:388
 msgid "editor.strikethrough"
 msgstr "Barré"
 
@@ -2631,7 +2631,7 @@ msgid "composer.subject"
 msgstr "Objet"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:386
+#: src/app/components/rich-editor.tsx:391
 msgid "editor.subscript"
 msgstr "Indice"
 
@@ -2641,7 +2641,7 @@ msgid "developers.status_success"
 msgstr "réussi"
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:387
+#: src/app/components/rich-editor.tsx:392
 msgid "editor.superscript"
 msgstr "Exposant"
 
@@ -2730,7 +2730,7 @@ msgstr "Les 30 dernières tentatives, les plus récentes d'abord."
 
 #. js-lingui-explicit-id
 #: src/app/actions/signature-errors.ts:9
-#: src/app/components/signature-fields.tsx:70
+#: src/app/components/signature-fields.tsx:72
 msgid "errors.logo_size"
 msgstr "Le logo peut peser au plus 200 Ko."
 
@@ -3036,7 +3036,7 @@ msgid "admin.type_exact_address_confirm"
 msgstr "Saisissez l'adresse exacte pour confirmer."
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:382
+#: src/app/components/rich-editor.tsx:387
 msgid "editor.underline"
 msgstr "Souligné"
 
@@ -3067,7 +3067,7 @@ msgstr "URL"
 
 #. js-lingui-explicit-id
 #: src/app/actions/signature-errors.ts:8
-#: src/app/components/signature-fields.tsx:68
+#: src/app/components/signature-fields.tsx:70
 msgid "errors.logo_type"
 msgstr "Utilisez une image PNG, JPEG ou GIF pour le logo."
 
@@ -3168,7 +3168,7 @@ msgid "admin.who_can_use_mailbox"
 msgstr "Qui peut utiliser cette boîte mail"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:139
+#: src/app/components/signature-fields.tsx:141
 msgid "signature.logo_width"
 msgstr "Largeur : {width} px"
 
@@ -3183,7 +3183,7 @@ msgid "errors.empty_message"
 msgstr "Écrivez d’abord un message ou joignez un fichier."
 
 #. js-lingui-explicit-id
-#: src/app/components/rich-editor.tsx:163
+#: src/app/components/rich-editor.tsx:168
 msgid "editor.placeholder"
 msgstr "Écrivez votre message…"
 
@@ -3285,7 +3285,7 @@ msgid "setup.name"
 msgstr "Votre nom"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:86
+#: src/app/components/signature-fields.tsx:88
 msgid "signature.placeholder"
 msgstr "Votre nom, votre fonction, votre site…"
 

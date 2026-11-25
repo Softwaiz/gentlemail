@@ -97,6 +97,11 @@ function URL_MATCHER(text: string) {
   return null;
 }
 const EMAIL_MATCHER = createLinkMatcherWithRegExp(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i, (text) => `mailto:${text}`);
+/**
+ * One list for good: given a new one, the plugin goes over the text again, and Lexical takes the
+ * focus back to the editor, out of whatever field is being used beside it.
+ */
+const MATCHERS = [URL_MATCHER, EMAIL_MATCHER];
 
 /** What a link may point to: web and email addresses, the same rule as when sending (lib/links.ts). */
 const validUrl = isSendableUrl;
@@ -170,7 +175,7 @@ export function RichEditor({
         <HistoryPlugin />
         <ListPlugin />
         <LinkPlugin validateUrl={validUrl} />
-        <AutoLinkPlugin matchers={[URL_MATCHER, EMAIL_MATCHER]} />
+        <AutoLinkPlugin matchers={MATCHERS} />
         {autoFocus && <AutoFocusPlugin />}
         <HtmlField name={name} />
         <KeepEditor in={editor} />

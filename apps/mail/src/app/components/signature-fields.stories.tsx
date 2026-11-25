@@ -54,3 +54,37 @@ export const Editing: Story = {
     });
   },
 };
+
+/** Having written in the signature, the link and the width are changed without the signature taking the focus back. */
+export const EditingTheLogo: Story = {
+  ...WithLogo,
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+    const preview = () => canvasElement.querySelector<HTMLElement>(".signature-view")!;
+    const posted = (name: string) => new FormData(canvasElement.querySelector("form")!).get(name);
+    const signature = await canvas.findByRole("textbox", { name: "Signature" });
+    await waitFor(() => expect(signature).toHaveTextContent("Anna Example"));
+    await userEvent.click(signature);
+    await step("the whole link goes in its field", async () => {
+      const link = canvas.getByRole("textbox", { name: /^Logo link/ });
+      await userEvent.clear(link);
+      await userEvent.type(link, "https://example.org/shop", { delay: 20 });
+      await expect(link).toHaveFocus();
+      await expect(posted("logo_link")).toBe("https://example.org/shop");
+      await expect(signature).not.toHaveTextContent("shop");
+    });
+    await step("a click on the bar sets the width, and the preview follows", async () => {
+      const track = canvasElement.querySelector<HTMLElement>("[data-slot=slider-track]")!;
+      const { left, width, top, height } = track.getBoundingClientRect();
+      await userEvent.pointer({ keys: "[MouseLeft]", target: track, coords: { clientX: left + width * 0.9, clientY: top + height / 2 } });
+      await expect(Number(posted("logo_width"))).toBeGreaterThan(250);
+      await expect(preview().querySelector("img")).toHaveAttribute("width", String(posted("logo_width")));
+      await expect(canvas.getByRole("slider", { name: /^Width/ })).toHaveFocus();
+    });
+    await step("and moved with the arrow keys", async () => {
+      const before = Number(posted("logo_width"));
+      await userEvent.keyboard("{ArrowLeft}");
+      await expect(posted("logo_width")).toBe(String(before - 1));
+    });
+  },
+};

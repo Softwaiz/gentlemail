@@ -19,7 +19,7 @@ msgid "thread.cc"
 msgstr ", cc {0}"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:184
+#: src/app/components/signature-fields.tsx:183
 msgid "settings.preview_message"
 msgstr "…votre message"
 
@@ -269,7 +269,7 @@ msgid "access.removed_domain"
 msgstr "un domaine retiré"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:177
+#: src/app/components/signature-fields.tsx:176
 msgid "signature.line_hint"
 msgstr "Une fine ligne entre votre message et la signature."
 
@@ -279,7 +279,7 @@ msgid "oauth.dest_site"
 msgstr "Un site web."
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:159
+#: src/app/components/signature-fields.tsx:158
 msgid "signature.logo_above"
 msgstr "Au-dessus du texte"
 
@@ -1159,7 +1159,7 @@ msgid "spam.score"
 msgstr "Score de spam élevé ({0})."
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:182
+#: src/app/components/signature-fields.tsx:181
 msgid "settings.preview"
 msgstr "Aperçu"
 
@@ -1292,7 +1292,7 @@ msgid "admin.password_keep"
 msgstr "Laissez vide pour garder le mot de passe actuel."
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:159
+#: src/app/components/signature-fields.tsx:158
 msgid "signature.logo_left"
 msgstr "À gauche du texte"
 
@@ -1307,7 +1307,7 @@ msgid "menu.theme_light"
 msgstr "Clair"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:176
+#: src/app/components/signature-fields.tsx:175
 msgid "signature.line"
 msgstr "Ligne au-dessus de la signature"
 
@@ -1345,12 +1345,12 @@ msgstr "E-mail de connexion"
 
 #. js-lingui-explicit-id
 #: src/app/components/signature-fields.tsx:106
-#: src/app/components/signature-fields.tsx:132
+#: src/app/components/signature-fields.tsx:131
 msgid "signature.logo"
 msgstr "Logo"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:165
+#: src/app/components/signature-fields.tsx:164
 msgid "signature.logo_link"
 msgstr "Lien du logo (facultatif)"
 
@@ -1729,7 +1729,7 @@ msgid "developers.no_response"
 msgstr "pas de réponse"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:188
+#: src/app/components/signature-fields.tsx:187
 msgid "settings.no_signature"
 msgstr "Pas encore de signature"
 
@@ -1996,12 +1996,12 @@ msgid "admin.pick_least_one_event"
 msgstr "Choisissez au moins un événement."
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:126
+#: src/app/components/signature-fields.tsx:125
 msgid "signature.logo_hint"
 msgstr "PNG, JPEG ou GIF, 200 Ko maximum"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:154
+#: src/app/components/signature-fields.tsx:153
 msgid "signature.logo_position"
 msgstr "Position"
 
@@ -2161,7 +2161,7 @@ msgid "editor.remove_link"
 msgstr "Retirer le lien"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:123
+#: src/app/components/signature-fields.tsx:122
 msgid "signature.logo_remove"
 msgstr "Retirer le logo"
 
@@ -3168,7 +3168,7 @@ msgid "admin.who_can_use_mailbox"
 msgstr "Qui peut utiliser cette boîte mail"
 
 #. js-lingui-explicit-id
-#: src/app/components/signature-fields.tsx:142
+#: src/app/components/signature-fields.tsx:141
 msgid "signature.logo_width"
 msgstr "Largeur : {width} px"
 

@@ -111,9 +111,8 @@ export function SignatureFields({ look }: { look: SignatureLook }) {
           {image && (
             <Button
               type="button"
-              variant="ghost"
+              variant="ghost-destructive"
               size="sm"
-              className="text-destructive hover:text-destructive"
               onClick={() => {
                 forget();
                 setProblem(null);

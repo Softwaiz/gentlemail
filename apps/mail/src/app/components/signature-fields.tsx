@@ -4,12 +4,13 @@ import { $generateHtmlFromNodes } from "@lexical/html";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $getRoot } from "lexical";
 import { ImagePlus, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { FormError } from "@/app/components/action-form";
 import { RichEditor } from "@/app/components/rich-editor";
 import { Field } from "@/app/components/section";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
+import { Slider } from "@/app/components/ui/slider";
 import { Switch } from "@/app/components/ui/switch";
 import { LOGO_DEFAULT, LOGO_MAX, LOGO_MIN, type LogoPosition, type SignatureLook, signatureBlock } from "@/lib/signature-html";
 import { textToHtml } from "@/lib/util";
@@ -33,6 +34,7 @@ export function SignatureFields({ look }: { look: SignatureLook }) {
   const [link, setLink] = useState(saved?.link ?? "");
   const [problem, setProblem] = useState<string | null>(null);
   const file = useRef<HTMLInputElement>(null);
+  const widthLabel = useId();
 
   // Saved: the page comes back with the new logo (or none), so there is nothing left to send.
   const [src, setSrc] = useState(saved?.src);
@@ -109,7 +111,7 @@ export function SignatureFields({ look }: { look: SignatureLook }) {
           {image && (
             <Button
               type="button"
-              variant="ghost"
+              variant="ghost-destructive"
               size="sm"
               onClick={() => {
                 forget();
@@ -135,18 +137,18 @@ export function SignatureFields({ look }: { look: SignatureLook }) {
         <FormError error={problem} />
         {image && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="grid content-start gap-1.5 text-sm font-medium">
-              {t({ id: "signature.logo_width", message: `Width: ${width} px` })}
-              <input
-                type="range"
+            <div className="grid content-start gap-1.5 text-sm font-medium">
+              <span id={widthLabel}>{t({ id: "signature.logo_width", message: `Width: ${width} px` })}</span>
+              <Slider
                 name="logo_width"
+                aria-labelledby={widthLabel}
                 min={LOGO_MIN}
                 max={LOGO_MAX}
-                value={width}
-                onChange={(e) => setWidth(Number(e.target.value))}
-                className="h-9 w-full accent-primary"
+                value={[width]}
+                onValueChange={([w]) => setWidth(w)}
+                className="h-9"
               />
-            </label>
+            </div>
             <fieldset className="grid content-start gap-1.5 text-sm">
               <legend className="mb-1.5 font-medium">{t({ id: "signature.logo_position", message: "Position" })}</legend>
               <div className="flex min-h-9 flex-wrap items-center gap-x-4 gap-y-1">

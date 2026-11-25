@@ -10,6 +10,11 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 
 ## Unreleased
 
+## 0.8.1 (2026-11-25)
+
+### Fixed
+- In a mailbox's signature settings, changing the logo's width or link after writing in the signature no longer moves the focus back to the signature, which put the rest of what you typed there and stopped the width from being dragged. The width uses the app's own slider, and **Remove logo** is red. ([#53](https://github.com/Softwaiz/gentlemail/pull/53))
+
 ## 0.8.0 (2026-11-25)
 
 ### Added

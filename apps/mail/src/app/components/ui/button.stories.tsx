@@ -8,7 +8,7 @@ const meta = {
   parameters: { layout: "centered" },
   args: { children: "Send", disabled: false },
   argTypes: {
-    variant: { control: "select", options: ["default", "destructive", "outline", "secondary", "ghost", "link"] },
+    variant: { control: "select", options: ["default", "destructive", "outline", "secondary", "ghost", "ghost-destructive", "link"] },
     size: { control: "select", options: ["default", "xs", "sm", "lg", "icon", "icon-xs", "icon-sm", "icon-lg"] },
   },
 } satisfies Meta<typeof Button>;
@@ -22,7 +22,7 @@ export const Disabled: Story = { args: { disabled: true } };
 export const Variants: Story = {
   render: (args) => (
     <div className="flex flex-wrap items-center gap-3 p-6">
-      {(["default", "destructive", "outline", "secondary", "ghost", "link"] as const).map((v) => (
+      {(["default", "destructive", "outline", "secondary", "ghost", "ghost-destructive", "link"] as const).map((v) => (
         <Button key={v} {...args} variant={v}>
           {v}
         </Button>

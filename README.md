@@ -5,7 +5,7 @@
 Open-source, multi-domain webmail, email API and webhooks that run entirely on your own Cloudflare account.
 One deployment serves any number of domains, mailboxes and people for the $5/month Workers Paid plan: no per-seat pricing, no API keys handed to a third party.
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Softwaiz/gentlemail/tree/main/apps/mail)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Softwaiz/gentlemail/tree/main/apps/mail) [![Install with Appflare](https://appflare.dev/badge.svg)](https://appflare.dev/install/gentlemail/)
 
 **Website:** https://gentlemail.dev · **Deploy guide:** https://gentlemail.dev/docs/deploy/ · **Docs:** https://gentlemail.dev/docs · **[Changelog](CHANGELOG.md)**
 
@@ -33,6 +33,7 @@ One deployment serves any number of domains, mailboxes and people for the $5/mon
 
 1. **Deploy.** To keep an instance, [clone this repository into your own](https://gentlemail.dev/docs/deploy/#a-clone-in-your-own-repository-recommended) and connect it to a Worker with **Root directory** `apps/mail`: a release is then one `git pull`.
    To try GentleMail, click **Deploy to Cloudflare** above: Cloudflare copies the app into a new repository on your GitHub account, creates the database and storage, asks for a one-time `SETUP_TOKEN`, then builds and deploys. That copy doesn't follow our releases; [updating it](https://gentlemail.dev/docs/updating/) takes more steps.
+   If you use [Appflare](https://appflare.dev), click **Install with Appflare** above: it installs a packaged GentleMail release into your account with no repository, creates the admin account from the install form, routes a domain's mail to it, and updates it from Appflare.
 2. **Claim it.** Open `/setup` on your new Worker and create the admin account.
 3. **Connect a domain.** Add it in **Admin → Domains** and run the three commands it shows.
 4. **Create mailboxes and users**, then send yourself a test message.

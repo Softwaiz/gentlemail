@@ -11,7 +11,7 @@ Everything that changed in GentleMail, newest first. This file is the record of 
 ## Unreleased
 
 ### Added
-- The README has an **Install with Appflare** button next to **Deploy to Cloudflare**, for people who run [Appflare](https://appflare.dev): it installs a packaged release with no repository of your own, and Appflare keeps it updated.
+- The README has an **Install with Appflare** button next to **Deploy to Cloudflare**, for people who run [Appflare](https://appflare.dev): it installs a packaged release with no repository of your own, and Appflare keeps it updated. ([#56](https://github.com/Softwaiz/gentlemail/pull/56))
 
 ## 0.8.1 (2026-11-25)
 
